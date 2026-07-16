@@ -8,6 +8,11 @@ import {
   Mail,
   KanbanSquare,
   Settings,
+  Users,
+  PenLine,
+  Megaphone,
+  ChartNoAxesCombined,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -19,6 +24,11 @@ const iconMap: Record<string, LucideIcon> = {
   Mail,
   KanbanSquare,
   Settings,
+  Users,
+  PenLine,
+  Megaphone,
+  ChartNoAxesCombined,
+  SlidersHorizontal,
 };
 
 export function DashboardIcon({ name, className }: { name: string; className?: string }) {

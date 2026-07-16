@@ -30,6 +30,7 @@ interface OutreachSectionProps {
     currentStage: string | null;
     safeErrorMessage: string | null;
   } | null;
+  canReview?: boolean;
 }
 
 export function OutreachSection({
@@ -41,6 +42,7 @@ export function OutreachSection({
   initialUsage,
   initialDraft,
   initialRun,
+  canReview = false,
 }: OutreachSectionProps) {
   const approvedRoles = getApprovedRoles(roles);
   const [selectedRole, setSelectedRole] = useState<ApprovedRoleOption | null>(() =>
@@ -201,7 +203,11 @@ export function OutreachSection({
       {error && !isRunning && <OutreachErrorState message={error} />}
 
       {draftResult ? (
-        <OutreachDraftView draft={draftResult} />
+        <OutreachDraftView
+          draft={draftResult}
+          canReview={canReview}
+          onDraftChange={setDraftResult}
+        />
       ) : isRunning ? (
         <OutreachProgressTracker
           currentStage={currentStage}

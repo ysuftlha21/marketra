@@ -49,6 +49,8 @@ export default async function CompanyDetailPage({ params }: PageProps) {
   const cat = getCountry(countryCode);
 
   if (!wsId) notFound();
+  const canReviewOutreach =
+    ctx?.activeWorkspace?.role === "owner" || ctx?.activeWorkspace?.role === "admin";
 
   // Find the project company by company_id (the route param is the company_id)
   const { items: allPcs } = await listProjectCompanies(wsId, project.id, {
@@ -94,6 +96,7 @@ export default async function CompanyDetailPage({ params }: PageProps) {
       tone: latestDraft.tone,
       length: latestDraft.length,
       status: latestDraft.status,
+      version: latestDraft.current_version_number,
       confidence: null as number | null,
       personalizationSummary: null,
       evidenceUsed: [] as string[],
@@ -335,6 +338,7 @@ export default async function CompanyDetailPage({ params }: PageProps) {
                 }
               : null
           }
+          canReview={canReviewOutreach}
         />
       </div>
     </div>

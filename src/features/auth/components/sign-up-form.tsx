@@ -12,7 +12,11 @@ import { cn } from "@/lib/utils/cn";
 import { Mail, Lock, User, ArrowRight, Globe, BarChart3, Target, Eye, EyeOff } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 
-export function SignUpForm() {
+export function SignUpForm({
+  pricingIntent,
+}: {
+  pricingIntent?: { plan?: string; interval?: string; trial?: boolean };
+}) {
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
@@ -34,6 +38,9 @@ export function SignUpForm() {
       formData.set("password", values.password);
       formData.set("confirmPassword", values.confirmPassword);
       if (values.displayName) formData.set("displayName", values.displayName);
+      if (pricingIntent?.plan) formData.set("plan", pricingIntent.plan);
+      if (pricingIntent?.interval) formData.set("billingInterval", pricingIntent.interval);
+      if (pricingIntent?.trial) formData.set("trial", "true");
       const res = await signUpAction(formData);
       if (res?.error) setError(res.error);
     } finally {
@@ -84,6 +91,13 @@ export function SignUpForm() {
 
         {/* Right panel — form */}
         <div className="p-8 sm:p-10 lg:col-span-3">
+          {pricingIntent?.plan && (
+            <p className="mb-4 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+              Selected plan:{" "}
+              <span className="font-semibold capitalize text-foreground">{pricingIntent.plan}</span>{" "}
+              · {pricingIntent.interval === "annual" ? "Annual" : "Monthly"}
+            </p>
+          )}
           <div className="mb-8 lg:hidden">
             <BrandLogo link variant="mark" size="sm" theme="auto" />
           </div>

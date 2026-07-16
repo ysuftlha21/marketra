@@ -269,3 +269,113 @@ export async function getOutreachDraftVersions(
   if (error) throw error;
   return data;
 }
+
+type DraftRpc = (
+  name: string,
+  args: Record<string, string | number | null>,
+) => Promise<{ data: OutreachDraftRow | null; error: { code?: string; message: string } | null }>;
+
+function draftRpcError(error: { code?: string; message: string }) {
+  if (error.code === "40001" || error.message.includes("stale_version")) {
+    throw new Error("STALE_VERSION");
+  }
+  if (error.code === "42501" || error.message.includes("forbidden")) {
+    throw new Error("FORBIDDEN");
+  }
+  if (error.code === "PT404") throw new Error("DRAFT_NOT_FOUND");
+  if (error.code === "22023") throw new Error("INVALID_TRANSITION");
+  throw new Error("DRAFT_OPERATION_FAILED");
+}
+
+export async function createDraftVersionAtomic(input: {
+  draftId: string;
+  expectedVersion: number;
+  subject: string | null;
+  body: string;
+  changeType: "edited" | "restored";
+  restoreVersion?: number;
+}): Promise<OutreachDraftRow> {
+  const supabase = await createServerClient();
+  const rpc = supabase.rpc.bind(supabase) as unknown as DraftRpc;
+  const { data, error } = await rpc("create_outreach_draft_version", {
+    p_draft_id: input.draftId,
+    p_expected_version: input.expectedVersion,
+    p_subject: input.subject,
+    p_body: input.body,
+    p_change_type: input.changeType,
+    p_restore_version: input.restoreVersion ?? null,
+  });
+  if (error) draftRpcError(error);
+  if (!data) throw new Error("DRAFT_OPERATION_FAILED");
+  return data;
+}
+
+export async function transitionDraftAtomic(input: {
+  draftId: string;
+  expectedVersion: number;
+  targetStatus: "draft" | "approved" | "rejected" | "archived";
+  reason?: string;
+}): Promise<OutreachDraftRow> {
+  const supabase = await createServerClient();
+  const rpc = supabase.rpc.bind(supabase) as unknown as DraftRpc;
+  const { data, error } = await rpc("transition_outreach_draft", {
+    p_draft_id: input.draftId,
+    p_expected_version: input.expectedVersion,
+    p_target_status: input.targetStatus,
+    p_reason: input.reason ?? null,
+  });
+  if (error) draftRpcError(error);
+  if (!data) throw new Error("DRAFT_OPERATION_FAILED");
+  return data;
+}
+
+export interface OutreachDashboardFilters {
+  projectId?: string;
+  countryId?: string;
+  channel?: string;
+  status?: string;
+  language?: string;
+  companySearch?: string;
+  page: number;
+  pageSize: number;
+}
+
+export async function listWorkspaceOutreachDrafts(wsId: string, filters: OutreachDashboardFilters) {
+  const supabase = await createServerClient();
+  let query = supabase
+    .from("outreach_drafts")
+    .select(
+      "*, projects!inner(name,slug), companies!inner(name), company_decision_roles!inner(role_title), outreach_generation_runs!inner(country_id, project_target_countries!inner(country_code))",
+      { count: "exact" },
+    )
+    .eq("workspace_id", wsId)
+    .neq("status", "archived");
+  if (filters.projectId) query = query.eq("project_id", filters.projectId);
+  if (filters.countryId) query = query.eq("outreach_generation_runs.country_id", filters.countryId);
+  if (filters.channel) query = query.eq("channel", filters.channel);
+  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.language) query = query.eq("language", filters.language);
+  if (filters.companySearch) query = query.ilike("companies.name", `%${filters.companySearch}%`);
+  const from = (filters.page - 1) * filters.pageSize;
+  const { data, error, count } = await query
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(from, from + filters.pageSize - 1);
+  if (error) throw error;
+  return { rows: data ?? [], count: count ?? 0 };
+}
+
+export async function listOutreachDashboardFilterOptions(wsId: string) {
+  const supabase = await createServerClient();
+  const [projects, countries] = await Promise.all([
+    supabase.from("projects").select("id,name").eq("workspace_id", wsId).order("name"),
+    supabase
+      .from("project_target_countries")
+      .select("id,country_code")
+      .eq("workspace_id", wsId)
+      .order("country_code"),
+  ]);
+  if (projects.error || countries.error) throw projects.error ?? countries.error;
+  return { projects: projects.data ?? [], countries: countries.data ?? [] };
+}

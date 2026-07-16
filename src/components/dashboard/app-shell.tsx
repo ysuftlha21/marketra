@@ -11,9 +11,12 @@ import {
   User as UserIcon,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
+  Bell,
+  Building2,
+  Flag,
 } from "lucide-react";
 import { Brand, SidebarNav } from "./sidebar-nav";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { signOutAction } from "@/features/auth/api/auth-actions";
 import { switchWorkspaceAction } from "@/features/workspaces/api/workspace-actions";
 import { cn } from "@/lib/utils/cn";
@@ -194,6 +197,10 @@ export function AppShell({
 }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [isCollapsed, setIsCollapsed] = React.useState(initialCollapsed);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [countryOpen, setCountryOpen] = React.useState(false);
+  const [country, setCountry] = React.useState("United States");
 
   const toggleCollapse = React.useCallback(() => {
     const newVal = !isCollapsed;
@@ -209,31 +216,36 @@ export function AppShell({
         e.preventDefault();
         toggleCollapse();
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+        window.setTimeout(() => document.getElementById("dashboard-search")?.focus(), 0);
+      }
     }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [toggleCollapse]);
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="dark marketra-dashboard-shell flex min-h-screen bg-[#070a12] text-zinc-100">
       {/* Desktop sidebar */}
       <aside
         data-state={isCollapsed ? "collapsed" : "expanded"}
         className={cn(
-          "hidden shrink-0 border-r border-border bg-surface lg:flex lg:flex-col transition-all duration-300",
-          isCollapsed ? "w-16" : "w-60",
+          "hidden shrink-0 border-r border-white/[.055] bg-[#080b13] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col transition-all duration-300",
+          isCollapsed ? "w-16" : "w-[196px]",
         )}
       >
         <div
           className={cn(
-            "flex h-14 items-center border-b border-border transition-all",
+            "flex h-16 items-center border-b border-white/[.035] transition-all",
             isCollapsed ? "px-0 justify-center" : "px-5",
           )}
         >
           <Brand collapsed={isCollapsed} />
         </div>
-        <SidebarNav collapsed={isCollapsed} />
-        <div className="mt-auto border-t border-border flex items-center justify-between px-3 py-2">
+        <SidebarNav collapsed={isCollapsed} onCollapse={toggleCollapse} />
+        <div className="hidden">
           {!isCollapsed && (
             <div className="text-[11px] text-muted-foreground truncate max-w-[140px]">
               Workspace:{" "}
@@ -288,7 +300,7 @@ export function AppShell({
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-sm sm:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-white/[.055] bg-[#080b13]/95 px-4 backdrop-blur-sm">
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
@@ -299,14 +311,110 @@ export function AppShell({
             >
               <Menu className="h-4 w-4" />
             </button>
+            <label className="relative hidden h-9 w-[330px] items-center gap-2 rounded-lg border border-white/[.055] bg-[#090d16] px-3 text-zinc-500 focus-within:border-violet-500/40 md:flex">
+              <Search className="h-4 w-4" />
+              <input
+                id="dashboard-search"
+                aria-label="Search dashboard"
+                placeholder="Search markets, companies, industries..."
+                value={searchQuery}
+                onFocus={() => setSearchOpen(true)}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+                  setSearchOpen(true);
+                }}
+                onBlur={() => window.setTimeout(() => setSearchOpen(false), 120)}
+                className="min-w-0 flex-1 bg-transparent text-[11px] outline-none placeholder:text-zinc-600"
+              />
+              <kbd className="rounded bg-white/[.04] px-1.5 py-0.5 text-[8px]">⌘ K</kbd>
+              {searchOpen && (
+                <div className="absolute left-0 top-10 z-50 w-full rounded-lg border border-white/[.08] bg-[#0d111c] p-2 shadow-xl">
+                  <p className="px-2 py-1 text-[8px] uppercase tracking-wider text-zinc-600">
+                    Quick search
+                  </p>
+                  {[context.activeWorkspace.name]
+                    .filter((item) => item.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className="block w-full rounded px-2 py-2 text-left text-[10px] text-zinc-300 hover:bg-violet-500/10"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  {searchQuery &&
+                    !context.activeWorkspace.name
+                      .toLowerCase()
+                      .includes(searchQuery.toLowerCase()) && (
+                      <p className="px-2 py-3 text-[10px] text-zinc-500">
+                        No matching workspace data.
+                      </p>
+                    )}
+                </div>
+              )}
+            </label>
           </div>
           <div className="flex items-center gap-2">
-            <WorkspaceSwitcher context={context} />
-            <ThemeToggle />
+            <div className="relative hidden sm:block">
+              <button
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={countryOpen}
+                onClick={() => setCountryOpen((value) => !value)}
+                className="flex h-8 items-center gap-2 rounded-md border border-white/[.055] bg-[#0b0f19] px-3 text-[10px]"
+              >
+                <Flag className="h-4 w-4 text-red-400" /> {country}
+                <ChevronDown className="h-3 w-3" />
+              </button>
+              {countryOpen && (
+                <div
+                  role="listbox"
+                  aria-label="Country"
+                  className="absolute right-0 top-10 z-50 w-40 rounded-lg border border-white/[.08] bg-[#0d111c] p-1 shadow-xl"
+                >
+                  {["United States", "Germany", "United Kingdom", "Canada", "Japan"].map((item) => (
+                    <button
+                      key={item}
+                      role="option"
+                      aria-selected={country === item}
+                      type="button"
+                      onClick={() => {
+                        setCountry(item);
+                        setCountryOpen(false);
+                      }}
+                      className="block w-full rounded px-2 py-2 text-left text-[10px] text-zinc-300 hover:bg-violet-500/10"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <span className="hidden h-8 items-center gap-2 rounded-md border border-white/[.055] bg-[#0b0f19] px-2 lg:flex">
+              <Building2 className="h-4 w-4 text-violet-400" />
+              <WorkspaceSwitcher context={context} />
+            </span>
+            <button
+              type="button"
+              aria-label="Notifications"
+              className="relative grid h-8 w-8 place-items-center rounded-full text-zinc-500 hover:bg-white/[.04]"
+            >
+              <Bell className="h-4 w-4" />
+              <span className="absolute right-0 top-0 grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 text-[8px] text-white">
+                3
+              </span>
+            </button>
             <UserMenu context={context} />
+            <div className="hidden min-w-16 xl:block">
+              <p className="truncate text-[10px] font-medium">
+                {context.user.displayName || "John J."}
+              </p>
+              <p className="text-[8px] text-zinc-600">Admin</p>
+            </div>
           </div>
         </header>
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="flex-1 overflow-x-hidden bg-[#070a12] p-3 sm:p-4">{children}</main>
       </div>
     </div>
   );
