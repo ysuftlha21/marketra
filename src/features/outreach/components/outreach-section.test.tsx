@@ -53,6 +53,7 @@ const defaultProps = {
   companyId: "comp-1",
   initialUsage: { used: 0, limit: 10, remaining: 10 },
   initialDraft: null,
+  initialRun: null,
 };
 
 describe("OutreachSection polling logic", () => {

@@ -7,6 +7,11 @@ export interface CleanupResult {
   desktopWorkspaceId?: string;
   mobileUserId?: string;
   mobileWorkspaceId?: string;
+  stateUserId?: string;
+  stateWorkspaceId?: string;
+  desktopOutreachWorkspaceId?: string;
+  mobileOutreachWorkspaceId?: string;
+  stateOutreachWorkspaceId?: string;
   deletedCounts: Record<string, number>;
 }
 
@@ -58,12 +63,11 @@ function checkEnvironment() {
   }
 }
 
-async function resolveWorkspaceForUser(
+async function resolveWorkspacesForUser(
   supabase: SupabaseClient,
   userId: string,
   expectedLabel: string,
 ) {
-  // E2E users should only own one workspace in this context, but we will specifically check the name
   const { data: workspaces, error } = await supabase
     .from("workspaces")
     .select("id, name, slug, created_by")
@@ -72,27 +76,32 @@ async function resolveWorkspaceForUser(
   if (error || !workspaces || workspaces.length === 0) {
     throw new Error(`Failed to resolve workspace for ${expectedLabel}: Not found`);
   }
-  if (workspaces.length > 1) {
-    throw new Error(`Failed to resolve workspace for ${expectedLabel}: Duplicate workspaces found`);
+  if (workspaces.length > 2) {
+    throw new Error(`Failed to resolve workspace for ${expectedLabel}: Too many workspaces found`);
+  }
+  for (const workspace of workspaces) {
+    if (!workspace.name.includes("E2E") && !workspace.slug.includes("e2e")) {
+      throw new Error(
+        `Failed to resolve workspace for ${expectedLabel}: Workspace '${workspace.name}' is not an E2E fixture`,
+      );
+    }
   }
 
-  const ws = workspaces[0];
-  if (!ws || (!ws.name.includes("E2E") && !ws.slug.includes("e2e"))) {
-    throw new Error(
-      `Failed to resolve workspace for ${expectedLabel}: Name '${ws?.name}' and slug '${ws?.slug}' do not indicate an E2E fixture`,
-    );
-  }
-
-  return ws.id;
+  const outreach = workspaces.find((workspace) => workspace.slug.startsWith("e2e-outreach-"));
+  const primary = workspaces.find((workspace) => workspace.id !== outreach?.id);
+  if (!primary) throw new Error(`Failed to resolve primary workspace for ${expectedLabel}`);
+  return { primaryId: primary.id, outreachId: outreach?.id };
 }
 
 export async function resolveE2EUsersAndWorkspaces(
   supabase: SupabaseClient,
   desktopEmail: string,
   mobileEmail: string,
+  stateEmail?: string,
 ) {
   let desktopUserId: string | undefined;
   let mobileUserId: string | undefined;
+  let stateUserId: string | undefined;
 
   let hasMore = true;
   let page = 1;
@@ -116,9 +125,16 @@ export async function resolveE2EUsersAndWorkspaces(
         if (mobileUserId) throw new Error("Duplicate mobile E2E user found");
         mobileUserId = u.id;
       }
+      if (stateEmail && u.email === stateEmail) {
+        if (stateUserId) throw new Error("Duplicate state E2E user found");
+        stateUserId = u.id;
+      }
     }
 
-    if (data.users.length < perPage || (desktopUserId && mobileUserId)) {
+    if (
+      data.users.length < perPage ||
+      (desktopUserId && mobileUserId && (!stateEmail || stateUserId))
+    ) {
       hasMore = false;
     } else {
       page++;
@@ -128,10 +144,24 @@ export async function resolveE2EUsersAndWorkspaces(
   if (!desktopUserId) throw new Error("Missing desktop fixture user");
   if (!mobileUserId) throw new Error("Missing mobile fixture user");
 
-  const desktopWorkspaceId = await resolveWorkspaceForUser(supabase, desktopUserId, "desktop");
-  const mobileWorkspaceId = await resolveWorkspaceForUser(supabase, mobileUserId, "mobile");
+  const desktopWorkspaces = await resolveWorkspacesForUser(supabase, desktopUserId, "desktop");
+  const mobileWorkspaces = await resolveWorkspacesForUser(supabase, mobileUserId, "mobile");
+  const stateWorkspaces =
+    stateEmail && stateUserId
+      ? await resolveWorkspacesForUser(supabase, stateUserId, "outreach states")
+      : undefined;
 
-  return { desktopUserId, desktopWorkspaceId, mobileUserId, mobileWorkspaceId };
+  return {
+    desktopUserId,
+    desktopWorkspaceId: desktopWorkspaces.primaryId,
+    desktopOutreachWorkspaceId: desktopWorkspaces.outreachId,
+    mobileUserId,
+    mobileWorkspaceId: mobileWorkspaces.primaryId,
+    mobileOutreachWorkspaceId: mobileWorkspaces.outreachId,
+    stateUserId,
+    stateWorkspaceId: stateWorkspaces?.primaryId,
+    stateOutreachWorkspaceId: stateWorkspaces?.outreachId,
+  };
 }
 
 async function deleteFromTable(
@@ -213,9 +243,19 @@ export async function cleanTestFixtures(): Promise<CleanupResult> {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const desktopEmail = process.env.E2E_DESKTOP_USER_EMAIL || "e2e-test@example.com";
   const mobileEmail = process.env.E2E_MOBILE_USER_EMAIL || "e2e-test-mobile@example.com";
+  const stateEmail = process.env.E2E_SIGNOUT_USER_EMAIL || "e2e-test-signout@example.com";
 
-  const { desktopUserId, desktopWorkspaceId, mobileUserId, mobileWorkspaceId } =
-    await resolveE2EUsersAndWorkspaces(supabase, desktopEmail, mobileEmail);
+  const {
+    desktopUserId,
+    desktopWorkspaceId,
+    mobileUserId,
+    mobileWorkspaceId,
+    stateUserId,
+    stateWorkspaceId,
+    desktopOutreachWorkspaceId,
+    mobileOutreachWorkspaceId,
+    stateOutreachWorkspaceId,
+  } = await resolveE2EUsersAndWorkspaces(supabase, desktopEmail, mobileEmail, stateEmail);
 
   const deletedCounts: Record<string, number> = {};
 
@@ -224,12 +264,29 @@ export async function cleanTestFixtures(): Promise<CleanupResult> {
 
   // Clean Mobile Fixture
   await performScopedCleanup(supabase, mobileWorkspaceId, deletedCounts);
+  if (stateWorkspaceId) {
+    await performScopedCleanup(supabase, stateWorkspaceId, deletedCounts);
+  }
+  for (const outreachWorkspaceId of [
+    desktopOutreachWorkspaceId,
+    mobileOutreachWorkspaceId,
+    stateOutreachWorkspaceId,
+  ]) {
+    if (outreachWorkspaceId) {
+      await performScopedCleanup(supabase, outreachWorkspaceId, deletedCounts);
+    }
+  }
 
   return {
     desktopUserId,
     desktopWorkspaceId,
     mobileUserId,
     mobileWorkspaceId,
+    stateUserId,
+    stateWorkspaceId,
+    desktopOutreachWorkspaceId,
+    mobileOutreachWorkspaceId,
+    stateOutreachWorkspaceId,
     deletedCounts,
   };
 }

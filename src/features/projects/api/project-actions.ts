@@ -147,7 +147,7 @@ export async function runAnalysisAction(formData: FormData) {
     pricingSummary: project.pricing_summary ?? undefined,
     currentMarkets: project.current_markets ?? [],
     preferredLanguage: project.preferred_language,
-    additionalContext: project.additional_context as Record<string, string> | undefined,
+    additionalContext: (project.additional_context as Record<string, string> | null) ?? undefined,
   };
 
   try {

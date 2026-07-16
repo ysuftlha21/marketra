@@ -1,119 +1,160 @@
-import { test, expect } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-test.describe("Outreach screenshots", () => {
-  test.setTimeout(120000);
+function onlyProject(testInfo: TestInfo, name: string) {
+  test.skip(testInfo.project.name !== name, `${name} only`);
+}
 
-  async function navigateToOutreach(page: import("@playwright/test").Page) {
-    // 1. Go to projects and find the seeded E2E Outreach project
-    await page.goto("/dashboard/projects");
+async function openCompany(page: Page, projectSlug: string) {
+  const workspaceName = projectSlug.includes("-mobile-")
+    ? "E2E Outreach Mobile"
+    : projectSlug.includes("-state-")
+      ? "E2E Outreach States"
+      : "E2E Outreach Desktop";
+  await page.goto("/dashboard/settings");
+  const switcher = page.getByRole("button", { name: "Switch workspace" });
+  if (!(await switcher.textContent())?.includes(workspaceName)) {
+    await switcher.click();
+    await page.getByRole("menuitemradio", { name: new RegExp(workspaceName) }).click();
+    await page.waitForURL(/\/dashboard$/);
+    await expect(switcher).toContainText(workspaceName);
+    await expect(switcher).toBeEnabled();
     await page.waitForLoadState("networkidle");
-    const projectLink = page.getByRole("link", { name: /E2E-OUTREACH/i }).first();
-    await expect(projectLink).toBeVisible({ timeout: 10000 });
-    await projectLink.click();
-    await page.waitForLoadState("networkidle");
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[a-z0-9-]+$/);
-
-    // Get project slug from URL
-    const url = page.url();
-    const projectSlug = url.split("/").pop();
-
-    // Go directly to markets page
-    await page.goto(`/dashboard/projects/${projectSlug}/markets`);
-    await page.waitForLoadState("networkidle");
-
-    // Global setup always seeds US market
-    const countryCode = "US";
-
-    // Go directly to discovery page
-    await page.goto(`/dashboard/projects/${projectSlug}/markets/${countryCode}/discovery`);
-    await page.waitForLoadState("networkidle");
-
-    // Click on the first company
-    const companyLinks = page.locator("a[href*='/discovery/']");
-    const countCl = await companyLinks.count();
-    let ch = "";
-    for (let i = 0; i < countCl; i++) {
-      const href = await companyLinks.nth(i).getAttribute("href");
-      if (href && !href.includes("/runs/")) {
-        ch = href;
-        break;
-      }
-    }
-    if (!ch) return false;
-
-    // Outreach is embedded in the company detail page (no separate /outreach route).
-    if (!ch.startsWith("/")) ch = `/${ch}`;
-
-    await page.goto(ch);
-    await page.waitForLoadState("networkidle");
-
-    return true;
   }
+  await page.goto(`/dashboard/projects/${projectSlug}/markets/US/discovery`);
+  await page.waitForLoadState("networkidle");
+  const companyLink = page
+    .locator(
+      `a[href^="/dashboard/projects/${projectSlug}/markets/US/discovery/"]:not([href*="/runs/"])`,
+    )
+    .first();
+  await expect(companyLink).toBeVisible();
+  await companyLink.click();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("heading", { name: "Outreach Intelligence" })).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  await page.addStyleTag({
+    content: "*, *::before, *::after { animation: none !important; transition: none !important; }",
+  });
+}
 
-  test("screenshot outreach desktop light", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "chromium-desktop", "Desktop test only");
+async function restorePrimaryWorkspace(page: Page) {
+  await page.goto("/dashboard/settings");
+  const switcher = page.getByRole("button", { name: "Switch workspace" });
+  await switcher.click();
+  const primaryWorkspace = page
+    .getByRole("menuitemradio")
+    .filter({ hasNotText: "E2E Outreach" })
+    .first();
+  if (
+    (await primaryWorkspace.count()) > 0 &&
+    (await primaryWorkspace.getAttribute("aria-checked")) !== "true"
+  ) {
+    const primaryName = (await primaryWorkspace.textContent())?.replace(/owner\s*$/i, "").trim();
+    await primaryWorkspace.click();
+    await page.waitForURL(/\/dashboard$/);
+    if (primaryName) await expect(switcher).toContainText(primaryName);
+    await expect(switcher).toBeEnabled();
+    await page.waitForLoadState("networkidle");
+  } else {
+    await page.keyboard.press("Escape");
+  }
+}
 
-    await page.emulateMedia({ colorScheme: "light" });
+async function setScheme(page: Page, scheme: "light" | "dark") {
+  await page.emulateMedia({ colorScheme: scheme });
+  const targetButton = page.getByRole("button", {
+    name: scheme === "dark" ? "Switch to dark theme" : "Switch to light theme",
+  });
+  if (await targetButton.isVisible().catch(() => false)) {
+    await targetButton.click();
+  }
+  await expect(page.locator("html")).toHaveClass(scheme === "dark" ? /dark/ : /light/);
+}
 
-    const found = await navigateToOutreach(page);
-    if (!found) {
-      test.skip();
-      return;
-    }
+test.describe("Phase 8.2 Outreach screenshots", () => {
+  test.setTimeout(120_000);
+  test.afterEach(async ({ page }, testInfo) => {
+    if (!testInfo.skipped) await restorePrimaryWorkspace(page);
+  });
 
-    await expect(page.getByText("Outreach Intelligence")).toBeVisible({ timeout: 10000 });
+  test("desktop screenshots", async ({ page }, testInfo) => {
+    onlyProject(testInfo, "chromium-desktop");
 
-    // Generate draft
-    await page.locator("#og-objective").fill("Follow up on previous email via desktop layout");
-    await page.getByRole("button", { name: /generate outreach draft/i }).click();
-
-    // Wait for completion
-    await expect(page.getByText("Generating outreach…", { exact: false }).first()).toBeVisible({
-      timeout: 5000,
-    });
-    await expect(page.getByText(/outreach draft generated/i)).toBeVisible({
-      timeout: 15000,
-    });
-
-    const markdownPreview = page.locator(".whitespace-pre-wrap");
-    await expect(markdownPreview).toBeVisible();
-
-    await page.waitForTimeout(500);
+    await openCompany(page, "e2e-outreach-desktop-screenshot-empty");
+    await setScheme(page, "dark");
+    const outreachHeading = page.getByRole("heading", { name: "Outreach Intelligence" });
+    await outreachHeading.scrollIntoViewIfNeeded();
     await page.screenshot({
-      path: "tests/screenshots/outreach-desktop-light.png",
+      path: "tests/screenshots/outreach-empty-dark.png",
+      fullPage: true,
+    });
+    await page.getByRole("heading", { name: "Generate Outreach Draft" }).scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: "tests/screenshots/outreach-form-dark.png",
+      fullPage: true,
+    });
+
+    await openCompany(page, "e2e-outreach-desktop-email");
+    await setScheme(page, "dark");
+    await expect(page.getByRole("heading", { name: "Generated Draft" })).toBeVisible();
+    await page.screenshot({
+      path: "tests/screenshots/outreach-email-result-dark.png",
+      fullPage: true,
+    });
+    await setScheme(page, "light");
+    await page.screenshot({
+      path: "tests/screenshots/outreach-email-result-light.png",
+      fullPage: true,
+    });
+
+    await openCompany(page, "e2e-outreach-desktop-linkedin");
+    await setScheme(page, "dark");
+    await expect(page.getByText("Connection Message")).toBeVisible();
+    await page.screenshot({
+      path: "tests/screenshots/outreach-linkedin-result-dark.png",
       fullPage: true,
     });
   });
 
-  test("screenshot outreach mobile light", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "chromium-mobile", "Mobile test only");
+  test("persisted state screenshots", async ({ page }, testInfo) => {
+    onlyProject(testInfo, "chromium-outreach-states");
 
-    await page.emulateMedia({ colorScheme: "light" });
-
-    const found = await navigateToOutreach(page);
-    if (!found) {
-      test.skip();
-      return;
-    }
-
-    await expect(page.getByText("Outreach Intelligence")).toBeVisible({ timeout: 10000 });
-
-    // Generate draft
-    await page.locator("#og-objective").fill("Follow up on previous email via mobile layout");
-    await page.getByRole("button", { name: /generate outreach draft/i }).click();
-
-    // Wait for completion
-    await expect(page.getByText("Generating outreach…", { exact: false }).first()).toBeVisible({
-      timeout: 5000,
-    });
-    await expect(page.getByText(/outreach draft generated/i)).toBeVisible({
-      timeout: 15000,
+    await openCompany(page, "e2e-outreach-state-progress");
+    await setScheme(page, "dark");
+    await expect(page.getByText("Generating outreach draft", { exact: true })).toBeVisible();
+    await page.screenshot({
+      path: "tests/screenshots/outreach-progress-dark.png",
+      fullPage: true,
     });
 
-    const markdownPreview = page.locator(".whitespace-pre-wrap");
-    await expect(markdownPreview).toBeVisible();
+    await openCompany(page, "e2e-outreach-state-limit");
+    await setScheme(page, "light");
+    await expect(page.getByText("Limit reached", { exact: true })).toBeVisible();
+    await page.screenshot({
+      path: "tests/screenshots/outreach-usage-limit-light.png",
+      fullPage: true,
+    });
 
-    await page.waitForTimeout(500);
+    await openCompany(page, "e2e-outreach-state-no-role");
+    await expect(page.getByText("No approved decision-maker role is available yet.")).toBeVisible();
+    await page.screenshot({
+      path: "tests/screenshots/outreach-no-approved-role.png",
+      fullPage: true,
+    });
+
+    await openCompany(page, "e2e-outreach-state-failed");
+    await expect(page.getByText("Outreach provider unavailable.")).toBeVisible();
+    await page.screenshot({
+      path: "tests/screenshots/outreach-failed-state.png",
+      fullPage: true,
+    });
+  });
+
+  test("mobile screenshot", async ({ page }, testInfo) => {
+    onlyProject(testInfo, "chromium-mobile");
+    await openCompany(page, "e2e-outreach-mobile-result");
+    await setScheme(page, "light");
+    await expect(page.getByRole("heading", { name: "Generated Draft" })).toBeVisible();
     await page.screenshot({
       path: "tests/screenshots/outreach-mobile-light.png",
       fullPage: true,

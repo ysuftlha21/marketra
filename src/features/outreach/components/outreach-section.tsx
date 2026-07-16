@@ -24,6 +24,12 @@ interface OutreachSectionProps {
   companyId: string;
   initialUsage: { used: number; limit: number; remaining: number };
   initialDraft: Record<string, unknown> | null;
+  initialRun: {
+    id: string;
+    status: string;
+    currentStage: string | null;
+    safeErrorMessage: string | null;
+  } | null;
 }
 
 export function OutreachSection({
@@ -34,6 +40,7 @@ export function OutreachSection({
   companyId,
   initialUsage,
   initialDraft,
+  initialRun,
 }: OutreachSectionProps) {
   const approvedRoles = getApprovedRoles(roles);
   const [selectedRole, setSelectedRole] = useState<ApprovedRoleOption | null>(() =>
@@ -41,9 +48,11 @@ export function OutreachSection({
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [runStatus, setRunStatus] = useState<string | null>(null);
-  const [currentStage, setCurrentStage] = useState<string | null>(null);
-  const [safeErrorMessage, setSafeErrorMessage] = useState<string | null>(null);
+  const [runStatus, setRunStatus] = useState<string | null>(initialRun?.status ?? null);
+  const [currentStage, setCurrentStage] = useState<string | null>(initialRun?.currentStage ?? null);
+  const [safeErrorMessage, setSafeErrorMessage] = useState<string | null>(
+    initialRun?.safeErrorMessage ?? null,
+  );
   const [draftResult, setDraftResult] = useState<Record<string, unknown> | null>(initialDraft);
   const [completedToast, setCompletedToast] = useState(false);
   const [idempotencyKey] = useState<string>(() => crypto.randomUUID());
@@ -106,8 +115,11 @@ export function OutreachSection({
   );
 
   useEffect(() => {
+    if (initialRun && (initialRun.status === "pending" || initialRun.status === "running")) {
+      pollRun(initialRun.id);
+    }
     return () => clearPolling();
-  }, [clearPolling]);
+  }, [clearPolling, initialRun, pollRun]);
 
   const handleSubmit = async (formData: Record<string, string>) => {
     setError(null);

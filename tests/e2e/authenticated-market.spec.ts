@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
 
+function firstProjectLink(page: import("@playwright/test").Page) {
+  return page
+    .locator('main a[href^="/dashboard/projects/"]:not([href="/dashboard/projects/new"])')
+    .first();
+}
+
 test.describe("Market flows — desktop (authenticated)", () => {
   test.skip(
     ({ isMobile }) => !!isMobile,
@@ -13,7 +19,7 @@ test.describe("Market flows — desktop (authenticated)", () => {
 
   test("2. navigate to markets page via project", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;
@@ -34,7 +40,7 @@ test.describe("Market flows — desktop (authenticated)", () => {
 
   test("3. markets page handles empty or filled state", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;
@@ -57,7 +63,7 @@ test.describe("Market flows — desktop (authenticated)", () => {
 
   test("4. add a country via selector", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;
@@ -78,12 +84,14 @@ test.describe("Market flows — desktop (authenticated)", () => {
     }
     await combo.selectOption("DE");
     await page.getByRole("button", { name: /add/i }).click();
-    await expect(page.getByText(/Germany/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("link", { name: /Germany \(DE\)/i })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("5. duplicate country blocked", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;
@@ -111,7 +119,7 @@ test.describe("Market flows — desktop (authenticated)", () => {
 
   test("6. country detail page opens", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;
@@ -136,7 +144,7 @@ test.describe("Market flows — desktop (authenticated)", () => {
 
   test("7. save and persist notes", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;
@@ -164,7 +172,7 @@ test.describe("Market flows — desktop (authenticated)", () => {
 
   test("8. comparison page displays", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;
@@ -194,7 +202,7 @@ test.describe("Market flows — desktop (authenticated)", () => {
 
   test("9. back navigation chain works", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;
@@ -213,12 +221,14 @@ test.describe("Market flows — desktop (authenticated)", () => {
       timeout: 5000,
     });
     await page.getByText(/back to project/i).click();
-    await expect(page.getByRole("heading")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("heading", { name: /target markets/i })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("10. shortlist and reject buttons visible on analyzed country", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;
@@ -246,7 +256,7 @@ test.describe("Market flows — mobile (authenticated)", () => {
 
   test("11. markets page loads on mobile", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;
@@ -267,7 +277,7 @@ test.describe("Market flows — mobile (authenticated)", () => {
 
   test("12. comparison page works on mobile", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;
@@ -281,9 +291,9 @@ test.describe("Market flows — mobile (authenticated)", () => {
     }
     const slug = url.split("/").pop() ?? "";
     await page.goto(`/dashboard/projects/${slug}/markets/compare`);
-    await expect(
-      page.getByRole("heading", { name: /market comparison/i }).or(page.getByText(/not enough/i)),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: /market comparison/i })).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test("13. mobile drawer navigation works", async ({ page }) => {
@@ -297,7 +307,7 @@ test.describe("Market flows — mobile (authenticated)", () => {
 
   test("14. back navigation on mobile works", async ({ page }) => {
     await page.goto("/dashboard/projects");
-    const firstProject = page.getByRole("link").first();
+    const firstProject = firstProjectLink(page);
     if (!(await firstProject.isVisible())) {
       test.skip();
       return;

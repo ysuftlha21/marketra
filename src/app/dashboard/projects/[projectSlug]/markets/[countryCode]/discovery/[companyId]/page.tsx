@@ -18,10 +18,10 @@ import {
   listDecisionRoleRuns,
 } from "@/features/companies/repository/decision-role-repository";
 import { OutreachSection } from "@/features/outreach/components/outreach-section";
-import { getWorkspaceUsageWithClient } from "@/features/workspaces/services/workspace-usage-service";
-import { createServerClient } from "@/lib/db/supabase-server";
+import { getWorkspaceUsage } from "@/features/workspaces/services/workspace-usage-service";
 import {
   getLatestProjectCompanyOutreachDraft,
+  getLatestProjectCompanyOutreachRun,
   getOutreachRun,
 } from "@/features/outreach/repository/outreach-repository";
 import { resolveWorkspacePlan } from "@/features/workspaces/services/workspace-plan-service";
@@ -63,10 +63,9 @@ export default async function CompanyDetailPage({ params }: PageProps) {
   const drRuns = await listDecisionRoleRuns(wsId, companyId);
 
   // Outreach usage
-  const supabase = await createServerClient();
   const [planResolution, usage] = await Promise.all([
     resolveWorkspacePlan(wsId),
-    getWorkspaceUsageWithClient(supabase, wsId),
+    getWorkspaceUsage(wsId),
   ]);
   const { plan } = planResolution;
   const outreachUsage = {
@@ -77,7 +76,10 @@ export default async function CompanyDetailPage({ params }: PageProps) {
 
   // Load latest draft for initial page load
   let initialDraft: Record<string, unknown> | null = null;
-  const latestDraft = await getLatestProjectCompanyOutreachDraft(wsId, project.id, companyId);
+  const [latestDraft, latestOutreachRun] = await Promise.all([
+    getLatestProjectCompanyOutreachDraft(wsId, project.id, companyId),
+    getLatestProjectCompanyOutreachRun(wsId, project.id, companyId),
+  ]);
 
   if (latestDraft) {
     const latestRun = await getOutreachRun(wsId, latestDraft.source_run_id);
@@ -323,6 +325,16 @@ export default async function CompanyDetailPage({ params }: PageProps) {
           companyId={companyId}
           initialUsage={outreachUsage}
           initialDraft={initialDraft}
+          initialRun={
+            latestOutreachRun
+              ? {
+                  id: latestOutreachRun.id,
+                  status: latestOutreachRun.status,
+                  currentStage: latestOutreachRun.current_stage,
+                  safeErrorMessage: latestOutreachRun.safe_error_message,
+                }
+              : null
+          }
         />
       </div>
     </div>

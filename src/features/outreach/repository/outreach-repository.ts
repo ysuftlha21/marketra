@@ -72,6 +72,28 @@ export async function getOutreachRun(
   return data;
 }
 
+export async function getLatestProjectCompanyOutreachRun(
+  wsId: string,
+  projectId: string,
+  companyId: string,
+): Promise<OutreachGenerationRunRow | null> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("outreach_generation_runs")
+    .select()
+    .eq("workspace_id", wsId)
+    .eq("project_id", projectId)
+    .eq("company_id", companyId)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function findActiveOutreachRun(
   wsId: string,
   projectId: string,

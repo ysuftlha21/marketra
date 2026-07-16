@@ -7,7 +7,10 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Authenticated specs mutate user-scoped workspace and Free-plan quota state.
+  // Keep the authoritative suite serial until each mutating feature has an
+  // isolated test user and workspace.
+  workers: 1,
   reporter: process.env.CI ? "line" : "list",
   use: {
     baseURL: `http://localhost:${PORT}`,
@@ -68,6 +71,16 @@ export default defineConfig({
         viewport: { width: 390, height: 844 },
         isMobile: true,
         hasTouch: true,
+      },
+    },
+    {
+      name: "chromium-outreach-states",
+      dependencies: ["setup"],
+      testMatch: ["**/authenticated-outreach.spec.ts", "**/screenshots-outreach.spec.ts"],
+      use: {
+        storageState: "playwright/.auth/signout-user.json",
+        browserName: "chromium",
+        viewport: { width: 1280, height: 800 },
       },
     },
     /* ─── Mobile — unauthenticated (no storage state) ────────── */
