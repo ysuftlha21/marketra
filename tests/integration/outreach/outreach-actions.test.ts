@@ -10,11 +10,17 @@ import {
 import { getPlan } from "@/config/plans";
 import {
   generateOutreachAction,
+  getOutreachUsageAction,
   getOutreachRunStatusAction,
   getOutreachDraftViewAction,
-  getOutreachUsageAction,
 } from "@/features/outreach/api/outreach-actions";
-import { listCompanyOutreachDrafts } from "@/features/outreach/repository/outreach-repository";
+import {
+  getLatestProjectCompanyOutreachDraft,
+  getOutreachDraftVersions,
+  getOutreachRun,
+  listCompanyOutreachDrafts,
+} from "@/features/outreach/repository/outreach-repository";
+import { getProjectCompanyOutreachContext } from "@/features/companies/repository/company-repository";
 import { createServiceRoleClient } from "@/lib/db/supabase-service";
 import { getWorkspaceUsageWithClient } from "@/features/workspaces/services/workspace-usage-service";
 
@@ -125,12 +131,22 @@ describe("Phase 8.2 action/integration tests", () => {
       expect(result.success).toBe(true);
       expect(result.runId).toBeDefined();
 
-      // Wait for mock to complete (it's synchronous in mock)
-      await new Promise((r) => setTimeout(r, 500));
-
       const drafts = await listCompanyOutreachDrafts(ctx.wsId, ctx.companyId);
       const linked = drafts.find((d) => d.source_run_id === result.runId);
       expect(linked).toBeDefined();
+      const versions = await getOutreachDraftVersions(ctx.wsId, linked!.id);
+      expect(versions).toHaveLength(1);
+      expect(versions[0]?.version_number).toBe(1);
+
+      const run = await getOutreachRun(ctx.wsId, result.runId!);
+      expect(run?.status).toBe("succeeded");
+      const snapshot = run?.input_snapshot as Record<string, unknown>;
+      const company = snapshot.company as Record<string, unknown>;
+      const companyContext = company.context as Record<string, unknown>;
+      expect(company.name).toBe("p82actCorp");
+      expect(companyContext.companyName).toBe("p82actCorp");
+      expect(companyContext.fitScore).toBe(82);
+      expect(companyContext.qualificationReasons).toEqual(["Project-specific fit"]);
     });
 
     it("approved secondary role generates a draft", async () => {
@@ -207,7 +223,27 @@ describe("Phase 8.2 action/integration tests", () => {
     it("incompatible channel/message type is rejected server-side", async () => {
       const fd = makeFormData({ channel: "linkedin_connection", messageType: "meeting_request" });
       const result = await generateOutreachAction(fd);
-      expect(result.success === true || result.error !== undefined).toBe(true);
+      expect(result.success).not.toBe(true);
+      expect(result.error).toBe("Check the outreach request and try again.");
+    });
+
+    it("invalid enum values are rejected server-side", async () => {
+      const result = await generateOutreachAction(makeFormData({ channel: "sms" }));
+      expect(result.success).not.toBe(true);
+      expect(result.error).toBe("Check the outreach request and try again.");
+    });
+
+    it("whitespace-only objective is rejected server-side", async () => {
+      const result = await generateOutreachAction(makeFormData({ objective: "   " }));
+      expect(result.success).not.toBe(true);
+      expect(result.error).toBe("Check the outreach request and try again.");
+    });
+
+    it("browser-supplied plan input cannot select a paid plan", async () => {
+      const fd = makeFormData({ decisionRoleId: ctx.suggestedDrId });
+      fd.set("planId", "agency");
+      const result = await generateOutreachAction(fd);
+      expect(result.error).toBe("An approved decision role is required.");
     });
 
     it("missing prerequisite consumes zero usage", async () => {
@@ -221,20 +257,39 @@ describe("Phase 8.2 action/integration tests", () => {
     });
 
     it("active run conflict consumes zero usage", async () => {
-      const beforeUsage = await getWorkspaceUsageWithClient(admin, ctx.wsId);
-
       const fd = makeFormData();
-      await generateOutreachAction(fd);
+      const beforeUsage = await getWorkspaceUsageWithClient(admin, ctx.wsId);
+      const { data: activeRun } = await admin
+        .from("outreach_generation_runs")
+        .insert({
+          workspace_id: ctx.wsId,
+          project_id: ctx.pId,
+          company_id: ctx.companyId,
+          decision_role_id: ctx.primaryDrId,
+          source_decision_role_run_id: ctx.drRunId,
+          source_product_analysis_run_id: ctx.paRunId,
+          source_market_analysis_run_id: ctx.maRunId,
+          source_icp_profile_id: ctx.icpId,
+          source_discovery_run_id: ctx.discoveryRunId,
+          channel: "email",
+          message_type: "initial_contact",
+          provider: "mock",
+          status: "running",
+          current_stage: "generating_outreach",
+          idempotency_key: `active-${Date.now()}`,
+          started_by: ctx.ownerUserId,
+        })
+        .select()
+        .single();
 
-      const result2 = await generateOutreachAction(fd);
-      if (result2.error?.includes("already running")) {
-        const afterUsage = await getWorkspaceUsageWithClient(admin, ctx.wsId);
-        expect(afterUsage.outreachGenerationsUsed).toBe(beforeUsage.outreachGenerationsUsed + 1);
-      }
+      const result = await generateOutreachAction(fd);
+      const afterUsage = await getWorkspaceUsageWithClient(admin, ctx.wsId);
+      expect(result.error).toContain("already in progress");
+      expect(afterUsage.outreachGenerationsUsed).toBe(beforeUsage.outreachGenerationsUsed);
+      await admin.from("outreach_generation_runs").delete().eq("id", activeRun!.id);
     });
 
     it("duplicate idempotency key creates one run and one usage event", async () => {
-      const beforeUsage = await getWorkspaceUsageWithClient(admin, ctx.wsId);
       const idemKey = `idem-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
       const fd1 = makeFormData();
@@ -269,32 +324,230 @@ describe("Phase 8.2 action/integration tests", () => {
     });
   });
 
+  describe("project-specific company context", () => {
+    it("loads the actual company only through its project-country association", async () => {
+      const context = await getProjectCompanyOutreachContext(
+        ctx.wsId,
+        ctx.pId,
+        ctx.tcId,
+        ctx.companyId,
+      );
+      expect(context).toMatchObject({
+        companyName: "p82actCorp",
+        fitScore: 82,
+        qualificationReasons: ["Project-specific fit"],
+      });
+
+      const wrongProject = await getProjectCompanyOutreachContext(
+        ctx.wsId,
+        "00000000-0000-0000-0000-000000000000",
+        ctx.tcId,
+        ctx.companyId,
+      );
+      expect(wrongProject).toBeNull();
+    });
+
+    it("keeps the same global company scoped to each project context", async () => {
+      const secondSlug = `p82act-second-${Date.now()}`;
+      const { data: secondProject } = await admin
+        .from("projects")
+        .insert({
+          workspace_id: ctx.wsId,
+          created_by: ctx.ownerUserId,
+          name: "Second project",
+          slug: secondSlug,
+          status: "active",
+          product_description: "Second project context",
+        })
+        .select()
+        .single();
+      const { data: secondCountry } = await admin
+        .from("project_target_countries")
+        .insert({
+          workspace_id: ctx.wsId,
+          project_id: secondProject!.id,
+          country_code: "GB",
+          country_name: "United Kingdom",
+          added_by: ctx.ownerUserId,
+        })
+        .select()
+        .single();
+      const { data: secondRun } = await admin
+        .from("company_discovery_runs")
+        .insert({
+          workspace_id: ctx.wsId,
+          project_id: secondProject!.id,
+          target_country_id: secondCountry!.id,
+          provider: "mock",
+          provider_version: "1",
+          status: "completed",
+          input_snapshot: {},
+          criteria_snapshot: {},
+          result_summary: {},
+          created_by: ctx.ownerUserId,
+        })
+        .select()
+        .single();
+      await admin.from("project_companies").insert({
+        workspace_id: ctx.wsId,
+        project_id: secondProject!.id,
+        target_country_id: secondCountry!.id,
+        company_id: ctx.companyId,
+        discovery_run_id: secondRun!.id,
+        status: "discovered",
+        fit_score: 41,
+        fit_grade: "medium",
+        qualification_reasons: ["Second-project reason"],
+        disqualification_reasons: ["Second-project risk"],
+        matched_signals: ["second_project_signal"],
+        missing_signals: [],
+        confidence_score: 55,
+        scoring_snapshot: {},
+      });
+
+      const firstContext = await getProjectCompanyOutreachContext(
+        ctx.wsId,
+        ctx.pId,
+        ctx.tcId,
+        ctx.companyId,
+      );
+      const secondContext = await getProjectCompanyOutreachContext(
+        ctx.wsId,
+        secondProject!.id,
+        secondCountry!.id,
+        ctx.companyId,
+      );
+
+      expect(firstContext?.companyName).toBe("p82actCorp");
+      expect(secondContext?.companyName).toBe("p82actCorp");
+      expect(firstContext?.fitScore).toBe(82);
+      expect(secondContext?.fitScore).toBe(41);
+      expect(secondContext?.qualificationReasons).toEqual(["Second-project reason"]);
+      expect(secondContext?.disqualificationReasons).toEqual(["Second-project risk"]);
+
+      await admin.from("project_companies").delete().eq("project_id", secondProject!.id);
+      await admin.from("company_discovery_runs").delete().eq("id", secondRun!.id);
+      await admin.from("project_target_countries").delete().eq("id", secondCountry!.id);
+      await admin.from("projects").delete().eq("id", secondProject!.id);
+    });
+  });
+
   describe("latest-draft loader", () => {
-    it("sorts by updated_at desc, created_at desc, id desc", async () => {
-      const drafts = await listCompanyOutreachDrafts(ctx.wsId, ctx.companyId);
-      const nonArchived = drafts.filter((d) => d.status !== "archived");
-      if (nonArchived.length >= 2) {
-        const [a, b] = nonArchived.slice(0, 2) as [
-          (typeof nonArchived)[0],
-          (typeof nonArchived)[0],
-        ];
-        const aDate = new Date(a.updated_at ?? a.created_at).getTime();
-        const bDate = new Date(b.updated_at ?? b.created_at).getTime();
-        if (aDate === bDate) {
-          expect(a.id.localeCompare(b.id)).toBeLessThanOrEqual(0);
-        } else {
-          expect(aDate).toBeGreaterThanOrEqual(bDate);
-        }
-      }
+    it("ignores archived and foreign-scope drafts with stable ordering", async () => {
+      const now = new Date().toISOString();
+      const runPayload = {
+        workspace_id: ctx.wsId,
+        project_id: ctx.pId,
+        company_id: ctx.companyId,
+        decision_role_id: ctx.primaryDrId,
+        source_decision_role_run_id: ctx.drRunId,
+        source_product_analysis_run_id: ctx.paRunId,
+        source_market_analysis_run_id: ctx.maRunId,
+        source_icp_profile_id: ctx.icpId,
+        source_discovery_run_id: ctx.discoveryRunId,
+        channel: "email",
+        message_type: "initial_contact",
+        provider: "mock",
+        status: "succeeded",
+        current_stage: "complete",
+        started_by: ctx.ownerUserId,
+        started_at: now,
+        completed_at: now,
+      };
+      const { data: runs } = await admin
+        .from("outreach_generation_runs")
+        .insert([
+          { ...runPayload, idempotency_key: `latest-a-${Date.now()}` },
+          { ...runPayload, idempotency_key: `latest-b-${Date.now()}` },
+          { ...runPayload, idempotency_key: `latest-c-${Date.now()}` },
+        ])
+        .select();
+      const [firstRun, secondRun, archivedRun] = runs!;
+      const tiedAt = new Date(Date.now() + 60_000).toISOString();
+      const commonDraft = {
+        workspace_id: ctx.wsId,
+        project_id: ctx.pId,
+        company_id: ctx.companyId,
+        decision_role_id: ctx.primaryDrId,
+        channel: "email",
+        message_type: "initial_contact",
+        language: "en",
+        body: "Latest selection test",
+        tone: "professional",
+        length: "medium",
+        source_type: "generated",
+        current_version_number: 1,
+        is_current: true,
+        created_by: ctx.ownerUserId,
+        created_at: tiedAt,
+        updated_at: tiedAt,
+      };
+      const { data: drafts } = await admin
+        .from("outreach_drafts")
+        .insert([
+          { ...commonDraft, source_run_id: firstRun!.id, status: "draft" },
+          { ...commonDraft, source_run_id: secondRun!.id, status: "draft" },
+          {
+            ...commonDraft,
+            source_run_id: archivedRun!.id,
+            status: "archived",
+            updated_at: new Date(Date.now() + 120_000).toISOString(),
+          },
+        ])
+        .select();
+
+      const expected = drafts!
+        .filter((draft) => draft.status !== "archived")
+        .sort((a, b) => b.id.localeCompare(a.id))[0];
+      const latest = await getLatestProjectCompanyOutreachDraft(ctx.wsId, ctx.pId, ctx.companyId);
+      expect(latest?.id).toBe(expected!.id);
+      expect(latest?.status).not.toBe("archived");
+      await expect(
+        getLatestProjectCompanyOutreachDraft(
+          ctx.wsId,
+          "00000000-0000-0000-0000-000000000000",
+          ctx.companyId,
+        ),
+      ).resolves.toBeNull();
+      await expect(
+        getLatestProjectCompanyOutreachDraft(
+          ctx.wsId,
+          ctx.pId,
+          "00000000-0000-0000-0000-000000000000",
+        ),
+      ).resolves.toBeNull();
+      await expect(
+        getLatestProjectCompanyOutreachDraft(ctx.otherWsId, ctx.pId, ctx.companyId),
+      ).resolves.toBeNull();
+
+      await admin
+        .from("outreach_drafts")
+        .delete()
+        .in(
+          "id",
+          drafts!.map((draft) => draft.id),
+        );
+      await admin
+        .from("outreach_generation_runs")
+        .delete()
+        .in(
+          "id",
+          runs!.map((run) => run.id),
+        );
     });
   });
 
   describe("usage loading", () => {
-    it("returns used, limit, and remaining", async () => {
+    it("uses the same centralized Free plan for display and enforcement", async () => {
       const usage = await getWorkspaceUsageWithClient(admin, ctx.wsId);
+      const displayedUsage = await getOutreachUsageAction();
       expect(typeof usage.outreachGenerationsUsed).toBe("number");
       expect(usage.outreachGenerationsUsed).toBeGreaterThanOrEqual(0);
-      expect(plan.outreachGenerationsPerPeriod).toBeGreaterThan(0);
+      expect(displayedUsage).toEqual({
+        used: usage.outreachGenerationsUsed,
+        limit: plan.outreachGenerationsPerPeriod,
+        remaining: Math.max(0, plan.outreachGenerationsPerPeriod - usage.outreachGenerationsUsed),
+      });
     });
   });
 });

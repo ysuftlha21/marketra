@@ -25,6 +25,7 @@ describe("parseServerEnv", () => {
     expect(env.DEFAULT_EMAIL_PROVIDER).toBe("mock");
     expect(env.DEFAULT_ANALYTICS_PROVIDER).toBe("mock");
     expect(env.DEFAULT_COMPANY_DISCOVERY_PROVIDER).toBe("mock");
+    expect(env.DEFAULT_OUTREACH_PROVIDER).toBe("mock");
   });
 
   it("defaults NODE_ENV to development", () => {
@@ -63,6 +64,12 @@ describe("parseServerEnv", () => {
 
   it("rejects an unknown provider id", () => {
     expect(() => parseServerEnv({ DEFAULT_AI_PROVIDER: "bogus" })).toThrow(
+      EnvironmentValidationError,
+    );
+  });
+
+  it("rejects an unknown outreach provider id", () => {
+    expect(() => parseServerEnv({ DEFAULT_OUTREACH_PROVIDER: "unknown" })).toThrow(
       EnvironmentValidationError,
     );
   });

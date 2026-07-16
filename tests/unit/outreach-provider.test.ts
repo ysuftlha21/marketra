@@ -98,6 +98,7 @@ describe("Outreach provider schemas", () => {
         qualificationReasons: ["Good fit"],
         disqualificationReasons: [],
         purchaseSignals: [],
+        discoveryEvidence: [],
       },
       decisionRoleContext: {
         roleKey: "cto",
@@ -156,6 +157,43 @@ describe("Outreach provider schemas", () => {
         OutreachGenerationInputSchema.parse({
           ...validInput,
           outreachRequest: { ...validInput.outreachRequest, objective: "x".repeat(501) },
+        }),
+      ).toThrow();
+    });
+
+    it("rejects whitespace-only objectives", () => {
+      expect(() =>
+        OutreachGenerationInputSchema.parse({
+          ...validInput,
+          outreachRequest: { ...validInput.outreachRequest, objective: "   " },
+        }),
+      ).toThrow();
+    });
+
+    it("rejects incompatible channel and message type", () => {
+      expect(() =>
+        OutreachGenerationInputSchema.parse({
+          ...validInput,
+          outreachRequest: {
+            ...validInput.outreachRequest,
+            channel: "linkedin_connection",
+            messageType: "meeting_request",
+            length: "short",
+          },
+        }),
+      ).toThrow();
+    });
+
+    it("requires short LinkedIn connection requests", () => {
+      expect(() =>
+        OutreachGenerationInputSchema.parse({
+          ...validInput,
+          outreachRequest: {
+            ...validInput.outreachRequest,
+            channel: "linkedin_connection",
+            messageType: "connection_request",
+            length: "medium",
+          },
         }),
       ).toThrow();
     });

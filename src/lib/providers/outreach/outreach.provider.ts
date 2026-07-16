@@ -33,6 +33,44 @@ export type OutreachTone = z.infer<typeof outreachToneSchema>;
 export const outreachLengthSchema = z.enum(["short", "medium", "long"]);
 export type OutreachLength = z.infer<typeof outreachLengthSchema>;
 
+export const OUTREACH_CHANNEL_MESSAGE_TYPES: Record<
+  OutreachChannel,
+  readonly OutreachMessageType[]
+> = {
+  email: ["initial_contact", "meeting_request", "follow_up", "re_engagement"],
+  linkedin_connection: ["connection_request"],
+  linkedin_message: ["initial_contact", "meeting_request", "re_engagement"],
+  follow_up: ["follow_up"],
+};
+
+export const OutreachRequestSchema = z
+  .object({
+    channel: outreachChannelSchema,
+    messageType: outreachMessageTypeSchema,
+    language: outreachLanguageSchema,
+    tone: outreachToneSchema,
+    length: outreachLengthSchema,
+    objective: z.string().trim().min(1).max(500),
+    optionalUserInstructions: z.string().trim().max(1000).optional(),
+  })
+  .superRefine((request, ctx) => {
+    if (!OUTREACH_CHANNEL_MESSAGE_TYPES[request.channel].includes(request.messageType)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["messageType"],
+        message: "Message type is not supported for the selected channel.",
+      });
+    }
+    if (request.channel === "linkedin_connection" && request.length !== "short") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["length"],
+        message: "LinkedIn connection requests must use short length.",
+      });
+    }
+  });
+export type OutreachRequest = z.infer<typeof OutreachRequestSchema>;
+
 export const OutreachGenerationInputSchema = z.object({
   correlationId: z.string().min(1),
   schemaVersion: z.string().default("1.0.0"),
@@ -73,10 +111,12 @@ export const OutreachGenerationInputSchema = z.object({
     employeeCountMin: z.number().nullable(),
     employeeCountMax: z.number().nullable(),
     companySize: z.string().optional(),
+    location: z.string().optional(),
     fitScore: z.number().min(0).max(100),
     qualificationReasons: z.array(z.string()).default([]),
     disqualificationReasons: z.array(z.string()).default([]),
     purchaseSignals: z.array(z.string()).default([]),
+    discoveryEvidence: z.array(z.string()).default([]),
   }),
 
   decisionRoleContext: z.object({
@@ -93,15 +133,7 @@ export const OutreachGenerationInputSchema = z.object({
     reasoning: z.string(),
   }),
 
-  outreachRequest: z.object({
-    channel: outreachChannelSchema,
-    messageType: outreachMessageTypeSchema,
-    language: outreachLanguageSchema,
-    tone: outreachToneSchema,
-    length: outreachLengthSchema,
-    objective: z.string().min(1).max(500),
-    optionalUserInstructions: z.string().max(1000).optional(),
-  }),
+  outreachRequest: OutreachRequestSchema,
 });
 export type OutreachGenerationInput = z.infer<typeof OutreachGenerationInputSchema>;
 

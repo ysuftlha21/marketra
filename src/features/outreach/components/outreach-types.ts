@@ -1,4 +1,8 @@
 import type { CompanyDecisionRoleRow } from "@/features/companies/repository/decision-role-repository";
+import {
+  OUTREACH_CHANNEL_MESSAGE_TYPES,
+  outreachChannelSchema,
+} from "@/lib/providers/outreach/outreach.provider";
 
 export const OUTREACH_CHANNELS = [
   { value: "email", label: "Email" },
@@ -33,13 +37,6 @@ export const OUTREACH_LANGUAGES = [
   { value: "en", label: "English" },
   { value: "tr", label: "Turkish" },
 ] as const;
-
-export const CHANNEL_MESSAGE_TYPE_MAP: Record<string, string[]> = {
-  email: ["initial_contact", "meeting_request", "follow_up", "re_engagement"],
-  linkedin_connection: ["connection_request"],
-  linkedin_message: ["initial_contact", "meeting_request", "re_engagement"],
-  follow_up: ["follow_up"],
-};
 
 export interface ApprovedRoleOption {
   id: string;
@@ -85,7 +82,8 @@ export function getDefaultRole(approvedRoles: ApprovedRoleOption[]): ApprovedRol
 }
 
 export function getValidMessageTypes(channel: string): string[] {
-  return CHANNEL_MESSAGE_TYPE_MAP[channel] || [];
+  const parsed = outreachChannelSchema.safeParse(channel);
+  return parsed.success ? [...OUTREACH_CHANNEL_MESSAGE_TYPES[parsed.data]] : [];
 }
 
 export function getDefaultMessageType(channel: string): string {

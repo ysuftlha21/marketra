@@ -20,11 +20,11 @@ import {
 import { OutreachSection } from "@/features/outreach/components/outreach-section";
 import { getWorkspaceUsageWithClient } from "@/features/workspaces/services/workspace-usage-service";
 import { createServerClient } from "@/lib/db/supabase-server";
-import { getPlan } from "@/config/plans";
 import {
-  listCompanyOutreachDrafts,
+  getLatestProjectCompanyOutreachDraft,
   getOutreachRun,
 } from "@/features/outreach/repository/outreach-repository";
+import { resolveWorkspacePlan } from "@/features/workspaces/services/workspace-plan-service";
 
 interface PageProps {
   params: Promise<{ projectSlug: string; countryCode: string; companyId: string }>;
@@ -64,8 +64,11 @@ export default async function CompanyDetailPage({ params }: PageProps) {
 
   // Outreach usage
   const supabase = await createServerClient();
-  const plan = getPlan("free")!;
-  const usage = await getWorkspaceUsageWithClient(supabase, wsId);
+  const [planResolution, usage] = await Promise.all([
+    resolveWorkspacePlan(wsId),
+    getWorkspaceUsageWithClient(supabase, wsId),
+  ]);
+  const { plan } = planResolution;
   const outreachUsage = {
     used: usage.outreachGenerationsUsed,
     limit: plan.outreachGenerationsPerPeriod,
@@ -74,15 +77,7 @@ export default async function CompanyDetailPage({ params }: PageProps) {
 
   // Load latest draft for initial page load
   let initialDraft: Record<string, unknown> | null = null;
-  const allDrafts = await listCompanyOutreachDrafts(wsId, companyId);
-  const latestDraft = allDrafts
-    .filter((d) => d.status !== "archived")
-    .sort((a, b) => {
-      const aDate = new Date(a.updated_at ?? a.created_at).getTime();
-      const bDate = new Date(b.updated_at ?? b.created_at).getTime();
-      if (bDate !== aDate) return bDate - aDate;
-      return b.id.localeCompare(a.id);
-    })[0];
+  const latestDraft = await getLatestProjectCompanyOutreachDraft(wsId, project.id, companyId);
 
   if (latestDraft) {
     const latestRun = await getOutreachRun(wsId, latestDraft.source_run_id);

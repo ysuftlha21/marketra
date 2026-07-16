@@ -3,6 +3,7 @@ import { z } from "zod";
 const aiProviderSchema = z.enum(["mock", "openai"]);
 const leadProviderSchema = z.enum(["mock", "manual", "csv", "external"]);
 const companyDiscoveryProviderSchema = z.enum(["mock", "external"]);
+const outreachProviderSchema = z.enum(["mock"]);
 const marketProviderSchema = z.enum(["mock", "external"]);
 const billingProviderSchema = z.enum(["mock", "stripe", "paytr", "iyzico"]);
 const emailProviderSchema = z.enum(["mock", "smtp"]);
@@ -58,6 +59,9 @@ const serverEnvSchema = z
 
     // Company discovery provider
     DEFAULT_COMPANY_DISCOVERY_PROVIDER: companyDiscoveryProviderSchema.default("mock"),
+
+    // Outreach provider
+    DEFAULT_OUTREACH_PROVIDER: outreachProviderSchema.default("mock"),
 
     // Market intelligence provider
     DEFAULT_MARKET_INTELLIGENCE_PROVIDER: marketProviderSchema.default("mock"),

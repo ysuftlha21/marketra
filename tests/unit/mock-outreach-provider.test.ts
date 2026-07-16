@@ -32,6 +32,7 @@ const baseInput: OutreachGenerationInput = {
     qualificationReasons: ["Strong ICP match", "Active in target market"],
     disqualificationReasons: [],
     purchaseSignals: ["Recently posted DevOps job"],
+    discoveryEvidence: ["Matched industry"],
   },
   decisionRoleContext: {
     roleKey: "cto",

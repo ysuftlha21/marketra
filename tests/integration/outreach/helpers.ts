@@ -6,6 +6,7 @@ export interface OutreachContext {
   pId: string;
   projectSlug: string;
   companyId: string;
+  discoveryRunId: string;
   paRunId: string;
   maRunId: string;
   icpId: string;
@@ -119,6 +120,41 @@ export async function buildOutreachIntegrationContext(prefix: string): Promise<O
     .select()
     .single();
   const companyId = co!.id;
+
+  const { data: discoveryRun } = await admin
+    .from("company_discovery_runs")
+    .insert({
+      workspace_id: wsId,
+      project_id: pId,
+      target_country_id: tcId,
+      provider: "mock",
+      provider_version: "1",
+      status: "completed",
+      input_snapshot: {},
+      criteria_snapshot: {},
+      result_summary: {},
+      created_by: ownerUserId,
+    })
+    .select()
+    .single();
+  const discoveryRunId = discoveryRun!.id;
+
+  await admin.from("project_companies").insert({
+    workspace_id: wsId,
+    project_id: pId,
+    target_country_id: tcId,
+    company_id: companyId,
+    discovery_run_id: discoveryRunId,
+    status: "discovered",
+    fit_score: 82,
+    fit_grade: "strong",
+    qualification_reasons: ["Project-specific fit"],
+    disqualification_reasons: [],
+    matched_signals: ["industry_match"],
+    missing_signals: [],
+    confidence_score: 80,
+    scoring_snapshot: {},
+  });
 
   // Create product analysis
   const { data: pa } = await admin
@@ -292,6 +328,7 @@ export async function buildOutreachIntegrationContext(prefix: string): Promise<O
     pId,
     projectSlug,
     companyId,
+    discoveryRunId,
     paRunId,
     maRunId,
     icpId,
@@ -315,6 +352,8 @@ export async function cleanupOutreachIntegrationContext(ctx: OutreachContext) {
   await admin.from("outreach_generation_runs").delete().eq("workspace_id", ctx.wsId);
   await admin.from("company_decision_roles").delete().eq("workspace_id", ctx.wsId);
   await admin.from("decision_role_runs").delete().eq("workspace_id", ctx.wsId);
+  await admin.from("project_companies").delete().eq("workspace_id", ctx.wsId);
+  await admin.from("company_discovery_runs").delete().eq("workspace_id", ctx.wsId);
   await admin.from("icp_profiles").delete().eq("workspace_id", ctx.wsId);
   await admin.from("market_analysis_runs").delete().eq("workspace_id", ctx.wsId);
   await admin.from("product_analysis_runs").delete().eq("workspace_id", ctx.wsId);

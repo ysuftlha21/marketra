@@ -155,6 +155,45 @@ export async function listCompanyOutreachDrafts(
   return data;
 }
 
+export async function getOutreachDraftByRun(
+  wsId: string,
+  runId: string,
+): Promise<OutreachDraftRow | null> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("outreach_drafts")
+    .select()
+    .eq("workspace_id", wsId)
+    .eq("source_run_id", runId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function getLatestProjectCompanyOutreachDraft(
+  wsId: string,
+  projectId: string,
+  companyId: string,
+): Promise<OutreachDraftRow | null> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("outreach_drafts")
+    .select()
+    .eq("workspace_id", wsId)
+    .eq("project_id", projectId)
+    .eq("company_id", companyId)
+    .neq("status", "archived")
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function updateOutreachDraft(
   wsId: string,
   id: string,

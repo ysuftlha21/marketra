@@ -155,3 +155,16 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   contacts. No LinkedIn automation. No bulk cold-email sending. No platform-rule bypassing.
 - **Consequences:** Founder-friendly GTM tooling without compliance exposure.
 - **Affected docs:** `docs/security-rules.md`, `docs/mvp-scope.md`, `docs/product-overview.md`.
+
+## 2026-07-16 — Phase 8.2 Outreach runs synchronously with the Mock provider
+
+- **Context:** The repository has no durable worker or queue consumer. Returning from a server
+  action while an in-process Promise continues is unreliable in serverless deployments because
+  the runtime may stop before draft persistence completes.
+- **Decision:** Phase 8.2 creates the generation run before reserving usage, then executes the
+  deterministic Mock Outreach provider synchronously and returns only after the run reaches a
+  persisted terminal state. No detached Promise, fake delay, or unconsumed queue is used.
+- **Consequences:** An accepted request always has a persisted run, and successful responses have
+  a persisted draft plus version 1. Provider failures are stored as controlled terminal failures.
+  A future durable worker may replace synchronous execution without changing provider contracts.
+- **Affected docs:** `docs/decision-log.md`.

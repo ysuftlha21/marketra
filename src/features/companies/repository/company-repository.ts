@@ -102,6 +102,22 @@ export interface ProjectCompanySummary {
   company_country_code: string;
 }
 
+export interface ProjectCompanyOutreachContext {
+  projectCompanyId: string;
+  discoveryRunId: string;
+  companyName: string;
+  industry: string;
+  employeeCountMin: number | null;
+  employeeCountMax: number | null;
+  countryCode: string;
+  headquartersCity: string | null;
+  fitScore: number;
+  qualificationReasons: string[];
+  disqualificationReasons: string[];
+  purchaseSignals: string[];
+  discoveryEvidence: string[];
+}
+
 const RUN_COLS =
   "id, workspace_id, project_id, target_country_id, icp_profile_id, provider, provider_version, status, input_snapshot, criteria_snapshot, result_summary, error_code, safe_error_message, started_at, completed_at, failed_at, created_by, created_at, updated_at";
 const COMPANY_COLS =
@@ -332,6 +348,71 @@ export async function getProjectCompany(
     .eq("id" as never, projectCompanyId)
     .maybeSingle();
   return (r.data as unknown as ProjectCompanyRow) ?? null;
+}
+
+export async function getProjectCompanyOutreachContext(
+  wsId: string,
+  projectId: string,
+  targetCountryId: string,
+  companyId: string,
+): Promise<ProjectCompanyOutreachContext | null> {
+  const supabase = await client();
+  const result = await pcsQuery(supabase)
+    .select(
+      `id, discovery_run_id, fit_score, qualification_reasons, disqualification_reasons,
+       matched_signals, scoring_snapshot,
+       companies!inner(canonical_name, industry, employee_count_min, employee_count_max,
+         country_code, headquarters_city, growth_signals, technology_signals, source_url)`,
+    )
+    .eq("workspace_id" as never, wsId)
+    .eq("project_id" as never, projectId)
+    .eq("target_country_id" as never, targetCountryId)
+    .eq("company_id" as never, companyId)
+    .maybeSingle();
+
+  if (result.error) throw result.error;
+  if (!result.data) return null;
+
+  const row = result.data as unknown as Record<string, unknown>;
+  const company =
+    row.companies && typeof row.companies === "object"
+      ? (row.companies as Record<string, unknown>)
+      : {};
+  const growthSignals = Array.isArray(company.growth_signals)
+    ? company.growth_signals.map(String)
+    : [];
+  const technologySignals = Array.isArray(company.technology_signals)
+    ? company.technology_signals.map(String)
+    : [];
+  const matchedSignals = Array.isArray(row.matched_signals) ? row.matched_signals.map(String) : [];
+  const sourceUrl = typeof company.source_url === "string" ? company.source_url : null;
+
+  return {
+    projectCompanyId: typeof row.id === "string" ? row.id : "",
+    discoveryRunId: typeof row.discovery_run_id === "string" ? row.discovery_run_id : "",
+    companyName: typeof company.canonical_name === "string" ? company.canonical_name : "",
+    industry: typeof company.industry === "string" ? company.industry : "",
+    employeeCountMin:
+      typeof company.employee_count_min === "number" ? company.employee_count_min : null,
+    employeeCountMax:
+      typeof company.employee_count_max === "number" ? company.employee_count_max : null,
+    countryCode: typeof company.country_code === "string" ? company.country_code : "",
+    headquartersCity:
+      typeof company.headquarters_city === "string" ? company.headquarters_city : null,
+    fitScore: typeof row.fit_score === "number" ? row.fit_score : 0,
+    qualificationReasons: Array.isArray(row.qualification_reasons)
+      ? row.qualification_reasons.map(String)
+      : [],
+    disqualificationReasons: Array.isArray(row.disqualification_reasons)
+      ? row.disqualification_reasons.map(String)
+      : [],
+    purchaseSignals: growthSignals,
+    discoveryEvidence: [
+      ...matchedSignals,
+      ...technologySignals,
+      ...(sourceUrl ? [`Source: ${sourceUrl}`] : []),
+    ],
+  };
 }
 
 export async function updateProjectCompanyLifecycle(
