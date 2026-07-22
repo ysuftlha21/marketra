@@ -3,11 +3,12 @@ import { z } from "zod";
 const aiProviderSchema = z.enum(["mock", "openai"]);
 const leadProviderSchema = z.enum(["mock", "manual", "csv", "external"]);
 const companyDiscoveryProviderSchema = z.enum(["mock", "external"]);
-const outreachProviderSchema = z.enum(["mock"]);
+const outreachProviderSchema = z.enum(["mock", "openai"]);
 const marketProviderSchema = z.enum(["mock", "external"]);
 const billingProviderSchema = z.enum(["mock", "stripe", "paytr", "iyzico"]);
 const emailProviderSchema = z.enum(["mock", "smtp"]);
 const analyticsProviderSchema = z.enum(["mock", "external"]);
+const rateLimitProviderSchema = z.enum(["mock", "memory", "external"]);
 
 const appEnvSchema = z.enum(["development", "test", "staging", "production"]);
 
@@ -45,7 +46,7 @@ const serverEnvSchema = z
     // AI provider
     DEFAULT_AI_PROVIDER: aiProviderSchema.default("mock"),
     OPENAI_API_KEY: z.string().optional(),
-    OPENAI_MODEL: z.string().default("gpt-4o-mini"),
+    OPENAI_MODEL: z.enum(["gpt-4o-mini"]).default("gpt-4o-mini"),
     OPENAI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
     OPENAI_MAX_RETRIES: z.coerce.number().int().nonnegative().default(3),
     OPENAI_PROMPT_VERSION: z.string().default("v1"),
@@ -86,6 +87,8 @@ const serverEnvSchema = z
     SMTP_PORT: z.coerce.number().int().positive().default(587),
     SMTP_USER: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
+    SMTP_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
+    SMTP_MAX_RETRIES: z.coerce.number().int().min(0).max(2).default(1),
 
     // Analytics provider
     DEFAULT_ANALYTICS_PROVIDER: analyticsProviderSchema.default("mock"),
@@ -94,6 +97,10 @@ const serverEnvSchema = z
     // Rate limiting
     RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
     RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(60),
+    DEFAULT_RATE_LIMIT_PROVIDER: rateLimitProviderSchema.default("mock"),
+    RATE_LIMIT_API_URL: optionalUrlSchema,
+    RATE_LIMIT_API_TOKEN: z.string().optional(),
+    RATE_LIMIT_PROVIDER_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
 
     // Cost tracking
     AI_COST_TRACKING_ENABLED: z
@@ -131,11 +138,24 @@ const serverEnvSchema = z
         message: 'iyzico credentials are required when DEFAULT_BILLING_PROVIDER is "iyzico".',
       });
     }
-    if (data.DEFAULT_EMAIL_PROVIDER === "smtp" && !data.SMTP_HOST) {
+    if (
+      data.DEFAULT_EMAIL_PROVIDER === "smtp" &&
+      (!data.SMTP_HOST || !data.SMTP_USER || !data.SMTP_PASSWORD)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["SMTP_HOST"],
         message: 'SMTP credentials are required when DEFAULT_EMAIL_PROVIDER is "smtp".',
+      });
+    }
+    if (
+      data.DEFAULT_RATE_LIMIT_PROVIDER === "external" &&
+      (!data.RATE_LIMIT_API_URL || !data.RATE_LIMIT_API_TOKEN)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["RATE_LIMIT_API_URL"],
+        message: "External rate-limit provider credentials are required.",
       });
     }
   });

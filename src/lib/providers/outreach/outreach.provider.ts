@@ -141,9 +141,9 @@ export const OutreachDraftSchema = z.object({
   channel: outreachChannelSchema,
   messageType: outreachMessageTypeSchema,
   language: outreachLanguageSchema,
-  subject: z.string().nullable(),
-  body: z.string().min(1),
-  callToAction: z.string().nullable(),
+  subject: z.string().trim().min(1).max(200).nullable(),
+  body: z.string().trim().min(1).max(5000),
+  callToAction: z.string().trim().min(1).max(500).nullable(),
   tone: outreachToneSchema,
   length: outreachLengthSchema,
 });

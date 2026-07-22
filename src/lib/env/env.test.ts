@@ -26,6 +26,7 @@ describe("parseServerEnv", () => {
     expect(env.DEFAULT_ANALYTICS_PROVIDER).toBe("mock");
     expect(env.DEFAULT_COMPANY_DISCOVERY_PROVIDER).toBe("mock");
     expect(env.DEFAULT_OUTREACH_PROVIDER).toBe("mock");
+    expect(env.DEFAULT_RATE_LIMIT_PROVIDER).toBe("mock");
   });
 
   it("defaults NODE_ENV to development", () => {
@@ -134,6 +135,18 @@ describe("parseServerEnv", () => {
 
   it("requires SMTP_HOST when email provider is smtp", () => {
     expect(() => parseServerEnv({ DEFAULT_EMAIL_PROVIDER: "smtp" })).toThrow(
+      EnvironmentValidationError,
+    );
+  });
+
+  it("requires endpoint credentials for external rate limiting", () => {
+    expect(() => parseServerEnv({ DEFAULT_RATE_LIMIT_PROVIDER: "external" })).toThrow(
+      EnvironmentValidationError,
+    );
+  });
+
+  it("rejects unknown OpenAI models", () => {
+    expect(() => parseServerEnv({ OPENAI_MODEL: "unknown-model" })).toThrow(
       EnvironmentValidationError,
     );
   });

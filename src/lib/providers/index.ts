@@ -15,3 +15,9 @@ export { createAnalyticsProvider, type AnalyticsProviderId } from "./analytics/a
 export type { AnalyticsProvider } from "./analytics/analytics.provider";
 export { createDecisionRoleProvider } from "./decision-roles/decision-roles.factory";
 export type { DecisionRoleProvider } from "./decision-roles/decision-roles.provider";
+export { createOutreachProvider } from "./outreach/outreach.factory";
+export type { OutreachProvider } from "./outreach/outreach.provider";
+export { createCompanyDiscoveryProvider } from "./company-discovery/company-discovery.factory";
+export type { CompanyDiscoveryProvider } from "./company-discovery/company-discovery.provider";
+export { createRateLimitProvider } from "./rate-limit/rate-limit.factory";
+export type { RateLimitProvider } from "./rate-limit/rate-limit.provider";

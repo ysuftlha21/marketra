@@ -3,6 +3,13 @@ import { MockBillingProvider } from "./mock-billing.provider";
 
 export type BillingProviderId = "mock" | "stripe" | "paytr" | "iyzico";
 
+export class BillingProviderConfigError extends Error {
+  constructor(id: string) {
+    super(`Billing provider '${id}' is not available.`);
+    this.name = "BillingProviderConfigError";
+  }
+}
+
 export function createBillingProvider(id: BillingProviderId): BillingProvider {
   switch (id) {
     case "mock":
@@ -10,12 +17,10 @@ export function createBillingProvider(id: BillingProviderId): BillingProvider {
     case "stripe":
     case "paytr":
     case "iyzico":
-      throw new Error(
-        `${id} BillingProvider is not implemented in Phase 1. Set DEFAULT_BILLING_PROVIDER=mock.`,
-      );
+      throw new BillingProviderConfigError(id);
     default: {
       const exhaustive: never = id;
-      throw new Error(`Unknown billing provider: ${String(exhaustive)}`);
+      throw new BillingProviderConfigError(String(exhaustive));
     }
   }
 }

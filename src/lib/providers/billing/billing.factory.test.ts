@@ -7,8 +7,8 @@ describe("createBillingProvider", () => {
   it("creates a mock for 'mock'", () => {
     expect(createBillingProvider("mock").isMock).toBe(true);
   });
-  it.each(unimplemented)("throws for '%s' in Phase 1", (id) => {
-    expect(() => createBillingProvider(id)).toThrow(/Phase 1/);
+  it.each(unimplemented)("fails safely for unavailable '%s'", (id) => {
+    expect(() => createBillingProvider(id)).toThrow(/is not available/);
   });
   it("createCheckoutSession returns a mock session with country price", async () => {
     const r = await createBillingProvider("mock").createCheckoutSession({

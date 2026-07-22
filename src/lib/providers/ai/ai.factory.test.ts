@@ -31,8 +31,8 @@ describe("createAiProvider", () => {
     expect(p.isMock).toBe(true);
   });
 
-  it("throws for 'openai' (not implemented in Phase 1)", () => {
-    expect(() => createAiProvider("openai")).toThrow(/OpenAiProvider is not implemented/);
+  it("requires credentials for 'openai'", () => {
+    expect(() => createAiProvider("openai", { apiKey: "" })).toThrow(/credentials are unavailable/);
   });
 });
 

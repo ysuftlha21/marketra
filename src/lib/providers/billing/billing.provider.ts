@@ -32,6 +32,11 @@ export type WebhookResult = z.infer<typeof webhookResultSchema>;
 export interface BillingProvider {
   readonly name: string;
   readonly isMock: boolean;
+  readonly capabilities: {
+    checkout: boolean;
+    planManagement: boolean;
+    customerPortal: boolean;
+  };
   createCheckoutSession(input: CheckoutInput): Promise<ProviderResult<CheckoutSession>>;
   handleWebhook(
     rawBody: Uint8Array,

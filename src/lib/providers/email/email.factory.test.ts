@@ -9,7 +9,7 @@ describe("createEmailProvider", () => {
     expect(p.isMock).toBe(true);
   });
 
-  it("throws for 'smtp' (not implemented in Phase 1)", () => {
-    expect(() => createEmailProvider("smtp")).toThrow(/SMTP EmailProvider is not implemented/);
+  it("requires complete credentials for 'smtp'", () => {
+    expect(() => createEmailProvider("smtp")).toThrow(/credentials are unavailable/);
   });
 });

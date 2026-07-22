@@ -19,6 +19,11 @@ function meta(startedAt: number) {
 export class MockBillingProvider implements BillingProvider {
   readonly name = "mock-billing";
   readonly isMock = true;
+  readonly capabilities = {
+    checkout: false,
+    planManagement: false,
+    customerPortal: false,
+  } as const;
 
   async createCheckoutSession(input: CheckoutInput) {
     const startedAt = Date.now();

@@ -10,6 +10,9 @@ export interface ProviderRunMeta {
   readonly isMock: boolean;
   readonly durationMs: number;
   readonly tokens?: number;
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+  readonly modelId?: string;
   readonly estimatedCostUsd?: number;
 }
 
