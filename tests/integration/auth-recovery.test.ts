@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type AuthError, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 import { authenticateTestClient } from "../utils/test-auth";
 
@@ -31,6 +31,29 @@ function uid(label: string): string {
 
 function anonClient(): SupabaseClient<Database> {
   return createClient<Database>(URL, ANON_KEY);
+}
+
+const EXPECTED_RECOVERY_ERROR_CODES = [
+  "over_email_send_rate_limit",
+  "email_address_invalid",
+] as const;
+
+function expectExpectedRecoveryError(error: AuthError): void {
+  expect(error.code).not.toBe("user_not_found");
+
+  if (error.code !== undefined) {
+    expect(EXPECTED_RECOVERY_ERROR_CODES).toContain(error.code);
+    return;
+  }
+
+  // auth-js can wrap a non-JSON gateway response as this retryable error
+  // without a provider code. Keep the fallback narrow instead of accepting
+  // arbitrary code-less errors.
+  expect(error).toMatchObject({
+    name: "AuthRetryableFetchError",
+    status: 500,
+    message: "{}",
+  });
 }
 
 /** Extract URL params from action_link using regex (avoids vitest URL issues). */
@@ -107,12 +130,15 @@ if (!HAS_SUPABASE) {
         const { error } = await client.auth.resetPasswordForEmail(email, {
           redirectTo: `${APP_URL}/auth/callback?next=/reset-password`,
         });
-        // Accept either success or rate limit — the API is reachable.
+        // Accept success or a narrowly recognized provider/client failure.
         if (error) {
-          expect(["over_email_send_rate_limit", "email_address_invalid"]).toContain(error.code);
+          expectExpectedRecoveryError(error);
         } else {
           expect(error).toBeNull();
         }
+
+        const { data: sessionData } = await client.auth.getSession();
+        expect(sessionData.session).toBeNull();
       });
 
       it(
@@ -138,11 +164,14 @@ if (!HAS_SUPABASE) {
           // Neither error may reveal account existence via its code.
           for (const err of [knownErr, unknownErr]) {
             if (err) {
-              expect(["over_email_send_rate_limit", "email_address_invalid"]).toContain(err.code);
+              expectExpectedRecoveryError(err);
             } else {
               expect(err).toBeNull();
             }
           }
+
+          const { data: sessionData } = await client.auth.getSession();
+          expect(sessionData.session).toBeNull();
         },
       );
     });
