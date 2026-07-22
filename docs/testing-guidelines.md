@@ -70,6 +70,11 @@ npm run test:e2e -- <suite>   # when the feature is testable end to end
 
 ## 8. E2E suites
 
+Outreach E2E fixtures use isolated workspaces and the approved test-Supabase guard. The Mock provider
+is synchronous and the authoritative suite uses the repository's single-worker configuration. Draft
+workflow coverage includes optimistic concurrency, immutable history, role-denied review actions,
+URL-preserved dashboard filters, browser health, and mobile reachability.
+
 Critical MVP flows covered by Playwright suites (named, selectable via `-- <suite>`):
 
 - `auth` — signup/login/workspace.

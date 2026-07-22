@@ -112,7 +112,9 @@ export function OutreachDraftView({
       <Card className="border-border/60">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-base">Outreach Draft · v{version}</CardTitle>
+            <CardTitle className="text-base">
+              <span>Generated Draft</span> · v{version}
+            </CardTitle>
             <div className="flex flex-wrap gap-1.5">
               <Badge variant="outline" tone="info">
                 {channel.replace("_", " ")}

@@ -12,6 +12,13 @@ import {
 } from "@/features/auth/schema/auth-schemas";
 import { sanitizeRedirect } from "@/lib/security/redirect";
 import { getPublicAppUrl } from "@/lib/env/runtime-env";
+import { z } from "zod";
+
+const pricingIntentSchema = z.object({
+  plan: z.enum(["starter", "growth"]).optional(),
+  billingInterval: z.enum(["monthly", "annual"]).optional(),
+  trial: z.literal("true").optional(),
+});
 
 function authError(code: string | undefined | null, fallback: string): string {
   switch (code) {
@@ -39,6 +46,13 @@ function fallbackForPath(referer: string | null): string {
 }
 
 export async function signUpAction(formData: FormData) {
+  const pricingIntent = pricingIntentSchema.safeParse({
+    plan: formData.get("plan") || undefined,
+    billingInterval: formData.get("billingInterval") || undefined,
+    trial: formData.get("trial") || undefined,
+  });
+  if (!pricingIntent.success) return { error: "The selected pricing option is invalid." };
+
   const parsed = signUpSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -52,7 +66,18 @@ export async function signUpAction(formData: FormData) {
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
-    options: { data: { display_name: parsed.data.displayName ?? null } },
+    options: {
+      data: {
+        display_name: parsed.data.displayName ?? null,
+        pricing_intent: pricingIntent.data.plan
+          ? {
+              plan: pricingIntent.data.plan,
+              billing_interval: pricingIntent.data.billingInterval ?? "monthly",
+              trial_requested: pricingIntent.data.trial === "true",
+            }
+          : null,
+      },
+    },
   });
   if (error) {
     return { error: authError(error.code, "Sign up failed. Please try again.") };

@@ -82,6 +82,21 @@ tests for all provider mocks pass.
 - CRM: companies, activities, statuses, per workspace.
 - Optional campaigns grouping.
 
+### Phase 8 delivery
+
+- **8.1 Architecture:** dedicated `OutreachProvider`, typed contracts, deterministic Mock provider,
+  generation-run persistence, workspace usage enforcement, and safe error mapping.
+- **8.2 Generation:** synchronous single-company generation from an approved Decision Role. Each
+  successful run creates a draft and immutable version 1. A future non-Mock provider requires a
+  durable worker before asynchronous execution is enabled.
+- **8.3 Draft workflow:** edits and historical restores append immutable versions through an
+  optimistic-concurrency PostgreSQL function. Lifecycle states are `draft`, `approved`, `rejected`,
+  and `archived`; Owner/Admin review while Members may generate and edit. Approved edits create a
+  new version and reset status to draft. The workspace dashboard uses URL-backed filters and bounded
+  pagination. Non-generation operations do not consume generation usage.
+- Usage resolution intentionally keeps the typed Free-plan fallback until Phase 9 provides a
+  persisted BillingProvider subscription source.
+
 ## Phase 9 — Billing, usage, admin, audit
 
 - Country-specific pricing + checkout via `BillingProvider`.

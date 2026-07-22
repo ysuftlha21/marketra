@@ -86,6 +86,7 @@ export function RunAnalysisButton({
         setError(res.error);
         setLocalPending(false);
       } else {
+        setSuccess("Analysis completed successfully.");
         startTransition(() => {
           router.refresh();
           setLocalPending(false);

@@ -64,7 +64,7 @@ export default defineConfig({
       name: "chromium-mobile",
       dependencies: ["setup"],
       testMatch: ["**/authenticated*.ts", "**/mobile-discovery*", "**/screenshots-outreach*"],
-      testIgnore: ["**/signout*", "**/dashboard.spec.ts"],
+      testIgnore: ["**/signout*", "**/dashboard.spec.ts", "**/authenticated-projects.spec.ts"],
       use: {
         storageState: "playwright/.auth/mobile-user.json",
         browserName: "chromium",

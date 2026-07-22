@@ -51,7 +51,13 @@ function initials(name: string, email: string): string {
   return (parts[0]![0] ?? "U").toUpperCase();
 }
 
-function WorkspaceSwitcher({ context }: { context: AppShellContext }) {
+function WorkspaceSwitcher({
+  context,
+  menuPlacement = "down",
+}: {
+  context: AppShellContext;
+  menuPlacement?: "up" | "down";
+}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
@@ -97,7 +103,10 @@ function WorkspaceSwitcher({ context }: { context: AppShellContext }) {
         <div
           role="menu"
           aria-label="Workspaces"
-          className="absolute right-0 z-50 mt-1 w-52 rounded-lg border border-border/60 bg-surface py-1 shadow-lg"
+          className={cn(
+            "absolute right-0 z-50 w-52 rounded-lg border border-border/60 bg-surface py-1 shadow-lg",
+            menuPlacement === "up" ? "bottom-full mb-1" : "mt-1",
+          )}
         >
           {context.workspaces.map((w) => (
             <button
@@ -294,6 +303,12 @@ export function AppShell({
               </button>
             </div>
             <SidebarNav onNavigate={() => setMobileOpen(false)} />
+            <div className="mt-auto border-t border-border px-4 py-3">
+              <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                <Building2 className="h-4 w-4 shrink-0 text-violet-400" />
+                <WorkspaceSwitcher context={context} menuPlacement="up" />
+              </div>
+            </div>
           </aside>
         </div>
       )}

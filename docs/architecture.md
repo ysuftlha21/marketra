@@ -90,3 +90,12 @@ the same interface. See `docs/provider-architecture.md`.
 
 No microservices, no Kubernetes, no GraphQL, no Turborepo, no separate front/back, no Python
 backend, no Prisma (Supabase only), no event-driven architecture, no premature abstractions.
+
+## 11. Outreach draft workflow
+
+Outreach generation remains synchronous while the deterministic Mock provider is active. Generation
+runs preserve snapshots and produce a current draft plus immutable history. Edits and restores are
+atomic PostgreSQL operations guarded by the caller's expected version; review transitions are
+server-validated and Owner/Admin-only. RLS scopes drafts and versions to workspace members, and
+repository queries use tenant filters and bounded result sets. A real slow provider requires a
+durable worker before detached execution is permitted.

@@ -111,12 +111,13 @@ export default async function OutreachPage({ searchParams }: { searchParams: Sea
           <div className="divide-y divide-border/60">
             {typedRows.map((row) => {
               const project = row.projects as { name: string; slug: string };
-              const company = row.companies as { name: string };
+              const company = row.companies as { canonical_name: string };
               const role = row.company_decision_roles as { role_title: string };
               const run = row.outreach_generation_runs as {
-                project_target_countries: { country_code: string };
+                icp_profiles: { project_target_countries: { country_code: string } };
               };
-              const href = `/dashboard/projects/${project.slug}/markets/${run.project_target_countries.country_code}/discovery/${String(row.company_id)}`;
+              const countryCode = run.icp_profiles.project_target_countries.country_code;
+              const href = `/dashboard/projects/${project.slug}/markets/${countryCode}/discovery/${String(row.company_id)}`;
               return (
                 <Link
                   key={String(row.id)}
@@ -124,14 +125,12 @@ export default async function OutreachPage({ searchParams }: { searchParams: Sea
                   className="grid gap-2 p-4 transition-colors hover:bg-muted/40 md:grid-cols-[1.4fr_1fr_.7fr_.7fr_auto] md:items-center"
                 >
                   <div>
-                    <p className="font-medium">{company.name}</p>
+                    <p className="font-medium">{company.canonical_name}</p>
                     <p className="text-xs text-muted-foreground">{role.role_title}</p>
                   </div>
                   <div className="text-sm">
                     <p>{project.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {run.project_target_countries.country_code}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{countryCode}</p>
                   </div>
                   <div className="text-sm capitalize">
                     {String(row.channel).replaceAll("_", " ")}

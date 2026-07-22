@@ -17,6 +17,15 @@ Never edit a shipped decision silently. Override an older one with a new entry a
 
 ---
 
+### 2026-07-17 — Phase 8 Outreach immutable draft workflow
+
+- **Context:** Phase 8 generation existed, but editing, review, immutable restore, and workspace-wide browsing were incomplete and multi-write client operations could race.
+- **Decision:** Added atomic security-invoker PostgreSQL functions for version creation/restore and lifecycle transitions. Expected-version checks reject stale writes. Owner/Admin approve or reject; Members may generate and edit. Approved edits append a new version and return status to draft. The Outreach dashboard uses workspace-scoped, deterministic, paginated repository queries and URL-backed filters.
+- **Consequences:** Non-generation actions do not consume usage. The synchronous Mock provider remains deployment-safe; a real slow provider requires a durable worker. Billing retains the typed Free fallback until Phase 9 supplies a persisted subscription source.
+- **Affected docs:** `docs/phase-plan.md`, `docs/architecture.md`, `docs/testing-guidelines.md`, `docs/database-rules.md`.
+
+---
+
 ### 2026-07-14 — Phase 5: Country-specific ICP generation
 
 - **Context:** Phase 5 required country-specific ICP generation, versioning, approval lifecycle, and comparison. ICP must always be tied to a project-country pair with immutable input snapshots.

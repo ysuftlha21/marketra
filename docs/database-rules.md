@@ -1,5 +1,14 @@
 # Database Rules
 
+## Outreach draft history
+
+`outreach_draft_versions` is append-only for authenticated users. Version numbers are unique and
+monotonic per draft. Editing and restoring run through an atomic security-invoker function that
+locks the current draft and checks the expected version, preventing stale writes or split draft/
+history state. Review transitions use the same lock and enforce Owner/Admin authority in PostgreSQL.
+Draft, project, company, role, and generation-run relationships remain workspace-consistent under
+RLS; archived drafts are excluded from active dashboard and company-detail queries.
+
 > PostgreSQL on Supabase. RLS is mandatory. Repositories are the only code that touches tables.
 > Read with `docs/architecture.md` and `docs/security-rules.md`.
 

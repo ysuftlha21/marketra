@@ -166,7 +166,8 @@ function safeDraftOperationError(error: unknown) {
 export async function editOutreachDraftAction(input: unknown) {
   const ctx = await getAuthContext();
   if (!ctx?.activeWorkspace) return { error: "Sign in." };
-  if (!canEditOutreach(ctx.activeWorkspace.role)) return { error: "You do not have permission to edit outreach." };
+  if (!canEditOutreach(ctx.activeWorkspace.role))
+    return { error: "You do not have permission to edit outreach." };
   const parsed = outreachDraftContentSchema.safeParse(input);
   if (!parsed.success) return { error: "Enter valid outreach content." };
   try {
@@ -178,7 +179,9 @@ export async function editOutreachDraftAction(input: unknown) {
       changeType: "edited",
     });
     return { success: true, draft };
-  } catch (error) { return { error: safeDraftOperationError(error) }; }
+  } catch (error) {
+    return { error: safeDraftOperationError(error) };
+  }
 }
 
 export async function transitionOutreachDraftAction(input: unknown) {
@@ -186,10 +189,18 @@ export async function transitionOutreachDraftAction(input: unknown) {
   if (!ctx?.activeWorkspace) return { error: "Sign in." };
   const parsed = outreachDraftTransitionSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid draft action." };
-  if (["approve", "reject"].includes(parsed.data.transition) && !canReviewOutreach(ctx.activeWorkspace.role)) {
+  if (
+    ["approve", "reject"].includes(parsed.data.transition) &&
+    !canReviewOutreach(ctx.activeWorkspace.role)
+  ) {
     return { error: "You do not have permission to review outreach." };
   }
-  const targets = { approve: "approved", reject: "rejected", reopen: "draft", archive: "archived" } as const;
+  const targets = {
+    approve: "approved",
+    reject: "rejected",
+    reopen: "draft",
+    archive: "archived",
+  } as const;
   try {
     const draft = await transitionDraftAtomic({
       draftId: parsed.data.draftId,
@@ -198,13 +209,16 @@ export async function transitionOutreachDraftAction(input: unknown) {
       reason: parsed.data.reason,
     });
     return { success: true, draft };
-  } catch (error) { return { error: safeDraftOperationError(error) }; }
+  } catch (error) {
+    return { error: safeDraftOperationError(error) };
+  }
 }
 
 export async function restoreOutreachDraftVersionAction(input: unknown) {
   const ctx = await getAuthContext();
   if (!ctx?.activeWorkspace) return { error: "Sign in." };
-  if (!canEditOutreach(ctx.activeWorkspace.role)) return { error: "You do not have permission to edit outreach." };
+  if (!canEditOutreach(ctx.activeWorkspace.role))
+    return { error: "You do not have permission to edit outreach." };
   const parsed = outreachDraftRestoreSchema.safeParse(input);
   if (!parsed.success) return { error: "Invalid version." };
   try {
@@ -217,7 +231,9 @@ export async function restoreOutreachDraftVersionAction(input: unknown) {
       restoreVersion: parsed.data.versionNumber,
     });
     return { success: true, draft };
-  } catch (error) { return { error: safeDraftOperationError(error) }; }
+  } catch (error) {
+    return { error: safeDraftOperationError(error) };
+  }
 }
 
 export async function getOutreachDraftVersionsAction(draftId: string) {
@@ -226,7 +242,9 @@ export async function getOutreachDraftVersionsAction(draftId: string) {
   try {
     const versions = await getOutreachDraftVersions(ctx.activeWorkspace.workspace.id, draftId);
     return { success: true, versions };
-  } catch { return { error: "Could not load version history." }; }
+  } catch {
+    return { error: "Could not load version history." };
+  }
 }
 
 export async function getOutreachUsageAction() {

@@ -19,6 +19,10 @@ describe("pricing experience", () => {
       "href",
       expect.stringContaining("interval=annual"),
     );
+    expect(screen.getByRole("link", { name: "Start Free Trial" })).toHaveAttribute(
+      "href",
+      "/sign-up?plan=growth&interval=annual&trial=true",
+    );
   });
   it("opens contact sales and expands FAQ items", () => {
     render(<PricingExperience />);
@@ -32,5 +36,18 @@ describe("pricing experience", () => {
   it("does not display unsupported certification claims", () => {
     render(<PricingExperience />);
     expect(screen.queryByText(/SOC\s?2/i)).not.toBeInTheDocument();
+  });
+  it("never fakes successful delivery of a contact-sales request", () => {
+    render(<PricingExperience />);
+    fireEvent.click(screen.getByRole("button", { name: "Contact Sales" }));
+    fireEvent.change(screen.getByLabelText("Work email"), {
+      target: { value: "buyer@example.com" },
+    });
+    for (const label of ["Company", "Role", "Team size", "Current markets", "Target markets"])
+      fireEvent.change(screen.getByLabelText(label), { target: { value: "Marketra test" } });
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Expansion request" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit request" }));
+    expect(screen.getByText("Sales delivery is not configured yet")).toBeInTheDocument();
+    expect(screen.queryByText(/sent successfully/i)).not.toBeInTheDocument();
   });
 });

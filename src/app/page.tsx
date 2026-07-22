@@ -13,9 +13,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CountryBadge } from "@/components/common/country-badge";
+import { PricingExperience } from "@/features/pricing/components/pricing-experience";
+import { ProblemSection } from "@/components/landing/problem/problem-section";
 import { cn } from "@/lib/utils/cn";
-import { plans } from "@/config/plans";
-import { formatUsd } from "@/config/pricing";
 
 const steps = [
   {
@@ -176,6 +176,8 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        <ProblemSection />
 
         {/* ── Workflow (connected process) ── */}
         <section className="border-b border-border bg-surface">
@@ -400,68 +402,7 @@ export default function HomePage() {
         </section>
 
         {/* ── Pricing (global USD) ── */}
-        <section className="border-b border-border bg-surface">
-          <div className="container mx-auto max-w-6xl px-6 py-24">
-            <div className="flex items-center gap-3 mb-6">
-              <h2 className="font-display text-3xl font-medium tracking-tight text-foreground">
-                One global price
-              </h2>
-              <Badge variant="outline" tone="accent">
-                Early access
-              </Badge>
-            </div>
-            <p className="max-w-md text-base text-muted-foreground">
-              All plans in USD. No country-dependent pricing. Start free and upgrade when you need
-              more.
-            </p>
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {plans.map((plan) => (
-                <Card
-                  key={plan.id}
-                  className={cn(
-                    "relative flex flex-col rounded-2xl border bg-surface p-8 transition-all hover:shadow-md",
-                    plan.highlight
-                      ? "border-primary shadow-lg scale-[1.02] z-10 ring-1 ring-primary/20"
-                      : "border-border/60 hover:border-border",
-                  )}
-                >
-                  {plan.highlight && (
-                    <div className="absolute -top-3 left-0 right-0 mx-auto w-fit rounded-full bg-primary px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground">
-                      Most popular
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <h3
-                      className={cn(
-                        "text-lg font-semibold",
-                        plan.highlight ? "text-primary" : "text-foreground",
-                      )}
-                    >
-                      {plan.name}
-                    </h3>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
-                  <p className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
-                    {formatUsd(plan.monthlyPrice)}
-                    <span className="text-sm font-normal text-muted-foreground">/mo</span>
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {plan.annualPrice > 0 ? `${formatUsd(plan.annualPrice)}/yr` : ""}
-                  </p>
-                  <Link
-                    href="/pricing"
-                    className={cn(
-                      buttonVariants({ variant: plan.highlight ? "default" : "outline" }),
-                      "mt-6",
-                    )}
-                  >
-                    View details
-                  </Link>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
+        <PricingExperience />
 
         {/* ── CTA ── */}
         <section className="bg-background">

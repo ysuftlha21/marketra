@@ -31,6 +31,6 @@ test.describe("Unauthenticated access", () => {
 
   test("allows access to pricing page without auth", async ({ page }) => {
     await page.goto("/pricing");
-    await expect(page.getByRole("heading", { name: "Pricing" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pricing", exact: true })).toBeVisible();
   });
 });

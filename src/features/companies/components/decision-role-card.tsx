@@ -128,6 +128,7 @@ export function DecisionRoleCard({ role, projectId, projectSlug }: DecisionRoleC
             <form
               action={async (fd) => {
                 await updateDecisionRoleStatusAction(fd);
+                window.location.reload();
               }}
             >
               <input type="hidden" name="roleId" value={role.id} />
@@ -142,6 +143,7 @@ export function DecisionRoleCard({ role, projectId, projectSlug }: DecisionRoleC
             <form
               action={async (fd) => {
                 await updateDecisionRoleStatusAction(fd);
+                window.location.reload();
               }}
             >
               <input type="hidden" name="roleId" value={role.id} />
@@ -164,6 +166,7 @@ export function DecisionRoleCard({ role, projectId, projectSlug }: DecisionRoleC
           <form
             action={async (fd) => {
               await setPrimaryRoleAction(fd);
+              window.location.reload();
             }}
           >
             <input type="hidden" name="roleId" value={role.id} />
@@ -181,6 +184,7 @@ export function DecisionRoleCard({ role, projectId, projectSlug }: DecisionRoleC
           <form
             action={async (fd) => {
               await setSecondaryRoleAction(fd);
+              window.location.reload();
             }}
           >
             <input type="hidden" name="roleId" value={role.id} />

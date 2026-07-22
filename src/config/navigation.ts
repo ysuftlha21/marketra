@@ -62,5 +62,5 @@ export type MarketingNavItem = z.infer<typeof marketingNavSchema>;
 export const marketingNavigation: readonly MarketingNavItem[] = [
   { label: "Product", href: "/#product" },
   { label: "How it works", href: "/#how-it-works" },
-  { label: "Pricing", href: "/pricing" },
+  { label: "Pricing", href: "/#pricing" },
 ] as const;

@@ -345,17 +345,22 @@ export async function listWorkspaceOutreachDrafts(wsId: string, filters: Outreac
   let query = supabase
     .from("outreach_drafts")
     .select(
-      "*, projects!inner(name,slug), companies!inner(name), company_decision_roles!inner(role_title), outreach_generation_runs!inner(country_id, project_target_countries!inner(country_code))",
+      "*, projects!inner(name,slug), companies!inner(canonical_name), company_decision_roles!inner(role_title), outreach_generation_runs!inner(icp_profiles!inner(project_target_country_id, project_target_countries!inner(country_code)))",
       { count: "exact" },
     )
     .eq("workspace_id", wsId)
     .neq("status", "archived");
   if (filters.projectId) query = query.eq("project_id", filters.projectId);
-  if (filters.countryId) query = query.eq("outreach_generation_runs.country_id", filters.countryId);
+  if (filters.countryId)
+    query = query.eq(
+      "outreach_generation_runs.icp_profiles.project_target_country_id",
+      filters.countryId,
+    );
   if (filters.channel) query = query.eq("channel", filters.channel);
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.language) query = query.eq("language", filters.language);
-  if (filters.companySearch) query = query.ilike("companies.name", `%${filters.companySearch}%`);
+  if (filters.companySearch)
+    query = query.ilike("companies.canonical_name", `%${filters.companySearch}%`);
   const from = (filters.page - 1) * filters.pageSize;
   const { data, error, count } = await query
     .order("updated_at", { ascending: false })

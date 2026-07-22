@@ -2,6 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
   Globe2,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import {
   annualPricingEnabled,
+  growthTrialEnabled,
   pricingBenefits,
   pricingFaqs,
   pricingPlans,
@@ -33,7 +35,8 @@ function PlanCard({
   onContact: () => void;
 }) {
   const price = interval === "annual" ? plan.annualPrice : plan.monthlyPrice;
-  const href = `/sign-up?plan=${plan.id}&interval=${interval}${plan.cta.action === "trial" ? "&trial=true" : ""}`;
+  const trialRequested = plan.cta.action === "trial" && growthTrialEnabled;
+  const href = `/sign-up?plan=${plan.id}&interval=${interval}${trialRequested ? "&trial=true" : ""}`;
   return (
     <article
       className={cn(
@@ -105,7 +108,7 @@ function PlanCard({
   );
 }
 function ContactDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [sent, setSent] = React.useState(false);
+  const [status, setStatus] = React.useState<"idle" | "unavailable">("idle");
   if (!open) return null;
   return (
     <div
@@ -126,19 +129,20 @@ function ContactDialog({ open, onClose }: { open: boolean; onClose: () => void }
             <X />
           </button>
         </div>
-        {sent ? (
+        {status === "unavailable" ? (
           <div className="py-16 text-center">
-            <Check className="mx-auto text-emerald-400" />
-            <p className="mt-3 font-semibold">Request prepared</p>
+            <AlertTriangle className="mx-auto text-amber-400" />
+            <p className="mt-3 font-semibold">Sales delivery is not configured yet</p>
             <p className="text-sm text-zinc-500">
-              Sales delivery will be connected through the BillingProvider/contact integration.
+              Your information was not sent or stored. Please try again after the contact provider
+              is enabled.
             </p>
           </div>
         ) : (
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              setSent(true);
+              setStatus("unavailable");
             }}
             className="mt-6 grid gap-3 sm:grid-cols-2"
           >
@@ -177,10 +181,11 @@ function ContactDialog({ open, onClose }: { open: boolean; onClose: () => void }
     </div>
   );
 }
-export function PricingExperience() {
+export function PricingExperience({ headingLevel = "h2" }: { headingLevel?: "h1" | "h2" }) {
   const [interval, setInterval] = React.useState<BillingInterval>("monthly");
   const [contact, setContact] = React.useState(false);
   const [faq, setFaq] = React.useState(0);
+  const Eyebrow = headingLevel === "h1" ? "h1" : "span";
   return (
     <>
       <section
@@ -190,15 +195,15 @@ export function PricingExperience() {
         <div className="pricing-map-pattern absolute inset-0 opacity-20" />
         <div className="relative mx-auto max-w-6xl">
           <div className="text-center">
-            <span className="rounded-lg border border-violet-500/20 bg-violet-500/10 px-4 py-2 text-xs tracking-widest text-violet-300">
-              PRICING
-            </span>
-            <h1 className="mt-8 text-4xl font-semibold tracking-tight sm:text-6xl">
+            <Eyebrow className="inline-flex rounded-lg border border-violet-500/20 bg-violet-500/10 px-4 py-2 text-xs uppercase tracking-widest text-violet-300">
+              Pricing
+            </Eyebrow>
+            <h2 className="mt-8 text-4xl font-semibold tracking-tight sm:text-6xl">
               Simple pricing.{" "}
               <span className="bg-gradient-to-r from-fuchsia-300 to-violet-500 bg-clip-text text-transparent">
                 Scale globally.
               </span>
-            </h1>
+            </h2>
             <p className="mx-auto mt-5 max-w-xl text-lg text-zinc-500">
               Choose the plan that fits your team today.
               <br />

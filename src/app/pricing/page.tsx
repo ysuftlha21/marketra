@@ -8,7 +8,7 @@ export default function PricingPage() {
     <div className="min-h-screen bg-[#0d0d12]">
       <MarketingHeader />
       <main>
-        <PricingExperience />
+        <PricingExperience headingLevel="h1" />
       </main>
       <MarketingFooter />
     </div>

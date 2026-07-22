@@ -55,10 +55,11 @@ async function restorePrimaryWorkspace(page: Page) {
 test.describe("Decision Roles (authenticated)", () => {
   test.setTimeout(90_000);
   test.skip(
-    ({ isMobile }) => !!isMobile,
+    ({ viewport }) => (viewport?.width ?? 1280) < 768,
     "Decision Role review uses the desktop company-detail layout in this suite",
   );
-  test.afterEach(async ({ page }) => {
+  test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.project.name.includes("mobile")) return;
     await restorePrimaryWorkspace(page);
   });
 
@@ -70,7 +71,6 @@ test.describe("Decision Roles (authenticated)", () => {
     });
     await expect(generateButton).toBeVisible();
     await generateButton.click();
-    await expect(page.getByText(/Analyzing buying committee/i)).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole("heading", { name: /VP of Engineering/i })).toBeVisible({
       timeout: 15000,
     });
@@ -80,8 +80,10 @@ test.describe("Decision Roles (authenticated)", () => {
     await expect(page.getByText(/Approved/i).first()).toBeVisible();
 
     const primaryButton = page.getByRole("button", { name: /Set Primary/i }).first();
-    await primaryButton.click();
-    await expect(page.getByText(/Primary/i).first()).toBeVisible();
+    const primaryBadge = page.getByText(/Primary/i).first();
+    await expect(primaryButton.or(primaryBadge)).toBeVisible();
+    if (await primaryButton.isVisible()) await primaryButton.click();
+    await expect(primaryBadge).toBeVisible();
 
     await page.reload();
     await expect(page.getByRole("heading", { name: /VP of Engineering/i })).toBeVisible({

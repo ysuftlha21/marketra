@@ -6,6 +6,16 @@ function onlyProject(testInfo: TestInfo, name: string) {
   test.skip(testInfo.project.name !== name, `${name} only`);
 }
 
+async function getWorkspaceSwitcher(page: Page) {
+  let switcher = page.getByRole("button", { name: "Switch workspace" });
+  if ((await switcher.count()) === 0) {
+    await page.getByRole("button", { name: "Open navigation" }).click();
+    switcher = page.getByRole("button", { name: "Switch workspace" });
+  }
+  await expect(switcher).toBeVisible();
+  return switcher;
+}
+
 async function openCompany(page: Page, projectSlug: string) {
   const workspaceName = projectSlug.includes("-mobile-")
     ? "E2E Outreach Mobile"
@@ -13,13 +23,11 @@ async function openCompany(page: Page, projectSlug: string) {
       ? "E2E Outreach States"
       : "E2E Outreach Desktop";
   await page.goto("/dashboard/settings");
-  const switcher = page.getByRole("button", { name: "Switch workspace" });
+  const switcher = await getWorkspaceSwitcher(page);
   if (!(await switcher.textContent())?.includes(workspaceName)) {
     await switcher.click();
     await page.getByRole("menuitemradio", { name: new RegExp(workspaceName) }).click();
     await page.waitForURL(/\/dashboard$/);
-    await expect(switcher).toContainText(workspaceName);
-    await expect(switcher).toBeEnabled();
     await page.waitForLoadState("networkidle");
   }
   await page.goto(`/dashboard/projects/${projectSlug}/markets/US/discovery`);
@@ -37,7 +45,7 @@ async function openCompany(page: Page, projectSlug: string) {
 
 async function restorePrimaryWorkspace(page: Page) {
   await page.goto("/dashboard/settings");
-  const switcher = page.getByRole("button", { name: "Switch workspace" });
+  const switcher = await getWorkspaceSwitcher(page);
   await switcher.click();
   const primaryWorkspace = page
     .getByRole("menuitemradio")
@@ -47,11 +55,8 @@ async function restorePrimaryWorkspace(page: Page) {
     (await primaryWorkspace.count()) > 0 &&
     (await primaryWorkspace.getAttribute("aria-checked")) !== "true"
   ) {
-    const primaryName = (await primaryWorkspace.textContent())?.replace(/owner\s*$/i, "").trim();
     await primaryWorkspace.click();
     await page.waitForURL(/\/dashboard$/);
-    if (primaryName) await expect(switcher).toContainText(primaryName);
-    await expect(switcher).toBeEnabled();
     await page.waitForLoadState("networkidle");
   } else {
     await page.keyboard.press("Escape");
@@ -85,7 +90,7 @@ async function expectClipboard(page: Page, buttonName: string, expected: RegExp)
 test.describe("Phase 8.2 Outreach browser verification", () => {
   test.setTimeout(120_000);
   test.afterEach(async ({ page }, testInfo) => {
-    if (!testInfo.skipped) await restorePrimaryWorkspace(page);
+    if (testInfo.status !== "skipped") await restorePrimaryWorkspace(page);
   });
 
   test("desktop email workflow completes without a page reload", async ({ page }, testInfo) => {

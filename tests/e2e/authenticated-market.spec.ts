@@ -8,7 +8,7 @@ function firstProjectLink(page: import("@playwright/test").Page) {
 
 test.describe("Market flows — desktop (authenticated)", () => {
   test.skip(
-    ({ isMobile }) => !!isMobile,
+    ({ viewport }) => (viewport?.width ?? 1280) < 768,
     "Desktop sidebar navigation and table views are replaced by mobile drawer and stacked cards on small viewports",
   );
 

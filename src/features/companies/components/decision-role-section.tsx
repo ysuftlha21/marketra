@@ -65,6 +65,7 @@ export function DecisionRoleSection({
             <form
               action={async (fd) => {
                 await retryDecisionRoleGenerationAction(fd);
+                window.location.reload();
               }}
             >
               <input type="hidden" name="projectSlug" value={projectSlug} />
@@ -79,6 +80,7 @@ export function DecisionRoleSection({
             <form
               action={async (fd) => {
                 await startDecisionRoleGenerationAction(fd);
+                window.location.reload();
               }}
             >
               <input type="hidden" name="projectSlug" value={projectSlug} />

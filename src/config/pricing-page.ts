@@ -19,6 +19,7 @@ export interface PricingPlan {
 }
 
 export const annualPricingEnabled = true;
+export const growthTrialEnabled = true;
 export const pricingPlans: readonly PricingPlan[] = [
   {
     id: "starter",

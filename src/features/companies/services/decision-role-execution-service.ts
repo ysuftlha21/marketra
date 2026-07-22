@@ -282,7 +282,7 @@ async function executeDecisionRoleGeneration(
 
     await updateDecisionRoleRun(wsId, runId, {
       status: "succeeded",
-      current_stage: "completed",
+      current_stage: "complete",
       result_snapshot: providerRes as unknown as import("@/lib/db/database.types").Json,
       completed_at: new Date().toISOString(),
     });
@@ -291,7 +291,7 @@ async function executeDecisionRoleGeneration(
     isTimeout = e instanceof Error && !!e.message?.includes("timeout");
     await updateDecisionRoleRun(wsId, runId, {
       status: "failed",
-      current_stage: "failed",
+      current_stage: "generating_roles",
       error_code: isTimeout ? "provider_timeout" : "persistence_failure",
       safe_error_message: e instanceof Error ? e.message : "Unknown error during role generation",
       result_snapshot: providerRes as unknown as import("@/lib/db/database.types").Json,

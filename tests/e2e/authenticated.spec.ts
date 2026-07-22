@@ -94,8 +94,11 @@ test.describe("Workspace rename", () => {
 });
 
 test.describe("Workspace switching", () => {
-  test("sidebar shows the active workspace name", async ({ page }) => {
+  test("sidebar shows the active workspace name", async ({ page }, testInfo) => {
     await page.goto("/dashboard");
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByRole("button", { name: "Open navigation" }).click();
+    }
     // The "Switch workspace" button shows the current workspace name on all viewports
     await expect(page.getByRole("button", { name: /Switch workspace/i })).toBeVisible();
   });
