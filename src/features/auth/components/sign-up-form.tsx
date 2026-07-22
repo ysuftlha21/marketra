@@ -19,6 +19,7 @@ export function SignUpForm({
 }) {
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
+  const pendingRef = React.useRef(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirm, setShowConfirm] = React.useState(false);
   const {
@@ -30,6 +31,8 @@ export function SignUpForm({
   const password = watch("password", "");
 
   async function onSubmit(values: SignUpInput) {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
     setError(null);
     setPending(true);
     try {
@@ -44,6 +47,7 @@ export function SignUpForm({
       const res = await signUpAction(formData);
       if (res?.error) setError(res.error);
     } finally {
+      pendingRef.current = false;
       setPending(false);
     }
   }
@@ -246,6 +250,7 @@ export function SignUpForm({
             <button
               type="submit"
               disabled={pending}
+              aria-busy={pending}
               className={cn(buttonVariants({ variant: "default", size: "lg" }), "w-full")}
             >
               {pending ? "Creating account…" : "Create account"}{" "}

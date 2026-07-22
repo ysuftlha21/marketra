@@ -36,6 +36,21 @@ function authError(code: string | undefined | null, fallback: string): string {
   }
 }
 
+const SIGN_UP_EMAIL_RATE_LIMIT_MESSAGE =
+  "Too many confirmation emails have been requested. Please wait a while and try again.";
+
+function signUpError(error: { code?: string | null; status?: number } | null | undefined): string {
+  if (
+    error?.status === 429 ||
+    error?.code === "over_email_send_rate_limit" ||
+    error?.code === "email_rate_limit_exceeded"
+  ) {
+    return SIGN_UP_EMAIL_RATE_LIMIT_MESSAGE;
+  }
+
+  return authError(error?.code, "Sign up failed. Please try again.");
+}
+
 async function getRedirectNext(): Promise<string> {
   const h = await headers();
   return sanitizeRedirect(h.get("next"), fallbackForPath(h.get("referer")));
@@ -62,27 +77,32 @@ export async function signUpAction(formData: FormData) {
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const supabase = await createServerClient();
-  const { data, error } = await supabase.auth.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
-    options: {
-      data: {
-        display_name: parsed.data.displayName ?? null,
-        pricing_intent: pricingIntent.data.plan
-          ? {
-              plan: pricingIntent.data.plan,
-              billing_interval: pricingIntent.data.billingInterval ?? "monthly",
-              trial_requested: pricingIntent.data.trial === "true",
-            }
-          : null,
+  let result: Awaited<ReturnType<Awaited<ReturnType<typeof createServerClient>>["auth"]["signUp"]>>;
+  try {
+    const supabase = await createServerClient();
+    result = await supabase.auth.signUp({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      options: {
+        data: {
+          display_name: parsed.data.displayName ?? null,
+          pricing_intent: pricingIntent.data.plan
+            ? {
+                plan: pricingIntent.data.plan,
+                billing_interval: pricingIntent.data.billingInterval ?? "monthly",
+                trial_requested: pricingIntent.data.trial === "true",
+              }
+            : null,
+        },
       },
-    },
-  });
-  if (error) {
-    return { error: authError(error.code, "Sign up failed. Please try again.") };
+    });
+  } catch {
+    return { error: "Sign up failed. Please try again." };
   }
-  if (data.user && data.session == null) {
+  if (result.error) {
+    return { error: signUpError(result.error) };
+  }
+  if (result.data.user && result.data.session == null) {
     redirect("/sign-in?verified=1");
   }
   redirect("/onboarding");
