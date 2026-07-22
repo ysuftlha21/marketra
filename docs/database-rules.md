@@ -112,11 +112,13 @@ Guidance — not all created in foundation:
 
 # Phase 9 tables
 
-- `workspace_subscriptions`: one authoritative state per workspace. Members read within their
-  workspace; only validated service-role provider/webhook flows mutate it.
+- `workspace_subscriptions`: one authoritative state per workspace. The base table and provider
+  identifiers are service-role-only. Authenticated workspace members read the RLS-protected,
+  security-invoker `workspace_subscription_states` projection, which omits provider identifiers.
 - `ai_usage_events`: append-only operation metadata. Owner/Admin may read workspace summaries;
   service role inserts. Prompts, generated content, credentials, headers, cookies, and auth tokens
-  are prohibited.
+  are prohibited. A composite foreign key requires every non-null `project_id` to belong to the
+  event's `workspace_id`; deleting a project nulls only `project_id` and retains accounting.
 
 Migrations `0033_workspace_subscriptions.sql` and `0034_ai_usage_events.sql` follow 0032, revoke
 anon access, enable RLS, and do not alter existing Phase 8 tables.

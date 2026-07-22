@@ -11,13 +11,11 @@ export const subscriptionStatusSchema = z.enum([
 ]);
 export type SubscriptionStatus = z.infer<typeof subscriptionStatusSchema>;
 
-export const workspaceSubscriptionSchema = z.object({
+export const workspaceSubscriptionStateSchema = z.object({
   workspace_id: z.string().uuid(),
   plan_id: planIdSchema,
   subscription_status: subscriptionStatusSchema,
   billing_provider: z.string().min(1),
-  external_customer_id: z.string().nullable(),
-  external_subscription_id: z.string().nullable(),
   current_period_start: z.string().datetime().nullable(),
   current_period_end: z.string().datetime().nullable(),
   cancel_at_period_end: z.boolean(),
@@ -25,4 +23,15 @@ export const workspaceSubscriptionSchema = z.object({
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
 });
-export type WorkspaceSubscription = z.infer<typeof workspaceSubscriptionSchema>;
+export type WorkspaceSubscriptionState = z.infer<typeof workspaceSubscriptionStateSchema>;
+
+/** Trusted server-only provider metadata. Never return this shape to a browser boundary. */
+export const workspaceSubscriptionProviderMetadataSchema = z.object({
+  workspace_id: z.string().uuid(),
+  billing_provider: z.string().min(1),
+  external_customer_id: z.string().nullable(),
+  external_subscription_id: z.string().nullable(),
+});
+export type WorkspaceSubscriptionProviderMetadata = z.infer<
+  typeof workspaceSubscriptionProviderMetadataSchema
+>;

@@ -1,9 +1,15 @@
 begin;
 
+-- The primary key already makes id globally unique; this composite unique
+-- index additionally provides the exact referenced key required to enforce
+-- that an event's project belongs to its workspace.
+create unique index projects_workspace_id_id_unique_idx
+  on public.projects(workspace_id, id);
+
 create table public.ai_usage_events (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
-  project_id uuid references public.projects(id) on delete set null,
+  project_id uuid,
   operation_type text not null,
   provider_id text not null,
   model_id text,
@@ -16,7 +22,11 @@ create table public.ai_usage_events (
   duration_ms integer not null check (duration_ms >= 0),
   success boolean not null,
   controlled_error_code text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint ai_usage_events_workspace_project_fkey
+    foreign key (workspace_id, project_id)
+    references public.projects(workspace_id, id)
+    on delete set null (project_id)
 );
 
 create index ai_usage_events_workspace_created_idx

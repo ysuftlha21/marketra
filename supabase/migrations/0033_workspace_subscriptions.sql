@@ -35,9 +35,44 @@ create policy "Service role manages subscriptions"
   on public.workspace_subscriptions for all to service_role
   using (true) with check (true);
 
+-- Normal application readers use a safe projection. security_invoker ensures
+-- the caller's base-table privileges and RLS membership policy still apply.
+create view public.workspace_subscription_states
+  with (security_invoker = true, security_barrier = true)
+as
+select
+  workspace_id,
+  plan_id,
+  subscription_status,
+  billing_provider,
+  current_period_start,
+  current_period_end,
+  cancel_at_period_end,
+  canceled_at,
+  created_at,
+  updated_at
+from public.workspace_subscriptions;
+
 revoke all on public.workspace_subscriptions from anon;
-grant select on public.workspace_subscriptions to authenticated;
+revoke all on public.workspace_subscriptions from authenticated;
+grant select (
+  workspace_id,
+  plan_id,
+  subscription_status,
+  billing_provider,
+  current_period_start,
+  current_period_end,
+  cancel_at_period_end,
+  canceled_at,
+  created_at,
+  updated_at
+) on public.workspace_subscriptions to authenticated;
 grant select, insert, update, delete on public.workspace_subscriptions to service_role;
+
+revoke all on public.workspace_subscription_states from public;
+revoke all on public.workspace_subscription_states from anon;
+grant select on public.workspace_subscription_states to authenticated;
+grant select on public.workspace_subscription_states to service_role;
 
 create trigger workspace_subscriptions_touch_updated_at
   before update on public.workspace_subscriptions

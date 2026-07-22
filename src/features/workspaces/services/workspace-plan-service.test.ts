@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { resolveSubscriptionPlan } from "./workspace-plan-service";
-import type { WorkspaceSubscription } from "@/features/billing/domain/subscription";
+import type { WorkspaceSubscriptionState } from "@/features/billing/domain/subscription";
 
-function subscription(overrides: Partial<WorkspaceSubscription> = {}): WorkspaceSubscription {
+function subscription(
+  overrides: Partial<WorkspaceSubscriptionState> = {},
+): WorkspaceSubscriptionState {
   return {
     workspace_id: "00000000-0000-4000-8000-000000000001",
     plan_id: "growth",
     subscription_status: "active",
     billing_provider: "stripe",
-    external_customer_id: null,
-    external_subscription_id: null,
     current_period_start: null,
     current_period_end: null,
     cancel_at_period_end: false,

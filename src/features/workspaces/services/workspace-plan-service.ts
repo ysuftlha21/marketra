@@ -1,6 +1,6 @@
 import { getPlan, type Plan } from "@/config/plans";
 import { findWorkspaceSubscription } from "@/features/billing/repository/subscription-repository";
-import type { WorkspaceSubscription } from "@/features/billing/domain/subscription";
+import type { WorkspaceSubscriptionState } from "@/features/billing/domain/subscription";
 
 export interface WorkspacePlanResolution {
   plan: Plan;
@@ -9,7 +9,7 @@ export interface WorkspacePlanResolution {
 }
 
 export function resolveSubscriptionPlan(
-  subscription: WorkspaceSubscription | null,
+  subscription: WorkspaceSubscriptionState | null,
 ): WorkspacePlanResolution {
   if (
     subscription &&
