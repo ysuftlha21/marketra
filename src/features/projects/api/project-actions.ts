@@ -20,6 +20,7 @@ import {
   safeAnalysisError,
   AnalysisServiceError,
 } from "../services/analysis-execution-service";
+import { safeRateLimitMessage } from "@/lib/security/rate-limit-service";
 import { getAuthContext } from "@/lib/auth/session";
 
 export async function createProjectAction(formData: FormData) {
@@ -174,6 +175,8 @@ export async function runAnalysisAction(formData: FormData) {
     revalidatePath(`/dashboard/projects/${projectSlug}`);
     return { ok: true, runId };
   } catch (err) {
+    const rateLimitMessage = safeRateLimitMessage(err);
+    if (rateLimitMessage) return { error: rateLimitMessage };
     if (err instanceof AnalysisServiceError) {
       return { error: safeAnalysisError(err.code) };
     }
@@ -206,6 +209,8 @@ export async function retryAnalysisAction(formData: FormData) {
     revalidatePath(`/dashboard/projects/${projectSlug}`);
     return { ok: true, runId };
   } catch (err) {
+    const rateLimitMessage = safeRateLimitMessage(err);
+    if (rateLimitMessage) return { error: rateLimitMessage };
     if (err instanceof AnalysisServiceError) {
       return { error: safeAnalysisError(err.code) };
     }

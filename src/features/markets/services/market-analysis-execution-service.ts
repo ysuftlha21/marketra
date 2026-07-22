@@ -14,6 +14,9 @@ import type { CountryMarketAnalysisResult } from "../schema/market-analysis-sche
 import { parseServerEnv } from "@/lib/env/env";
 import { toProductIntelligenceContext } from "@/features/projects/domain/product-intelligence";
 import { canStartAnalysis, type TargetCountryStatus } from "../domain/target-country-status";
+import { enforceRateLimit } from "@/lib/security/rate-limit-service";
+import { recordProviderUsage } from "@/features/ai-usage/services/ai-usage-service";
+import type { ProviderRunMeta } from "@/lib/providers/provider-types";
 
 export interface MarketAnalysisContext {
   workspaceId: string;
@@ -67,6 +70,12 @@ export function safeMarketAnalysisError(code: MarketAnalysisErrorCode): string {
 export async function runMarketAnalysis(
   ctx: MarketAnalysisContext,
 ): Promise<{ runId: string; result?: CountryMarketAnalysisResult }> {
+  await enforceRateLimit({
+    operation: "market_analysis",
+    workspaceId: ctx.workspaceId,
+    userId: ctx.userId,
+    limit: 10,
+  });
   const env = parseServerEnv();
 
   const tc = await getTargetCountry(ctx.workspaceId, ctx.targetCountryId);
@@ -208,7 +217,7 @@ export async function runMarketAnalysis(
     assumptions: {} as Record<string, unknown>,
   };
 
-  let providerResult: { data: CountryMarketAnalysisResult; meta: Record<string, unknown> };
+  let providerResult: { data: CountryMarketAnalysisResult; meta: ProviderRunMeta };
   try {
     providerResult = (await aiProvider.analyzeCountryMarketV1(
       aiInput,
@@ -244,11 +253,22 @@ export async function runMarketAnalysis(
 
   const result = validated.data;
 
+  if (env.AI_COST_TRACKING_ENABLED) {
+    await recordProviderUsage({
+      workspaceId: ctx.workspaceId,
+      projectId: ctx.projectId,
+      operationType: "market_analysis",
+      generationRunId: run.id,
+      meta: providerResult.meta,
+    }).catch(() => undefined);
+  }
+
   await updateMarketAnalysisRun(ctx.workspaceId, run.id, {
     status: "succeeded",
     output: result as unknown as Record<string, unknown>,
-    input_tokens: (providerResult.meta as Record<string, unknown>).tokens ?? null,
-    estimated_cost: (providerResult.meta as Record<string, unknown>).estimatedCostUsd ?? null,
+    input_tokens: providerResult.meta.inputTokens ?? providerResult.meta.tokens ?? null,
+    output_tokens: providerResult.meta.outputTokens ?? null,
+    estimated_cost: providerResult.meta.estimatedCostUsd ?? null,
     completed_at: new Date().toISOString(),
   });
 

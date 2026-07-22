@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils/cn";
 import type { DiscoveryRunStatus } from "@/features/companies/domain/discovery-run-status";
 import type { ProjectCompanyStatus } from "@/features/companies/domain/company-lifecycle";
+import { ManualCompanyForm } from "@/features/companies/components/manual-company-form";
 
 interface PageProps {
   params: Promise<{ projectSlug: string; countryCode: string }>;
@@ -149,6 +150,22 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
           </div>
         }
       />
+
+      <Card className="border-border/60">
+        <CardHeader>
+          <CardTitle className="text-base">Add a company manually</CardTitle>
+          <CardDescription>
+            Add a verified company without a paid discovery provider. No enrichment is invented.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ManualCompanyForm
+            projectSlug={projectSlug}
+            targetCountryId={tc.id}
+            countryCode={tc.country_code}
+          />
+        </CardContent>
+      </Card>
 
       {/* Status summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

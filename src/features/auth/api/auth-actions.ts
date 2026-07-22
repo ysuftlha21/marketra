@@ -13,6 +13,8 @@ import {
 import { sanitizeRedirect } from "@/lib/security/redirect";
 import { getPublicAppUrl } from "@/lib/env/runtime-env";
 import { z } from "zod";
+import { createHash } from "node:crypto";
+import { enforceRateLimit } from "@/lib/security/rate-limit-service";
 
 const pricingIntentSchema = z.object({
   plan: z.enum(["starter", "growth"]).optional(),
@@ -76,6 +78,12 @@ export async function signUpAction(formData: FormData) {
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const signupKey = createHash("sha256").update(parsed.data.email.toLowerCase()).digest("hex");
+  try {
+    await enforceRateLimit({ operation: "signup", userId: `anonymous:${signupKey}`, limit: 5 });
+  } catch {
+    return { error: "Too many signup attempts. Please wait and try again." };
   }
   let result: Awaited<ReturnType<Awaited<ReturnType<typeof createServerClient>>["auth"]["signUp"]>>;
   try {

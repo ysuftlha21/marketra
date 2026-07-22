@@ -223,6 +223,19 @@ export async function findCompanyByNormalizedDomain(
   return (r.data as unknown as CompanyRow) ?? null;
 }
 
+export async function findCompanyByNormalizedName(
+  wsId: string,
+  normalizedName: string,
+): Promise<CompanyRow | null> {
+  const supabase = await client();
+  const r = await companiesQuery(supabase)
+    .select(COMPANY_COLS)
+    .eq("workspace_id" as never, wsId)
+    .eq("normalized_name" as never, normalizedName)
+    .maybeSingle();
+  return (r.data as unknown as CompanyRow) ?? null;
+}
+
 export async function upsertCompany(data: Record<string, unknown>): Promise<CompanyRow> {
   const supabase = await client();
   const r = await companiesQuery(supabase)
@@ -251,7 +264,7 @@ export async function projectCompanyExists(
     .eq("project_id" as never, projectId)
     .eq("target_country_id" as never, targetCountryId)
     .eq("company_id" as never, companyId);
-  return ((r.data as unknown[])?.length ?? 0) > 0;
+  return (r.count ?? 0) > 0;
 }
 
 export async function createProjectCompany(

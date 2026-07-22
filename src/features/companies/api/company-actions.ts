@@ -15,6 +15,36 @@ import {
   updateProjectCompanyLifecycle,
   updateProjectCompanyNotes,
 } from "../repository/company-repository";
+import { createManualCompany, ManualCompanyError } from "../services/manual-company-service";
+import { safeRateLimitMessage } from "@/lib/security/rate-limit-service";
+
+export interface ManualCompanyActionState {
+  ok?: boolean;
+  error?: string;
+}
+
+export async function createManualCompanyAction(
+  _previous: ManualCompanyActionState | null,
+  formData: FormData,
+): Promise<ManualCompanyActionState> {
+  const ctx = await getAuthContext();
+  if (!ctx?.activeWorkspace) return { error: "Sign in to add a company." };
+  const projectSlug = String(formData.get("projectSlug") ?? "");
+  const countryCode = String(formData.get("countryCode") ?? "");
+  try {
+    await createManualCompany(Object.fromEntries(formData), {
+      workspaceId: ctx.activeWorkspace.workspace.id,
+      userId: ctx.user.id,
+    });
+    revalidatePath(`/dashboard/projects/${projectSlug}/markets/${countryCode}/discovery`);
+    return { ok: true };
+  } catch (error) {
+    const rateLimitMessage = safeRateLimitMessage(error);
+    if (rateLimitMessage) return { error: rateLimitMessage };
+    if (error instanceof ManualCompanyError) return { error: error.message };
+    return { error: "Company could not be added." };
+  }
+}
 
 export async function startDiscoveryAction(formData: FormData) {
   const ctx = await getAuthContext();
@@ -40,6 +70,8 @@ export async function startDiscoveryAction(formData: FormData) {
     revalidatePath(`/dashboard/projects/${projectSlug}/markets`);
     return { ok: true, runId };
   } catch (err) {
+    const rateLimitMessage = safeRateLimitMessage(err);
+    if (rateLimitMessage) return { error: rateLimitMessage };
     if (err instanceof DiscoveryError) return { error: safeDiscoveryError(err.code) };
     return { error: "Discovery failed." };
   }
@@ -69,6 +101,8 @@ export async function retryDiscoveryAction(formData: FormData) {
     revalidatePath(`/dashboard/projects/${projectSlug}/markets`);
     return { ok: true, runId: result.runId };
   } catch (err) {
+    const rateLimitMessage = safeRateLimitMessage(err);
+    if (rateLimitMessage) return { error: rateLimitMessage };
     if (err instanceof DiscoveryError) return { error: safeDiscoveryError(err.code) };
     return { error: "Retry failed." };
   }

@@ -19,7 +19,9 @@ const primaryNavigation = [
 ] as const;
 
 const secondaryNavigation = [
+  { label: "Getting started", href: "/dashboard/onboarding", icon: "ListChecks" },
   { label: "Integrations", href: "/dashboard/settings", icon: "SlidersHorizontal" },
+  { label: "Billing", href: "/dashboard/settings/billing", icon: "CreditCard" },
   { label: "Settings", href: "/dashboard/settings", icon: "Settings" },
 ] as const;
 
@@ -68,22 +70,12 @@ export function SidebarNav({ onNavigate, onCollapse, collapsed = false }: Sideba
         </div>
       ))}
       {!collapsed && (
-        <div className="mt-auto rounded-lg border border-white/[.06] bg-gradient-to-b from-[#111623] to-[#0d111b] p-3">
-          <p className="text-[11px] font-medium text-zinc-200">Pro Plan</p>
-          <div className="mt-4 flex justify-between text-[9px] text-zinc-500">
-            <span>Usage this month</span>
-            <span>78%</span>
-          </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[.07]">
-            <div className="h-full w-[78%] rounded-full bg-gradient-to-r from-violet-600 to-violet-400" />
-          </div>
-          <Link
-            href="/pricing"
-            className="mt-3 grid h-7 w-full place-items-center rounded-md bg-white/[.04] text-[9px] text-zinc-300 hover:bg-violet-500/10"
-          >
-            Upgrade Plan
-          </Link>
-        </div>
+        <Link
+          href="/dashboard/settings/billing"
+          className="mt-auto rounded-lg border border-white/[.06] p-3 text-[11px] text-zinc-400 hover:text-zinc-200"
+        >
+          View billing and usage
+        </Link>
       )}
       {!collapsed && (
         <button

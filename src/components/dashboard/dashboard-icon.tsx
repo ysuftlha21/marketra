@@ -13,6 +13,8 @@ import {
   Megaphone,
   ChartNoAxesCombined,
   SlidersHorizontal,
+  CreditCard,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 
@@ -29,6 +31,8 @@ const iconMap: Record<string, LucideIcon> = {
   Megaphone,
   ChartNoAxesCombined,
   SlidersHorizontal,
+  CreditCard,
+  ListChecks,
 };
 
 export function DashboardIcon({ name, className }: { name: string; className?: string }) {

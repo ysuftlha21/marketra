@@ -30,6 +30,8 @@ import {
   mapOutreachExecutionError,
   safeOutreachError,
 } from "../domain/outreach-errors";
+import { enforceRateLimit } from "@/lib/security/rate-limit-service";
+import { recordProviderUsage } from "@/features/ai-usage/services/ai-usage-service";
 
 export async function startOutreachGeneration(
   workspaceId: string,
@@ -41,6 +43,7 @@ export async function startOutreachGeneration(
   request: OutreachRequest,
   idempotencyOverride?: string,
 ): Promise<{ runId: string }> {
+  await enforceRateLimit({ operation: "outreach_generation", workspaceId, userId, limit: 10 });
   const env = parseServerEnv();
   const { plan } = await resolveWorkspacePlan(workspaceId);
   const project = await getProjectService(projectSlug);
@@ -269,6 +272,17 @@ async function executeOutreachGeneration(
 
     const run = await getOutreachRun(workspaceId, runId);
     if (!run) throw new OutreachError("persistence_failure");
+
+    const env = parseServerEnv();
+    if (env.AI_COST_TRACKING_ENABLED && !providerResult.meta.isMock) {
+      await recordProviderUsage({
+        workspaceId,
+        projectId: run.project_id,
+        operationType: "outreach_generation",
+        generationRunId: run.id,
+        meta: providerResult.meta,
+      }).catch(() => undefined);
+    }
 
     const draft = await createOutreachDraft(workspaceId, {
       workspace_id: workspaceId,

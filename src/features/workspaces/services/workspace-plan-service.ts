@@ -1,16 +1,30 @@
 import { getPlan, type Plan } from "@/config/plans";
+import { findWorkspaceSubscription } from "@/features/billing/repository/subscription-repository";
+import type { WorkspaceSubscription } from "@/features/billing/domain/subscription";
 
 export interface WorkspacePlanResolution {
   plan: Plan;
-  source: "product_default";
-  usedFallback: true;
+  source: "subscription" | "product_default";
+  usedFallback: boolean;
 }
 
-export async function resolveWorkspacePlan(_workspaceId: string): Promise<WorkspacePlanResolution> {
-  // TODO(Phase 9 BillingProvider/subscriptions): resolve a validated persisted
-  // workspace plan here. Missing, unknown, or malformed subscription data must
-  // continue to fall back to the documented Free product default.
+export function resolveSubscriptionPlan(
+  subscription: WorkspaceSubscription | null,
+): WorkspacePlanResolution {
+  if (
+    subscription &&
+    ["trialing", "active", "past_due"].includes(subscription.subscription_status)
+  ) {
+    const subscribedPlan = getPlan(subscription.plan_id);
+    if (subscribedPlan)
+      return { plan: subscribedPlan, source: "subscription", usedFallback: false };
+  }
   const plan = getPlan("free");
   if (!plan) throw new Error("Default workspace plan is unavailable");
   return { plan, source: "product_default", usedFallback: true };
+}
+
+export async function resolveWorkspacePlan(workspaceId: string): Promise<WorkspacePlanResolution> {
+  const subscription = await findWorkspaceSubscription(workspaceId);
+  return resolveSubscriptionPlan(subscription);
 }

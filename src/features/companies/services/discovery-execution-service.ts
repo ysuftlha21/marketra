@@ -17,6 +17,7 @@ import { calculateFitScore } from "../domain/company-scoring";
 import type { ScoringInput } from "../domain/company-scoring";
 import type { DiscoveryCompanyCandidate } from "@/lib/providers/company-discovery/company-discovery.provider";
 import { parseServerEnv } from "@/lib/env/env";
+import { enforceRateLimit } from "@/lib/security/rate-limit-service";
 
 export type DiscoveryErrorCode =
   | "unauthenticated"
@@ -98,6 +99,7 @@ export async function startDiscovery(
   userId: string,
   maxResults = 50,
 ): Promise<{ runId: string }> {
+  await enforceRateLimit({ operation: "company_discovery", workspaceId: wsId, userId, limit: 10 });
   const env = parseServerEnv();
 
   const project = await getProjectService(projectSlug);

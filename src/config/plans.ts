@@ -15,6 +15,7 @@ export const planSchema = z.object({
   projectCreationsPerPeriod: z.number().nonnegative(),
   decisionRoleGenerationsPerPeriod: z.number().nonnegative(),
   outreachGenerationsPerPeriod: z.number().nonnegative(),
+  aiOperationsPerPeriod: z.number().nonnegative(),
 });
 export type Plan = z.infer<typeof planSchema>;
 
@@ -30,6 +31,7 @@ export const plans: readonly Plan[] = [
     projectCreationsPerPeriod: 2,
     decisionRoleGenerationsPerPeriod: 5,
     outreachGenerationsPerPeriod: 10,
+    aiOperationsPerPeriod: 25,
     description:
       "Add one SaaS project, analyze one target country, and discover what Marketra can do.",
   },
@@ -44,6 +46,7 @@ export const plans: readonly Plan[] = [
     projectCreationsPerPeriod: 20,
     decisionRoleGenerationsPerPeriod: 100,
     outreachGenerationsPerPeriod: 250,
+    aiOperationsPerPeriod: 1000,
     description: "Multiple target countries, country-specific ICPs, and localized outreach drafts.",
   },
   {
@@ -57,6 +60,7 @@ export const plans: readonly Plan[] = [
     projectCreationsPerPeriod: 100,
     decisionRoleGenerationsPerPeriod: 1000,
     outreachGenerationsPerPeriod: 2500,
+    aiOperationsPerPeriod: 10000,
     description: "Broader company discovery, deterministic matching, and the lightweight CRM.",
   },
   {
@@ -70,6 +74,7 @@ export const plans: readonly Plan[] = [
     projectCreationsPerPeriod: 500,
     decisionRoleGenerationsPerPeriod: 5000,
     outreachGenerationsPerPeriod: 10000,
+    aiOperationsPerPeriod: 50000,
     description: "Multiple projects and workspaces, higher usage limits, and audit tracking.",
   },
 ] as const;

@@ -25,7 +25,7 @@ import {
   consumeProjectCreation,
   checkActiveProjectsAllowance,
 } from "@/features/workspaces/services/workspace-usage-service";
-import { getPlan } from "@/config/plans";
+import { resolveWorkspacePlan } from "@/features/workspaces/services/workspace-plan-service";
 
 export type ProjectServiceErrorCode =
   | "unauthenticated"
@@ -73,7 +73,7 @@ export async function createProjectService(data: CreateProjectInput): Promise<Pr
     throw new ProjectServiceError("slug_taken", safeProjectError("slug_taken"));
   }
 
-  const plan = getPlan("free")!; // Default to free plan for now
+  const { plan } = await resolveWorkspacePlan(workspaceId);
 
   try {
     await checkActiveProjectsAllowance(workspaceId, plan);
@@ -182,7 +182,7 @@ export async function restoreProjectService(slug: string): Promise<void> {
   if (!existing)
     throw new ProjectServiceError("project_not_found", safeProjectError("project_not_found"));
 
-  const plan = getPlan("free")!; // Default to free plan for now
+  const { plan } = await resolveWorkspacePlan(workspaceId);
   try {
     await checkActiveProjectsAllowance(workspaceId, plan);
   } catch (err) {

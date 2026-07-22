@@ -250,7 +250,7 @@ describe("OutreachProvider factory", () => {
   });
 
   it("throws for unknown provider", () => {
-    expect(() => createOutreachProvider("openai")).toThrow(OutreachProviderConfigError);
+    expect(() => createOutreachProvider("unsupported")).toThrow(OutreachProviderConfigError);
   });
 
   it("has a version string", () => {

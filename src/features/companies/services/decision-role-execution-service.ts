@@ -10,7 +10,8 @@ import { listProjectCompanies } from "../repository/company-repository";
 import { getLatestAnalysisRun } from "@/features/projects/repository/project-repository";
 import { toProductIntelligenceContext } from "@/features/projects/domain/product-intelligence";
 import { consumeDecisionRoleGeneration } from "@/features/workspaces/services/workspace-usage-service";
-import { getPlan } from "@/config/plans";
+import { resolveWorkspacePlan } from "@/features/workspaces/services/workspace-plan-service";
+import { enforceRateLimit } from "@/lib/security/rate-limit-service";
 import {
   createDecisionRoleRun,
   updateDecisionRoleRun,
@@ -90,9 +91,14 @@ export async function startDecisionRoleGeneration(
   userId: string,
   idempotencyOverride?: string,
 ): Promise<{ runId: string }> {
+  await enforceRateLimit({
+    operation: "decision_role_generation",
+    workspaceId: wsId,
+    userId,
+    limit: 10,
+  });
   const env = parseServerEnv();
-  const plan = getPlan("free")!;
-  if (!plan) throw new Error("Invalid plan");
+  const { plan } = await resolveWorkspacePlan(wsId);
 
   // Load project
   const project = await getProjectService(projectSlug);
@@ -309,10 +315,6 @@ export async function retryDecisionRoleGeneration(
 ): Promise<{ runId: string }> {
   const oldRun = await getDecisionRoleRun(wsId, runId);
   if (!oldRun) throw new DecisionRoleError("persistence_failure", "Run not found");
-
-  // Get plan and consume usage
-  const plan = getPlan("free")!;
-  await consumeDecisionRoleGeneration(wsId, `dr_gen_retry_\${oldRun.id}`, plan);
 
   // Mark old as cancelled
   await updateDecisionRoleRun(wsId, oldRun.id, {

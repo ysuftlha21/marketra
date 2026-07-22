@@ -19,6 +19,7 @@ import {
   editDecisionRoleSchema,
   addManualDecisionRoleSchema,
 } from "../schema/decision-role.schema";
+import { safeRateLimitMessage } from "@/lib/security/rate-limit-service";
 
 export async function startDecisionRoleGenerationAction(formData: FormData) {
   const ctx = await getAuthContext();
@@ -43,7 +44,8 @@ export async function startDecisionRoleGenerationAction(formData: FormData) {
     );
     return { success: true };
   } catch (e: unknown) {
-    console.error("Failed to start decision role generation:", e);
+    const rateLimitMessage = safeRateLimitMessage(e);
+    if (rateLimitMessage) return { error: rateLimitMessage };
     if (e instanceof DecisionRoleError) {
       return { error: safeDecisionRoleError(e.code) };
     }
@@ -75,7 +77,8 @@ export async function retryDecisionRoleGenerationAction(formData: FormData) {
     );
     return { success: true };
   } catch (e: unknown) {
-    console.error("Failed to retry decision role generation:", e);
+    const rateLimitMessage = safeRateLimitMessage(e);
+    if (rateLimitMessage) return { error: rateLimitMessage };
     if (e instanceof DecisionRoleError) {
       return { error: safeDecisionRoleError(e.code) };
     }

@@ -22,6 +22,7 @@ import {
   outreachDraftRestoreSchema,
   outreachDraftTransitionSchema,
 } from "../domain/outreach-draft-lifecycle";
+import { safeRateLimitMessage } from "@/lib/security/rate-limit-service";
 
 const generateOutreachActionSchema = OutreachRequestSchema.extend({
   projectSlug: z.string().trim().min(1).max(200),
@@ -74,6 +75,8 @@ export async function generateOutreachAction(formData: FormData) {
     );
     return { success: true, runId };
   } catch (error: unknown) {
+    const rateLimitMessage = safeRateLimitMessage(error);
+    if (rateLimitMessage) return { error: rateLimitMessage };
     if (error instanceof OutreachError) {
       return { error: safeOutreachError(error.code) };
     }

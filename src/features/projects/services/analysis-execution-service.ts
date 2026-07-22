@@ -23,6 +23,8 @@ import type {
   V2ProductAnalysisResult,
 } from "@/lib/providers/ai/ai.provider";
 import { fetchProductWebsite } from "@/lib/security/ssrf";
+import { enforceRateLimit } from "@/lib/security/rate-limit-service";
+import { recordProviderUsage } from "@/features/ai-usage/services/ai-usage-service";
 
 export interface AnalysisContext {
   workspaceId: string;
@@ -96,6 +98,12 @@ export async function runProductAnalysis(
   ctx: AnalysisContext,
   input: Record<string, unknown>,
 ): Promise<{ runId: string; result?: ProductAnalysisResultAny }> {
+  await enforceRateLimit({
+    operation: "product_analysis",
+    workspaceId: ctx.workspaceId,
+    userId: ctx.userId,
+    limit: 10,
+  });
   const env = parseServerEnv();
   const version = (input.schemaVersion as string) || env.PRODUCT_ANALYSIS_VERSION;
   const promptVersion =
@@ -310,6 +318,16 @@ export async function runProductAnalysis(
     await updateStage("saving_results");
     const result: ProductAnalysisResultAny = validated.data as ProductAnalysisResultAny;
     const { meta } = providerResult;
+
+    if (env.AI_COST_TRACKING_ENABLED) {
+      await recordProviderUsage({
+        workspaceId: ctx.workspaceId,
+        projectId: ctx.projectId,
+        operationType: "product_analysis",
+        generationRunId: run.id,
+        meta,
+      }).catch(() => undefined);
+    }
 
     try {
       await updateAnalysisRun(ctx.workspaceId, run.id, {

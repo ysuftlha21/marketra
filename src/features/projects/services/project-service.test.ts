@@ -30,6 +30,17 @@ vi.mock("@/features/workspaces/services/workspace-usage-service", () => ({
   checkActiveProjectsAllowance: vi.fn(),
 }));
 
+vi.mock("@/features/workspaces/services/workspace-plan-service", async () => {
+  const { getPlan } = await import("@/config/plans");
+  return {
+    resolveWorkspacePlan: vi.fn().mockResolvedValue({
+      plan: getPlan("free"),
+      source: "product_default",
+      usedFallback: true,
+    }),
+  };
+});
+
 vi.mock("../repository/project-repository", () => ({
   createProject: (...args: unknown[]) => mockCreateProject(...args),
   updateProject: (...args: unknown[]) => mockUpdateProject(...args),
