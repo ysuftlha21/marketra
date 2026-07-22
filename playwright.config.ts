@@ -36,6 +36,7 @@ export default defineConfig({
         "**/screenshots-discovery*",
         "**/screenshots-sprint.spec.ts",
         "**/screenshots-outreach*",
+        "**/phase-9-readiness.spec.ts",
       ],
       testIgnore: "**/signout*",
       use: {
@@ -63,7 +64,12 @@ export default defineConfig({
     {
       name: "chromium-mobile",
       dependencies: ["setup"],
-      testMatch: ["**/authenticated*.ts", "**/mobile-discovery*", "**/screenshots-outreach*"],
+      testMatch: [
+        "**/authenticated*.ts",
+        "**/mobile-discovery*",
+        "**/screenshots-outreach*",
+        "**/phase-9-readiness.spec.ts",
+      ],
       testIgnore: ["**/signout*", "**/dashboard.spec.ts", "**/authenticated-projects.spec.ts"],
       use: {
         storageState: "playwright/.auth/mobile-user.json",

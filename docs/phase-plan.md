@@ -104,6 +104,17 @@ tests for all provider mocks pass.
 - Usage limits + counters; per-workspace daily AI caps.
 - Admin foundation; audit log; cost tracking reports.
 
+### Phase 9 delivery
+
+- OpenAI-backed AI and Outreach providers with structured validation; Mock remains the default.
+- Provider-independent AI usage ledger and pricing metadata with null for unknown costs.
+- Manual companies reuse the discovery/company/project-company pipeline.
+- Persisted workspace subscriptions become the sole plan source with a safe Free fallback.
+- Billing settings show server-resolved plan and real usage; no fake checkout state.
+- SMTP, rate-limit, and structured observability adapters remain server-only and controlled.
+- Resumable first-value onboarding is derived from saved records rather than a mutable checklist.
+- Migrations 0033 and 0034 require controlled rollout before provider activation.
+
 ## Phase 10 — Hardening & release readiness
 
 - Performance, accessibility pass, full light/dark parity.

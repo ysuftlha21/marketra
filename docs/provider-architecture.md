@@ -110,3 +110,13 @@ export interface BillingProvider {
 
 Only **interfaces + mocks + factories + types** ship in the foundation phase. No real vendor
 integrations yet. No API keys required to run the app locally on mocks.
+
+# Phase 9 implementations
+
+- AI: `mock` or `openai`; shared client, bounded retries/timeouts, Zod validation.
+- Outreach: `mock` or `openai`; channel compatibility and LinkedIn subject omission enforced.
+- Company discovery: no paid vendor selected; Mock plus the manual workflow.
+- Billing: Mock contract plus provider-neutral subscriptions; no paid adapter is claimed active.
+- Email: Mock or SMTP for Marketra-owned mail; Supabase auth email remains separate.
+- Rate limit: Mock/InMemory locally and a vendor-neutral external HTTPS boundary in production.
+- Observability: structured redacted operation events for Vercel runtime logs.

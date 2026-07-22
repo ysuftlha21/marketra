@@ -177,3 +177,13 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   a persisted draft plus version 1. Provider failures are stored as controlled terminal failures.
   A future durable worker may replace synchronous execution without changing provider contracts.
 - **Affected docs:** `docs/decision-log.md`.
+
+# Phase 9 decisions
+
+- OpenAI is the first real AI provider; `gpt-4o-mini` is the initial validated model.
+- No paid company-data vendor is selected; manual entry is the production-safe first-value path.
+- Subscription records, never browser/provider SDK input, are entitlement authority.
+- Mock billing never represents a paid subscription and exposes no management controls.
+- Unknown AI pricing remains `null`; no cost is invented.
+- Durable rate limiting uses a vendor-neutral external adapter; memory is local/test only.
+- Production migration/provider activation is an operator-controlled rollout step.

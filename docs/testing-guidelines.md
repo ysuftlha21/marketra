@@ -84,3 +84,10 @@ Critical MVP flows covered by Playwright suites (named, selectable via `-- <suit
 - `discovery` — manual/CSV company entry + matching.
 - `outreach` — generate localized outreach → CRM.
 - `billing` — country-specific pricing → checkout (mock provider).
+
+# Phase 9 verification
+
+Provider tests cover unknown IDs, missing credentials, malformed structured output, and safe errors
+without real secrets. Mock browser tests remain authoritative. Live provider smoke tests are
+separate and opt-in. Subscription, manual-company, and AI-usage RLS tests require migrations
+0033–0034 in the approved test database.

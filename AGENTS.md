@@ -163,7 +163,8 @@ Do not delete, skip, or weaken a failing test to make the pipeline green. Fix th
 - `docs/phase-plan.md` — bounded phases
 - `docs/decision-log.md` — decisions
 
-## 13. Foundation phase (this phase) scope
+## 13. Current delivery phase
 
-Do **not** implement auth, DB tables, AI calls, or product features yet. Create the permanent
-instruction + documentation + phase-plan foundation only. Real implementation begins in Phase 1.
+Phases 0–8 are complete. Phase 9 adds production provider boundaries, persistent subscriptions,
+AI usage accounting, manual-company first value, rate limiting, observability, and rollout
+readiness. Production migrations and real-provider activation require operator approval.

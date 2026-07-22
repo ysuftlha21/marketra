@@ -99,3 +99,15 @@ atomic PostgreSQL operations guarded by the caller's expected version; review tr
 server-validated and Owner/Admin-only. RLS scopes drafts and versions to workspace members, and
 repository queries use tenant filters and bounded result sets. A real slow provider requires a
 durable worker before detached execution is permitted.
+
+# Phase 9 production integration boundaries
+
+Real OpenAI execution is isolated in a shared structured client used by `OpenAiProvider` and
+`OpenAiOutreachProvider`. Application services see only provider-neutral results and metadata.
+Workspace subscriptions are persisted provider-neutral state; entitlement resolution never reads
+plan IDs from the browser. AI usage events contain dimensions, token counts, duration, known cost,
+and controlled errors—never prompts or generated bodies. Abuse rate limiting is separate from plan
+usage and keyed by workspace, user, and operation.
+
+Manual entry creates a completed `manual` discovery run and then uses the existing `companies` and
+`project_companies` pipeline. In-memory rate limiting is local/test-only.

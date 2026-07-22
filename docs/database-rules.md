@@ -109,3 +109,14 @@ Guidance — not all created in foundation:
 - No N+1 from services — batch where needed.
 - No ORM other than Supabase client (no Prisma).
 - No secrets stored in tables in plaintext; secrets live in env.
+
+# Phase 9 tables
+
+- `workspace_subscriptions`: one authoritative state per workspace. Members read within their
+  workspace; only validated service-role provider/webhook flows mutate it.
+- `ai_usage_events`: append-only operation metadata. Owner/Admin may read workspace summaries;
+  service role inserts. Prompts, generated content, credentials, headers, cookies, and auth tokens
+  are prohibited.
+
+Migrations `0033_workspace_subscriptions.sql` and `0034_ai_usage_events.sql` follow 0032, revoke
+anon access, enable RLS, and do not alter existing Phase 8 tables.
