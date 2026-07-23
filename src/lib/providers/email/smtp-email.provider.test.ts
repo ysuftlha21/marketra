@@ -5,7 +5,13 @@ vi.mock("nodemailer", () => ({ default: { createTransport: () => ({ sendMail }) 
 
 import { SmtpEmailProvider } from "./smtp-email.provider";
 
-const input = { to: "to@example.com", from: "from@example.com", subject: "Subject", body: "Body" };
+const input = {
+  to: "to@example.com",
+  from: "from@example.com",
+  subject: "Subject",
+  body: "Body",
+  category: "system_notification" as const,
+};
 const config = {
   host: "smtp.example.com",
   port: 587,

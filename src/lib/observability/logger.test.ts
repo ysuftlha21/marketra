@@ -7,12 +7,24 @@ describe("observability redaction", () => {
       redactLogValue({
         workspaceId: "w",
         apiKey: "secret",
-        nested: { prompt: "private", durationMs: 4 },
+        nested: {
+          prompt: "private",
+          billingSignature: "signature",
+          databaseUrl: "postgres://secret",
+          sessionData: "session",
+          durationMs: 4,
+        },
       }),
     ).toEqual({
       workspaceId: "w",
       apiKey: "[REDACTED]",
-      nested: { prompt: "[REDACTED]", durationMs: 4 },
+      nested: {
+        prompt: "[REDACTED]",
+        billingSignature: "[REDACTED]",
+        databaseUrl: "[REDACTED]",
+        sessionData: "[REDACTED]",
+        durationMs: 4,
+      },
     });
   });
 });

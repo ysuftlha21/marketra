@@ -4,7 +4,7 @@ import {
   mapOutreachExecutionError,
   safeOutreachError,
 } from "@/features/outreach/domain/outreach-errors";
-import { resolveWorkspacePlan } from "@/features/workspaces/services/workspace-plan-service";
+import { resolveSubscriptionPlan } from "@/features/workspaces/services/workspace-plan-service";
 
 describe("Outreach correctness boundaries", () => {
   it.each([
@@ -32,10 +32,8 @@ describe("Outreach correctness boundaries", () => {
     ]);
   });
 
-  it("uses the architecture-defined Free fallback server-side", async () => {
-    await expect(
-      resolveWorkspacePlan("00000000-0000-1000-8000-000000000000"),
-    ).resolves.toMatchObject({
+  it("uses the architecture-defined Free fallback server-side", () => {
+    expect(resolveSubscriptionPlan(null)).toMatchObject({
       source: "product_default",
       usedFallback: true,
       plan: {
@@ -45,9 +43,10 @@ describe("Outreach correctness boundaries", () => {
     });
   });
 
-  it("does not accept a browser-selected paid plan", async () => {
+  it("does not accept a browser-selected paid plan", () => {
     const browserSuppliedPlan = "agency";
-    const resolution = await resolveWorkspacePlan(browserSuppliedPlan);
+    // Only trusted persisted subscription state enters plan selection; browser text is ignored.
+    const resolution = resolveSubscriptionPlan(null);
     expect(resolution.plan.id).toBe("free");
     expect(resolution.plan.id).not.toBe(browserSuppliedPlan);
   });

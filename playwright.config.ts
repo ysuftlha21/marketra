@@ -54,6 +54,7 @@ export default defineConfig({
         "**/marketing.spec.ts",
         "**/dashboard.spec.ts",
         "**/screenshots-marketing*",
+        "**/phase-10-public.spec.ts",
       ],
       use: {
         browserName: "chromium",
@@ -92,7 +93,7 @@ export default defineConfig({
     /* ─── Mobile — unauthenticated (no storage state) ────────── */
     {
       name: "chromium-mobile-unauthed",
-      testMatch: ["**/mobile.spec.ts", "**/auth.spec.ts"],
+      testMatch: ["**/mobile.spec.ts", "**/auth.spec.ts", "**/phase-10-public.spec.ts"],
       use: {
         browserName: "chromium",
         viewport: { width: 390, height: 844 },

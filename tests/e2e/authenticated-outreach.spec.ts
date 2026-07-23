@@ -7,10 +7,12 @@ function onlyProject(testInfo: TestInfo, name: string) {
 }
 
 async function getWorkspaceSwitcher(page: Page) {
-  let switcher = page.getByRole("button", { name: "Switch workspace" });
-  if ((await switcher.count()) === 0) {
-    await page.getByRole("button", { name: "Open navigation" }).click();
-    switcher = page.getByRole("button", { name: "Switch workspace" });
+  await page.waitForLoadState("domcontentloaded");
+  const switcher = page.getByRole("button", { name: "Switch workspace" });
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    const openNavigation = page.getByRole("button", { name: "Open navigation" });
+    await expect(openNavigation).toBeVisible();
+    await openNavigation.click();
   }
   await expect(switcher).toBeVisible();
   return switcher;

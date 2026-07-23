@@ -56,6 +56,10 @@ describe("sanitizeRedirect", () => {
     expect(result).toBe(fallback);
   });
 
+  it("rejects localhost when the configured application origin is not localhost", () => {
+    expect(sanitizeRedirect("http://localhost/admin", fallback)).toBe(fallback);
+  });
+
   it("preserves query params and hash for same-origin URLs", () => {
     const result = sanitizeRedirect("/reset-password?code=abc#section", fallback);
     expect(result).toBe("/reset-password?code=abc#section");
