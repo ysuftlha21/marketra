@@ -1,5 +1,8 @@
 # Phase 9 Production Readiness
 
+Phase 10 launch procedures and the current production/deferred capability matrix are maintained in
+`docs/launch-readiness.md`.
+
 ## Migration rollout
 
 Do not run against production until reviewed:

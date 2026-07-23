@@ -3,6 +3,21 @@
 > Architectural Decision Records. Append a new entry for any deviation from `AGENTS.md` or
 > `docs/`. Newest at top. Keep entries short and dated.
 
+## 2026-07-23 — Closed beta is enforced server-side and production fails safely
+
+- **Context:** Launch requires controlled account creation and real-provider readiness without
+  weakening existing-user access or pretending unavailable integrations are active.
+- **Decision:** `SIGNUP_MODE` and the private server allowlist govern only account creation. Mock
+  and manual providers remain the safest defaults. Security-sensitive mutations fail closed when
+  durable rate limiting is unavailable. Health responses, logs, and UI errors disclose no provider
+  secrets or raw failures. Real OpenAI and SMTP activation requires explicit credentials and an
+  opt-in smoke command.
+- **Consequences:** A closed beta can be rolled out or disabled without a code change; dependency
+  outages deny sensitive mutations safely. Billing activation, durable workers, and automatic data
+  deletion remain documented deferred work.
+- **Affected docs:** `AGENTS.md`, `docs/architecture.md`, `docs/phase-plan.md`,
+  `docs/launch-readiness.md`, `docs/production-readiness.md`.
+
 ## How to add an entry
 
 ```

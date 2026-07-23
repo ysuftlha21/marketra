@@ -9,10 +9,10 @@ CRM.
 
 ## Status
 
-Phase 8 is deployed. Phase 9 production integration work is implemented behind Mock-first provider
-boundaries and awaits controlled migration/provider rollout. See
-`docs/production-readiness.md`; no real provider is claimed active without credentials and a smoke
-test.
+Phases 0–9 are complete. Phase 10 launch hardening is implemented on its feature branch behind
+Mock/manual-safe defaults and operator-controlled provider activation. See
+`docs/launch-readiness.md`; no real provider is claimed active without credentials and its explicit
+smoke test.
 
 ## Documentation
 
@@ -36,6 +36,7 @@ is `AGENTS.md`, which OpenCode loads as the primary instruction file.
 | `docs/development-workflow.md`  | Task workflow                          |
 | `docs/phase-plan.md`            | Bounded phases                         |
 | `docs/production-readiness.md`  | Phase 9 rollout and operator steps     |
+| `docs/launch-readiness.md`      | Phase 10 launch and recovery runbook   |
 | `docs/decision-log.md`          | Architectural decision records         |
 
 ## Stack

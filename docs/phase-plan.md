@@ -122,6 +122,19 @@ tests for all provider mocks pass.
 - Observability wiring, error tracking hooks.
 - Data retention/deletion tooling.
 
+### Phase 10 delivery
+
+- Server-enforced closed-beta signup modes with a private allowlist; existing-user sign-in remains
+  available in every mode.
+- Central production security headers, public liveness/readiness endpoints, stricter stored-URL
+  validation, and fail-closed durable rate limiting for security-sensitive mutations.
+- Hardened SMTP input contracts, bounded OpenAI output, explicit real-provider smoke commands, and
+  provider-neutral billing-event ordering/idempotency rules.
+- Clear Mock/manual/external data provenance plus public privacy, terms, cookies, AI disclosure,
+  and deletion-request guidance.
+- Operator rollout, diagnostics, retention, recovery, rollback, and known-debt guidance in
+  `docs/launch-readiness.md`.
+
 ---
 
 ## Phase principles

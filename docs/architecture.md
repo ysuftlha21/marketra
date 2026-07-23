@@ -111,3 +111,17 @@ usage and keyed by workspace, user, and operation.
 
 Manual entry creates a completed `manual` discovery run and then uses the existing `companies` and
 `project_companies` pipeline. In-memory rate limiting is local/test-only.
+
+# Phase 10 launch boundaries
+
+Account creation is gated on the server by `SIGNUP_MODE`; allowlist contents never enter client
+bundles. Existing authenticated accounts are not blocked by the signup gate. Security-sensitive
+mutations fail closed if the configured durable rate-limit provider is unavailable.
+
+Production HTTP security headers are defined centrally. Liveness reports process availability;
+readiness performs a bounded Supabase Auth health probe and exposes no dependency details. Email
+and AI provider calls remain typed, bounded, and opt-in. Billing webhook adapters must normalize
+verified provider events before applying the provider-neutral duplicate and chronological checks.
+
+No detached background task was introduced. Durable workers, automatic deletion, and a selected
+real billing provider remain explicit post-launch work rather than simulated functionality.

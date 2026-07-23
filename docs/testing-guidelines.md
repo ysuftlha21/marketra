@@ -91,3 +91,11 @@ Provider tests cover unknown IDs, missing credentials, malformed structured outp
 without real secrets. Mock browser tests remain authoritative. Live provider smoke tests are
 separate and opt-in. Subscription, manual-company, and AI-usage RLS tests require migrations
 0033–0034 in the approved test database.
+
+# Phase 10 verification
+
+Closed-beta policy, URL safety, security headers, health readiness, SMTP validation, durable
+rate-limit behavior, billing-event ordering, provenance, and legal configuration have deterministic
+tests. Real OpenAI and SMTP checks are intentionally excluded from CI and run only through
+`npm run test:smoke:openai` or `npm run test:smoke:smtp` with operator-provided credentials. Those
+credential-gated smoke cases are the only intentional static skips in the ordinary Vitest run.

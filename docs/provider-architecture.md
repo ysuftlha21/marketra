@@ -120,3 +120,16 @@ integrations yet. No API keys required to run the app locally on mocks.
 - Email: Mock or SMTP for Marketra-owned mail; Supabase auth email remains separate.
 - Rate limit: Mock/InMemory locally and a vendor-neutral external HTTPS boundary in production.
 - Observability: structured redacted operation events for Vercel runtime logs.
+
+# Phase 10 production activation
+
+- OpenAI and SMTP have separate opt-in smoke scripts; deterministic CI never requires credentials.
+- OpenAI output is operation-schema validated, token/cost accounted, timeout/retry bounded, and
+  capped by `OPENAI_MAX_OUTPUT_TOKENS`.
+- SMTP validates headers and recipients, permits only application-owned transactional categories,
+  assigns operation IDs, and never sends prospect Outreach automatically.
+- The external rate-limit adapter is vendor-neutral, timeout bounded, retries once, and fails closed
+  for signup, billing, mutation, and high-cost AI operations.
+- No billing or company-data vendor is selected. Their Mock/manual paths are truthful defaults;
+  signature verification and durable webhook-event storage are mandatory before a real billing
+  adapter can be activated.

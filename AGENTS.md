@@ -165,6 +165,6 @@ Do not delete, skip, or weaken a failing test to make the pipeline green. Fix th
 
 ## 13. Current delivery phase
 
-Phases 0–8 are complete. Phase 9 adds production provider boundaries, persistent subscriptions,
-AI usage accounting, manual-company first value, rate limiting, observability, and rollout
-readiness. Production migrations and real-provider activation require operator approval.
+Phases 0–9 are complete. Phase 10 hardens closed-beta access, provider operations, security
+headers, health checks, provenance, legal surfaces, and launch operations. Real-provider activation,
+production migrations, and rollback remain operator-controlled actions.

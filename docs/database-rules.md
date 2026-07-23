@@ -122,3 +122,12 @@ Guidance — not all created in foundation:
 
 Migrations `0033_workspace_subscriptions.sql` and `0034_ai_usage_events.sql` follow 0032, revoke
 anon access, enable RLS, and do not alter existing Phase 8 tables.
+
+# Phase 10 database audit
+
+No new migration is required. The launch-hardening work adds no table and does not change migrations
+0001–0034. Existing tenant repositories continue to scope queries by `workspace_id`; subscription
+provider identifiers remain service-role-only, AI events preserve the composite project/workspace
+invariant, and no browser input is trusted for role, plan, provider, or ownership. Production data
+deletion remains an authorized operator workflow described in `docs/launch-readiness.md` until a
+separately reviewed automation is implemented.
