@@ -9,6 +9,7 @@ const billingProviderSchema = z.enum(["mock", "stripe", "paytr", "iyzico"]);
 const emailProviderSchema = z.enum(["mock", "smtp"]);
 const analyticsProviderSchema = z.enum(["mock", "external"]);
 const rateLimitProviderSchema = z.enum(["mock", "memory", "external"]);
+const signupModeSchema = z.enum(["open", "invite_only", "allowlist", "disabled"]);
 
 const appEnvSchema = z.enum(["development", "test", "staging", "production"]);
 
@@ -43,12 +44,17 @@ const serverEnvSchema = z
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 
+    // Closed beta
+    SIGNUP_MODE: signupModeSchema.default("open"),
+    SIGNUP_ALLOWLIST: z.string().default(""),
+
     // AI provider
     DEFAULT_AI_PROVIDER: aiProviderSchema.default("mock"),
     OPENAI_API_KEY: z.string().optional(),
     OPENAI_MODEL: z.enum(["gpt-4o-mini"]).default("gpt-4o-mini"),
     OPENAI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
     OPENAI_MAX_RETRIES: z.coerce.number().int().nonnegative().default(3),
+    OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().max(16_384).default(2000),
     OPENAI_PROMPT_VERSION: z.string().default("v1"),
     OPENAI_PROMPT_VERSION_V2: z.string().default("product-analysis-v2"),
     PRODUCT_ANALYSIS_VERSION: z.string().default("v2"),
@@ -89,6 +95,7 @@ const serverEnvSchema = z
     SMTP_PASSWORD: z.string().optional(),
     SMTP_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
     SMTP_MAX_RETRIES: z.coerce.number().int().min(0).max(2).default(1),
+    SMTP_SMOKE_TO: z.string().email().optional(),
 
     // Analytics provider
     DEFAULT_ANALYTICS_PROVIDER: analyticsProviderSchema.default("mock"),
@@ -108,6 +115,11 @@ const serverEnvSchema = z
       .default("true")
       .transform((v) => v === "true")
       .pipe(z.boolean()),
+
+    // Launch/legal metadata (public text, never credentials)
+    LEGAL_EFFECTIVE_DATE: z.string().default("2026-07-23"),
+    SUPPORT_EMAIL: z.string().email().default("support@marketra.example"),
+    BUILD_VERSION: z.string().default("development"),
   })
   .superRefine((data, ctx) => {
     if (data.DEFAULT_AI_PROVIDER === "openai" && !data.OPENAI_API_KEY) {

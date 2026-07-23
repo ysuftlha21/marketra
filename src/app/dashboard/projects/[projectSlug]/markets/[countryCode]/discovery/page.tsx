@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils/cn";
 import type { DiscoveryRunStatus } from "@/features/companies/domain/discovery-run-status";
 import type { ProjectCompanyStatus } from "@/features/companies/domain/company-lifecycle";
 import { ManualCompanyForm } from "@/features/companies/components/manual-company-form";
+import { companyProvenance, PROVENANCE_LABEL } from "@/features/companies/domain/data-provenance";
 
 interface PageProps {
   params: Promise<{ projectSlug: string; countryCode: string }>;
@@ -497,6 +498,7 @@ function CompanyRow({
     disqualification_reasons: string[];
     matched_signals: string[];
     missing_signals: string[];
+    source_provider: string | null;
   };
   projectSlug: string;
   countryCode: string;
@@ -509,7 +511,12 @@ function CompanyRow({
             href={`/dashboard/projects/${projectSlug}/markets/${countryCode}/discovery/${company.company_id}`}
             className="space-y-0.5 hover:text-primary transition-colors"
           >
-            <p className="text-sm font-medium text-foreground">{company.company_name}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium text-foreground">{company.company_name}</p>
+              <Badge variant="outline" className="text-[10px] font-normal">
+                {PROVENANCE_LABEL[companyProvenance(company.source_provider)]}
+              </Badge>
+            </div>
             {company.company_domain && (
               <p className="text-xs text-muted-foreground">{company.company_domain}</p>
             )}

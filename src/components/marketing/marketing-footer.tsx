@@ -29,6 +29,21 @@ export function MarketingFooter() {
             <Link href="/sign-in" className="hover:text-foreground">
               Sign in
             </Link>
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground">
+              Terms
+            </Link>
+            <Link href="/cookies" className="hover:text-foreground">
+              Cookies
+            </Link>
+            <Link href="/ai-disclosure" className="hover:text-foreground">
+              AI &amp; demo data
+            </Link>
+            <Link href="/data-deletion" className="hover:text-foreground">
+              Data deletion
+            </Link>
           </nav>
         </div>
         <div className="mt-8 border-t border-border pt-6 text-xs text-muted-foreground">

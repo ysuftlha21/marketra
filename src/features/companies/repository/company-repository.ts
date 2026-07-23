@@ -100,6 +100,7 @@ export interface ProjectCompanySummary {
   company_employee_min: number | null;
   company_employee_max: number | null;
   company_country_code: string;
+  source_provider: string | null;
 }
 
 export interface ProjectCompanyOutreachContext {
@@ -291,7 +292,7 @@ export async function listProjectCompanies(
       `id, company_id, status, fit_score, fit_grade, confidence_score,
        qualification_reasons, disqualification_reasons, matched_signals, missing_signals,
        provider_rank, created_at,
-       companies!inner(canonical_name, primary_domain, industry, employee_count_min, employee_count_max, country_code)`,
+       companies!inner(canonical_name, primary_domain, industry, employee_count_min, employee_count_max, country_code, source_provider)`,
       { count: "exact" } as never,
     )
     .eq("workspace_id" as never, wsId)
@@ -343,6 +344,7 @@ export async function listProjectCompanies(
         company_employee_min: (company?.employee_count_min as number) ?? null,
         company_employee_max: (company?.employee_count_max as number) ?? null,
         company_country_code: (company?.country_code as string) ?? "",
+        source_provider: (company?.source_provider as string) ?? null,
       };
     },
   );

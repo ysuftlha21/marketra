@@ -15,6 +15,12 @@ import { getPublicAppUrl } from "@/lib/env/runtime-env";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { enforceRateLimit } from "@/lib/security/rate-limit-service";
+import { parseServerEnv } from "@/lib/env/env";
+import {
+  canCreateAccount,
+  CLOSED_BETA_MESSAGE,
+  normalizeSignupAllowlist,
+} from "@/features/auth/domain/signup-access";
 
 const pricingIntentSchema = z.object({
   plan: z.enum(["starter", "growth"]).optional(),
@@ -78,6 +84,16 @@ export async function signUpAction(formData: FormData) {
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const env = parseServerEnv();
+  if (
+    !canCreateAccount({
+      mode: env.SIGNUP_MODE,
+      email: parsed.data.email,
+      allowlist: normalizeSignupAllowlist(env.SIGNUP_ALLOWLIST),
+    })
+  ) {
+    return { error: CLOSED_BETA_MESSAGE };
   }
   const signupKey = createHash("sha256").update(parsed.data.email.toLowerCase()).digest("hex");
   try {

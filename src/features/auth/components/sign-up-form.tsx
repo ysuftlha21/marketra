@@ -256,6 +256,17 @@ export function SignUpForm({
               {pending ? "Creating account…" : "Create account"}{" "}
               <ArrowRight className="ml-1 h-4 w-4" />
             </button>
+            <p className="text-center text-xs leading-5 text-muted-foreground">
+              By creating an account, you acknowledge the{" "}
+              <Link href="/terms" className="underline hover:text-foreground">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="underline hover:text-foreground">
+                Privacy Policy
+              </Link>
+              .
+            </p>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
