@@ -1,6 +1,22 @@
 import { parseServerEnv } from "@/lib/env/env";
 import { createRateLimitProvider } from "@/lib/providers/rate-limit/rate-limit.factory";
-import { RateLimitExceededError } from "@/lib/providers/rate-limit/rate-limit.provider";
+import {
+  RateLimitExceededError,
+  RateLimitProviderUnavailableError,
+} from "@/lib/providers/rate-limit/rate-limit.provider";
+
+export const FAIL_CLOSED_RATE_LIMIT_OPERATIONS = new Set([
+  "signup",
+  "product_analysis",
+  "market_analysis",
+  "company_discovery",
+  "manual_company_creation",
+  "decision_role_generation",
+  "outreach_generation",
+  "billing_checkout",
+  "billing_portal",
+  "billing_plan_change",
+]);
 
 export async function enforceRateLimit(input: {
   operation: string;
@@ -27,6 +43,8 @@ export async function enforceRateLimit(input: {
 }
 
 export function safeRateLimitMessage(error: unknown): string | null {
+  if (error instanceof RateLimitProviderUnavailableError)
+    return "This protected action is temporarily unavailable. Please try again shortly.";
   if (!(error instanceof RateLimitExceededError)) return null;
   return `Too many requests. Please wait ${error.retryAfterSeconds} seconds and try again.`;
 }

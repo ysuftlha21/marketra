@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { RateLimitProvider, RateLimitRequest } from "./rate-limit.provider";
+import { RateLimitProviderUnavailableError } from "./rate-limit.provider";
 
 const responseSchema = z.object({
   allowed: z.boolean(),
@@ -12,26 +13,29 @@ export class ExternalRateLimitProvider implements RateLimitProvider {
   constructor(private readonly config: { url: string; token: string; timeoutMs: number }) {}
 
   async consume(request: RateLimitRequest) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
-    try {
-      const response = await fetch(this.config.url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${this.config.token}`,
-        },
-        body: JSON.stringify(request),
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error("Rate-limit provider is unavailable.");
-      const parsed = responseSchema.safeParse(await response.json());
-      if (!parsed.success) throw new Error("Rate-limit provider returned an invalid response.");
-      return parsed.data;
-    } catch {
-      throw new Error("Rate-limit provider is unavailable.");
-    } finally {
-      clearTimeout(timer);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
+      try {
+        const response = await fetch(this.config.url, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${this.config.token}`,
+          },
+          body: JSON.stringify(request),
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new RateLimitProviderUnavailableError();
+        const parsed = responseSchema.safeParse(await response.json());
+        if (!parsed.success) throw new RateLimitProviderUnavailableError();
+        return parsed.data;
+      } catch {
+        if (attempt === 1) throw new RateLimitProviderUnavailableError();
+      } finally {
+        clearTimeout(timer);
+      }
     }
+    throw new RateLimitProviderUnavailableError();
   }
 }

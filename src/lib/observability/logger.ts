@@ -1,8 +1,10 @@
 const REDACTED = "[REDACTED]";
-const SENSITIVE_KEY = /api.?key|authorization|cookie|token|password|secret|prompt|message|cv/i;
+const SENSITIVE_KEY =
+  /api.?key|authorization|cookie|token|password|secret|signature|database.?url|session|prompt|message|cv/i;
 
 export type OperationLog = {
   operationId: string;
+  requestId?: string;
   operationType: string;
   workspaceId?: string;
   projectId?: string;

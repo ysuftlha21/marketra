@@ -22,6 +22,7 @@ export function createOutreachProvider(providerId: string): OutreachProvider {
       model: env.OPENAI_MODEL,
       timeoutMs: env.OPENAI_TIMEOUT_MS,
       maxRetries: env.OPENAI_MAX_RETRIES,
+      maxOutputTokens: env.OPENAI_MAX_OUTPUT_TOKENS,
     });
   }
 

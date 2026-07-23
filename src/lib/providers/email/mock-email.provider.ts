@@ -1,4 +1,5 @@
 import type { EmailProvider, EmailResult, SendEmailInput } from "./email.provider";
+import { randomUUID } from "node:crypto";
 
 function meta(startedAt: number) {
   return {
@@ -18,6 +19,7 @@ export class MockEmailProvider implements EmailProvider {
       isMock: true,
       messageId: `mock_${Date.now()}_${input.to}`,
       status: "sent",
+      operationId: input.operationId ?? randomUUID(),
     };
     return { data, meta: meta(startedAt) };
   }

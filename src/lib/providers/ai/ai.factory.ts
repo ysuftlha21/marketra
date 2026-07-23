@@ -9,6 +9,7 @@ export interface AiProviderFactoryConfig {
   model?: string;
   timeoutMs?: number;
   maxRetries?: number;
+  maxOutputTokens?: number;
 }
 
 export function createAiProvider(id: AiProviderId, config?: AiProviderFactoryConfig): AiProvider {
@@ -24,6 +25,7 @@ export function createAiProvider(id: AiProviderId, config?: AiProviderFactoryCon
         model: config?.model ?? env.OPENAI_MODEL,
         timeoutMs: config?.timeoutMs ?? env.OPENAI_TIMEOUT_MS,
         maxRetries: config?.maxRetries ?? env.OPENAI_MAX_RETRIES,
+        maxOutputTokens: config?.maxOutputTokens ?? env.OPENAI_MAX_OUTPUT_TOKENS,
       });
     default: {
       const exhaustive: never = id;

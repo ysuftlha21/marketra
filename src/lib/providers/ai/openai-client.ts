@@ -9,6 +9,7 @@ export interface OpenAiClientConfig {
   model: string;
   timeoutMs: number;
   maxRetries: number;
+  maxOutputTokens?: number;
 }
 
 export class AiProviderError extends Error {
@@ -49,6 +50,7 @@ export class StructuredOpenAiClient {
             { role: "user", content: serializedInput },
           ],
           response_format: { type: "json_object" },
+          max_completion_tokens: this.config.maxOutputTokens ?? 2000,
         },
         {
           idempotencyKey: createHash("sha256")

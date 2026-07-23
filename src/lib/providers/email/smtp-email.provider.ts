@@ -1,6 +1,8 @@
 import nodemailer from "nodemailer";
 import type { EmailProvider, SendEmailInput } from "./email.provider";
 import { buildMeta } from "../provider-types";
+import { randomUUID } from "node:crypto";
+import { sendEmailInputSchema } from "./email.provider";
 
 export interface SmtpEmailConfig {
   host: string;
@@ -38,17 +40,26 @@ export class SmtpEmailProvider implements EmailProvider {
   }
 
   async send(input: SendEmailInput) {
+    const parsed = sendEmailInputSchema.safeParse(input);
+    if (!parsed.success) throw new EmailProviderError("delivery_failed", "Email input is invalid.");
+    const safeInput = parsed.data;
+    const operationId = safeInput.operationId ?? randomUUID();
     const startedAt = Date.now();
     for (let attempt = 0; attempt <= this.config.maxRetries; attempt += 1) {
       try {
         const result = await this.transport.sendMail({
-          to: input.to,
-          from: input.from,
-          subject: input.subject,
-          text: input.body,
+          to: safeInput.to,
+          from: safeInput.from,
+          subject: safeInput.subject,
+          text: safeInput.body,
         });
         return {
-          data: { isMock: false, messageId: result.messageId, status: "sent" as const },
+          data: {
+            isMock: false,
+            messageId: result.messageId,
+            status: "sent" as const,
+            operationId,
+          },
           meta: buildMeta(this.name, false, startedAt),
         };
       } catch (error) {

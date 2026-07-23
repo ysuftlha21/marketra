@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { isSafeStoredUrl } from "@/lib/security/ssrf";
 
 const optionalUrl = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-  z.string().url().max(2048).optional(),
+  z.string().url().max(2048).refine(isSafeStoredUrl, "Enter a safe public URL.").optional(),
 );
 
 const signalList = z.preprocess(

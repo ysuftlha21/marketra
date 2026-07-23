@@ -24,3 +24,10 @@ export class RateLimitExceededError extends Error {
     this.name = "RateLimitExceededError";
   }
 }
+
+export class RateLimitProviderUnavailableError extends Error {
+  constructor() {
+    super("Request protection is temporarily unavailable.");
+    this.name = "RateLimitProviderUnavailableError";
+  }
+}

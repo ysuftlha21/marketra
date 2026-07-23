@@ -19,7 +19,16 @@ const defaultDnsResolver: DnsResolver = {
 
 function isPrivateIp(ip: string): boolean {
   if (net.isIPv6(ip)) {
-    return ip === "::1" || ip.startsWith("fe80:") || ip.startsWith("fc") || ip.startsWith("fd");
+    const normalized = ip.toLowerCase();
+    if (normalized.startsWith("::ffff:")) return isPrivateIp(normalized.slice(7));
+    return (
+      normalized === "::" ||
+      normalized === "::1" ||
+      normalized.startsWith("fe80:") ||
+      normalized.startsWith("fc") ||
+      normalized.startsWith("fd") ||
+      normalized.startsWith("ff")
+    );
   }
 
   if (ip === "127.0.0.1" || ip === "0.0.0.0") return true;
@@ -37,8 +46,33 @@ function isPrivateIp(ip: string): boolean {
   if (first === 172 && second >= 16 && second <= 31) return true;
   if (first === 192 && second === 168) return true;
   if (first === 100 && second >= 64 && second <= 127) return true;
+  if (first === 169 && second === 254) return true;
+  if (first >= 224) return true;
 
   return false;
+}
+
+/** Synchronous validation for URLs that are stored/displayed but never fetched. */
+export function isSafeStoredUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (!["http:", "https:"].includes(url.protocol)) return false;
+  if (url.username || url.password) return false;
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!hostname || hostname === "localhost") return false;
+  if (
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal")
+  )
+    return false;
+  if (METADATA_ENDPOINTS.has(hostname)) return false;
+  if (net.isIP(hostname) && isPrivateIp(hostname)) return false;
+  return true;
 }
 
 /** Resolve a hostname to its IP addresses. Uses the provided resolver or real DNS. */
