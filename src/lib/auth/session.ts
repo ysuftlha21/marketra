@@ -50,7 +50,9 @@ export class AuthInfrastructureError extends Error {
   }
 }
 
-async function loadAuthContext(supabase: SupabaseClient<Database>): Promise<AuthContext | null> {
+export async function loadAuthContext(
+  supabase: SupabaseClient<Database>,
+): Promise<AuthContext | null> {
   const t0 = perfStart("auth.getUser");
   const {
     data: { user },

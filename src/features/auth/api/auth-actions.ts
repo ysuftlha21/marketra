@@ -14,8 +14,10 @@ import { sanitizeRedirect } from "@/lib/security/redirect";
 import { getPublicAppUrl } from "@/lib/env/runtime-env";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { enforceRateLimit } from "@/lib/security/rate-limit-service";
+import { randomUUID } from "node:crypto";
+import { enforceRateLimit, safeRateLimitMessage } from "@/lib/security/rate-limit-service";
 import { parseServerEnv } from "@/lib/env/env";
+import { logOperation } from "@/lib/observability/logger";
 import {
   canCreateAccount,
   CLOSED_BETA_MESSAGE,
@@ -46,6 +48,9 @@ function authError(code: string | undefined | null, fallback: string): string {
 
 const SIGN_UP_EMAIL_RATE_LIMIT_MESSAGE =
   "Too many confirmation emails have been requested. Please wait a while and try again.";
+const RESEND_ACCEPTED_MESSAGE =
+  "If this address can receive a confirmation email, a new message has been sent.";
+const RESEND_FAILURE_MESSAGE = "We could not request another confirmation email. Please try again.";
 
 function signUpError(error: { code?: string | null; status?: number } | null | undefined): string {
   if (
@@ -109,7 +114,7 @@ export async function signUpAction(formData: FormData) {
       password: parsed.data.password,
       options: {
         data: {
-          display_name: parsed.data.displayName ?? null,
+          display_name: parsed.data.displayName?.trim() || null,
           pricing_intent: pricingIntent.data.plan
             ? {
                 plan: pricingIntent.data.plan,
@@ -118,6 +123,7 @@ export async function signUpAction(formData: FormData) {
               }
             : null,
         },
+        emailRedirectTo: `${getPublicAppUrl()}/auth/callback?next=/dashboard`,
       },
     });
   } catch {
@@ -126,10 +132,99 @@ export async function signUpAction(formData: FormData) {
   if (result.error) {
     return { error: signUpError(result.error) };
   }
-  if (result.data.user && result.data.session == null) {
-    redirect("/sign-in?verified=1");
+  if (result.data.session) return redirect("/onboarding");
+  return redirect(`/sign-up/check-email?email=${encodeURIComponent(parsed.data.email)}`);
+}
+
+export async function resendSignupConfirmationAction(formData: FormData) {
+  const operationId = randomUUID();
+  const startedAt = Date.now();
+  const env = parseServerEnv();
+  const environment = env.APP_ENV ?? env.NODE_ENV;
+  const parsed = forgotPasswordSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) {
+    logOperation({
+      operationId,
+      operationType: "auth.signup_confirmation_resend",
+      providerId: "supabase_auth",
+      durationMs: Date.now() - startedAt,
+      success: false,
+      controlledErrorCode: "invalid_input",
+      environment,
+    });
+    return { error: RESEND_FAILURE_MESSAGE };
   }
-  redirect("/onboarding");
+
+  const resendKey = createHash("sha256").update(parsed.data.email).digest("hex");
+  try {
+    await enforceRateLimit({
+      operation: "signup_confirmation_resend",
+      userId: `anonymous:${resendKey}`,
+      limit: 3,
+    });
+  } catch (error) {
+    logOperation({
+      operationId,
+      operationType: "auth.signup_confirmation_resend",
+      providerId: "rate_limit",
+      durationMs: Date.now() - startedAt,
+      success: false,
+      controlledErrorCode: "rate_limited",
+      environment,
+    });
+    return {
+      error:
+        safeRateLimitMessage(error) ??
+        "Confirmation email requests are temporarily unavailable. Please try again shortly.",
+    };
+  }
+
+  try {
+    const supabase = await createServerClient();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: parsed.data.email,
+      options: {
+        emailRedirectTo: `${getPublicAppUrl()}/auth/callback?next=/dashboard`,
+      },
+    });
+
+    if (error?.status === 429 || signUpError(error) === SIGN_UP_EMAIL_RATE_LIMIT_MESSAGE) {
+      logOperation({
+        operationId,
+        operationType: "auth.signup_confirmation_resend",
+        providerId: "supabase_auth",
+        durationMs: Date.now() - startedAt,
+        success: false,
+        controlledErrorCode: "email_rate_limited",
+        environment,
+      });
+      return { error: SIGN_UP_EMAIL_RATE_LIMIT_MESSAGE };
+    }
+
+    logOperation({
+      operationId,
+      operationType: "auth.signup_confirmation_resend",
+      providerId: "supabase_auth",
+      durationMs: Date.now() - startedAt,
+      success: !error,
+      controlledErrorCode: error ? "provider_response_suppressed" : undefined,
+      environment,
+    });
+    // Provider responses are intentionally indistinguishable to prevent account enumeration.
+    return { ok: true, message: RESEND_ACCEPTED_MESSAGE };
+  } catch {
+    logOperation({
+      operationId,
+      operationType: "auth.signup_confirmation_resend",
+      providerId: "supabase_auth",
+      durationMs: Date.now() - startedAt,
+      success: false,
+      controlledErrorCode: "provider_unavailable",
+      environment,
+    });
+    return { error: RESEND_FAILURE_MESSAGE };
+  }
 }
 
 export async function signInAction(formData: FormData) {

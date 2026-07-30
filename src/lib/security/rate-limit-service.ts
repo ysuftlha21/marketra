@@ -7,6 +7,7 @@ import {
 
 export const FAIL_CLOSED_RATE_LIMIT_OPERATIONS = new Set([
   "signup",
+  "signup_confirmation_resend",
   "product_analysis",
   "market_analysis",
   "company_discovery",

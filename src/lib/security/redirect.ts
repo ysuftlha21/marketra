@@ -20,3 +20,13 @@ export function sanitizeRedirect(next: string | null | undefined, fallback = "/"
     return fallback;
   }
 }
+
+const AUTH_CALLBACK_PATHS = new Set(["/dashboard", "/onboarding", "/reset-password"]);
+
+export function sanitizeAuthCallbackRedirect(
+  next: string | null | undefined,
+  fallback = "/dashboard",
+): string {
+  const localPath = sanitizeRedirect(next, fallback);
+  return AUTH_CALLBACK_PATHS.has(localPath) ? localPath : fallback;
+}

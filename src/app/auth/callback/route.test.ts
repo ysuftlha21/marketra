@@ -1,31 +1,30 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-// Mock sanitizeRedirect to verify it's called correctly.
-const mockSanitizeRedirect = vi.fn((next: string, fallback: string) => {
-  if (next === "https://evil.com") return fallback;
-  return next || fallback;
-});
-
-vi.mock("@/lib/security/redirect", () => ({
-  sanitizeRedirect: mockSanitizeRedirect,
+const { exchangeCodeForSession, verifyOtp, loadAuthContext } = vi.hoisted(() => ({
+  exchangeCodeForSession: vi.fn(),
+  verifyOtp: vi.fn(),
+  loadAuthContext: vi.fn(),
 }));
-
-// Mock createServerClient to simulate exchangeCodeForSession outcomes.
-const mockExchangeCodeForSession = vi.fn();
 
 vi.mock("@supabase/ssr", () => ({
   createServerClient: () => ({
-    auth: {
-      exchangeCodeForSession: mockExchangeCodeForSession,
-    },
+    auth: { exchangeCodeForSession, verifyOtp },
   }),
 }));
+vi.mock("@/lib/auth/session", () => ({ loadAuthContext }));
 
 const { GET } = await import("./route");
 
 function makeRequest(url: string): NextRequest {
   return new NextRequest(new Request(url));
+}
+
+function successfulExchange() {
+  exchangeCodeForSession.mockResolvedValue({
+    data: { session: { access_token: "never-logged" } },
+    error: null,
+  });
 }
 
 describe("auth callback route", () => {
@@ -35,113 +34,148 @@ describe("auth callback route", () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "test-anon-key");
   });
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    "https://app.marketra.dev/auth/callback",
+    "https://app.marketra.dev/auth/callback?code=",
+  ])("redirects missing codes to a controlled sign-in error", async (url) => {
+    const response = await GET(makeRequest(url));
+    expect(response.headers.get("location")).toBe(
+      "https://app.marketra.dev/sign-in?error=callback",
+    );
   });
 
-  it("redirects to sign-in when code is missing", async () => {
-    const req = makeRequest("https://app.marketra.dev/auth/callback");
-    const resp = await GET(req);
-    expect(resp.status).toBe(307);
-    expect(resp.headers.get("location")).toContain("/sign-in?error=callback");
-  });
-
-  it("redirects to sign-in when code is empty", async () => {
-    const req = makeRequest("https://app.marketra.dev/auth/callback?code=");
-    const resp = await GET(req);
-    expect(resp.status).toBe(307);
-    expect(resp.headers.get("location")).toContain("/sign-in?error=callback");
-  });
-
-  it("redirects to sign-in when Supabase config is missing", async () => {
+  it("redirects missing configuration to a controlled sign-in error", async () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
 
-    const req = makeRequest("https://app.marketra.dev/auth/callback?code=abc123");
-    const resp = await GET(req);
-    expect(resp.status).toBe(307);
-    expect(resp.headers.get("location")).toContain("/sign-in?error=config");
+    const response = await GET(makeRequest("https://app.marketra.dev/auth/callback?code=valid"));
+    expect(response.headers.get("location")).toContain("/sign-in?error=config");
   });
 
-  it("redirects to dashboard after successful code exchange", async () => {
-    mockExchangeCodeForSession.mockResolvedValue({ error: null });
-
-    const req = makeRequest("https://app.marketra.dev/auth/callback?code=valid-code");
-    const resp = await GET(req);
-    expect(resp.status).toBe(307);
-    expect(resp.headers.get("location")).toContain("/dashboard");
-    expect(mockExchangeCodeForSession).toHaveBeenCalledWith("valid-code");
-  });
-
-  it("respects the next parameter after successful exchange", async () => {
-    mockExchangeCodeForSession.mockResolvedValue({ error: null });
-
-    const req = makeRequest(
-      "https://app.marketra.dev/auth/callback?code=valid-code&next=/reset-password",
-    );
-    const resp = await GET(req);
-    expect(resp.status).toBe(307);
-    expect(resp.headers.get("location")).toContain("/reset-password");
-  });
-
-  it("redirects to sign-in when code exchange fails", async () => {
-    mockExchangeCodeForSession.mockResolvedValue({
-      error: new Error("Invalid code"),
+  it("routes a confirmed user without a workspace to onboarding", async () => {
+    successfulExchange();
+    loadAuthContext.mockResolvedValue({
+      user: { id: "user-1", email: "founder@example.com" },
+      displayName: "Founder",
+      activeWorkspace: null,
     });
 
-    const req = makeRequest("https://app.marketra.dev/auth/callback?code=bad-code");
-    const resp = await GET(req);
-    expect(resp.status).toBe(307);
-    expect(resp.headers.get("location")).toContain("/sign-in?error=callback");
-  });
-
-  it("uses sanitizeRedirect to reject unsafe next parameter", async () => {
-    mockExchangeCodeForSession.mockResolvedValue({ error: null });
-
-    const req = makeRequest(
-      "https://app.marketra.dev/auth/callback?code=valid-code&next=https://evil.com",
+    const response = await GET(
+      makeRequest("https://app.marketra.dev/auth/callback?code=valid&next=/dashboard"),
     );
-    const resp = await GET(req);
-    expect(resp.status).toBe(307);
-    // Should fall back to /dashboard when evil.com is rejected.
-    expect(resp.headers.get("location")).toContain("/dashboard");
+
+    expect(exchangeCodeForSession).toHaveBeenCalledWith("valid");
+    expect(response.headers.get("location")).toBe("https://app.marketra.dev/onboarding");
   });
 
-  it("does not log the code parameter", async () => {
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  it("routes a ready confirmed user to the dashboard", async () => {
+    successfulExchange();
+    loadAuthContext.mockResolvedValue({
+      user: { id: "user-1", email: "founder@example.com" },
+      displayName: "Founder",
+      activeWorkspace: {
+        workspace: { id: "workspace-1", name: "Acme", slug: "acme" },
+        role: "owner",
+        memberships: [],
+      },
+    });
 
-    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    const response = await GET(makeRequest("https://app.marketra.dev/auth/callback?code=valid"));
 
-    const req = makeRequest("https://app.marketra.dev/auth/callback?code=secret-code-123");
-    await GET(req);
-
-    for (const spy of [consoleSpy, consoleWarnSpy, consoleErrorSpy]) {
-      const calls = spy.mock.calls.flat().map(String);
-      const leaked = calls.filter((c) => c.includes("secret-code-123"));
-      expect(leaked).toHaveLength(0);
-      spy.mockRestore();
-    }
+    expect(response.headers.get("location")).toBe("https://app.marketra.dev/dashboard");
   });
 
-  it("does not log the next parameter", async () => {
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    mockExchangeCodeForSession.mockResolvedValue({ error: null });
-
-    const req = makeRequest(
-      "https://app.marketra.dev/auth/callback?code=valid&next=/internal/path",
+  it("preserves the allowlisted recovery destination", async () => {
+    successfulExchange();
+    const response = await GET(
+      makeRequest("https://app.marketra.dev/auth/callback?code=valid&next=/reset-password"),
     );
-    await GET(req);
 
-    for (const spy of [consoleSpy, consoleWarnSpy, consoleErrorSpy]) {
-      const calls = spy.mock.calls.flat().map(String);
-      const leaked = calls.filter((c) => c.includes("/internal/path"));
-      expect(leaked).toHaveLength(0);
-      spy.mockRestore();
-    }
+    expect(response.headers.get("location")).toBe("https://app.marketra.dev/reset-password");
+    expect(loadAuthContext).not.toHaveBeenCalled();
+  });
+
+  it("verifies a direct email token without exposing it", async () => {
+    verifyOtp.mockResolvedValue({
+      data: { session: { access_token: "never-logged" } },
+      error: null,
+    });
+    loadAuthContext.mockResolvedValue({
+      user: { id: "user-1", email: null },
+      displayName: null,
+      activeWorkspace: null,
+    });
+
+    const response = await GET(
+      makeRequest(
+        "https://app.marketra.dev/auth/callback?token_hash=private-token&type=signup&next=/dashboard",
+      ),
+    );
+
+    expect(verifyOtp).toHaveBeenCalledWith({
+      token_hash: "private-token",
+      type: "signup",
+    });
+    expect(response.headers.get("location")).toBe("https://app.marketra.dev/onboarding");
+  });
+
+  it.each(["https://evil.example/steal", "//evil.example/steal", "/internal/path"])(
+    "rejects a non-allowlisted callback destination: %s",
+    async (next) => {
+      successfulExchange();
+      loadAuthContext.mockResolvedValue({
+        user: { id: "user-1", email: null },
+        displayName: null,
+        activeWorkspace: null,
+      });
+
+      const request = makeRequest(
+        `https://app.marketra.dev/auth/callback?code=valid&next=${encodeURIComponent(next)}`,
+      );
+      const response = await GET(request);
+      expect(response.headers.get("location")).toBe("https://app.marketra.dev/onboarding");
+    },
+  );
+
+  it("redirects exchange and readiness failures with safe error codes", async () => {
+    exchangeCodeForSession.mockResolvedValue({
+      data: { session: null },
+      error: new Error("raw provider response"),
+    });
+    const exchangeFailure = await GET(
+      makeRequest("https://app.marketra.dev/auth/callback?code=bad"),
+    );
+    expect(exchangeFailure.headers.get("location")).toContain("/sign-in?error=callback");
+
+    successfulExchange();
+    loadAuthContext.mockRejectedValue(new Error("database details"));
+    const readinessFailure = await GET(
+      makeRequest("https://app.marketra.dev/auth/callback?code=valid"),
+    );
+    expect(readinessFailure.headers.get("location")).toContain("/sign-in?error=readiness");
+  });
+
+  it("does not log auth codes, next values, email, or session data", async () => {
+    const consoleSpies = [
+      vi.spyOn(console, "log").mockImplementation(() => {}),
+      vi.spyOn(console, "warn").mockImplementation(() => {}),
+      vi.spyOn(console, "error").mockImplementation(() => {}),
+    ];
+    successfulExchange();
+    loadAuthContext.mockResolvedValue({
+      user: { id: "user-1", email: "private@example.com" },
+      displayName: null,
+      activeWorkspace: null,
+    });
+
+    await GET(
+      makeRequest("https://app.marketra.dev/auth/callback?code=secret-code&next=%2Fdashboard"),
+    );
+
+    const output = consoleSpies.flatMap((spy) => spy.mock.calls.flat()).join(" ");
+    expect(output).not.toMatch(/secret-code|private@example\.com|access_token|dashboard/);
+    consoleSpies.forEach((spy) => spy.mockRestore());
   });
 });

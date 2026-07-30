@@ -29,6 +29,20 @@ test.describe("Unauthenticated access", () => {
     await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
   });
 
+  test("renders the email confirmation handoff without exposing the full recipient", async ({
+    page,
+  }) => {
+    await page.goto("/sign-up/check-email?email=founder%40example.com");
+    await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+    await expect(page.getByText("fo•••••@example.com")).toBeVisible();
+    await expect(page.getByText("founder@example.com")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Resend available in 60s" })).toBeDisabled();
+    await expect(page.getByRole("link", { name: "Change email" })).toHaveAttribute(
+      "href",
+      "/sign-up",
+    );
+  });
+
   test("allows access to pricing page without auth", async ({ page }) => {
     await page.goto("/pricing");
     await expect(page.getByRole("heading", { name: "Pricing", exact: true })).toBeVisible();

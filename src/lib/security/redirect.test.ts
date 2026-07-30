@@ -5,7 +5,7 @@ vi.mock("@/lib/env/runtime-env", () => ({
   getPublicAppUrl: () => "https://app.marketra.dev",
 }));
 
-const { sanitizeRedirect } = await import("./redirect");
+const { sanitizeAuthCallbackRedirect, sanitizeRedirect } = await import("./redirect");
 
 describe("sanitizeRedirect", () => {
   const fallback = "/dashboard";
@@ -68,4 +68,20 @@ describe("sanitizeRedirect", () => {
   it("falls back to / when no fallback is provided", () => {
     expect(sanitizeRedirect("https://evil.com")).toBe("/");
   });
+});
+
+describe("sanitizeAuthCallbackRedirect", () => {
+  it.each(["/dashboard", "/onboarding", "/reset-password"])(
+    "allows the explicit auth callback path %s",
+    (path) => {
+      expect(sanitizeAuthCallbackRedirect(path)).toBe(path);
+    },
+  );
+
+  it.each(["/internal/path", "https://evil.com/phish", "//evil.com/phish", "/dashboard/settings"])(
+    "rejects non-allowlisted auth callback destinations: %s",
+    (path) => {
+      expect(sanitizeAuthCallbackRedirect(path)).toBe("/dashboard");
+    },
+  );
 });

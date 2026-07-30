@@ -4,7 +4,9 @@ import type { Database } from "@/lib/db/database.types";
 
 function isAuthRoute(pathname: string): boolean {
   const authRoutes = new Set(["/sign-in", "/sign-up", "/forgot-password", "/reset-password"]);
-  return authRoutes.has(pathname) || pathname.startsWith("/auth/");
+  return (
+    authRoutes.has(pathname) || pathname.startsWith("/sign-up/") || pathname.startsWith("/auth/")
+  );
 }
 
 function isDashboard(pathname: string): boolean {
@@ -65,6 +67,7 @@ export const config = {
     "/dashboard/:path*",
     "/sign-in",
     "/sign-up",
+    "/sign-up/:path*",
     "/forgot-password",
     "/reset-password",
     "/auth/callback",
