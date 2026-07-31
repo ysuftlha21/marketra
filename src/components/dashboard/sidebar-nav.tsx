@@ -77,13 +77,18 @@ export function SidebarNav({ onNavigate, onCollapse, collapsed = false }: Sideba
           View billing and usage
         </Link>
       )}
-      {!collapsed && (
+      {!collapsed && onCollapse && (
         <button
           type="button"
+          id="sidebar-toggle"
           onClick={onCollapse}
-          className="mt-8 flex items-center gap-2 px-2 text-[11px] text-zinc-500 hover:text-zinc-200"
+          aria-label="Collapse sidebar"
+          aria-expanded={true}
+          aria-controls="dashboard-sidebar"
+          title="Collapse sidebar"
+          className="mt-8 flex min-h-10 items-center gap-2 rounded-md px-2 text-[11px] text-zinc-500 transition-colors hover:bg-white/[.025] hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
         >
-          <ChevronsLeft className="h-4 w-4" /> Collapse
+          <ChevronsLeft className="h-4 w-4" aria-hidden="true" /> Collapse
         </button>
       )}
     </nav>

@@ -9,7 +9,6 @@ import {
   ChevronDown,
   LogOut,
   User as UserIcon,
-  PanelLeftClose,
   PanelLeftOpen,
   Search,
   Bell,
@@ -221,6 +220,9 @@ export function AppShell({
   // Keyboard shortcut: Ctrl+B
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && mobileOpen) {
+        setMobileOpen(false);
+      }
       if (e.ctrlKey && e.key === "b") {
         e.preventDefault();
         toggleCollapse();
@@ -233,15 +235,16 @@ export function AppShell({
     }
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [toggleCollapse]);
+  }, [mobileOpen, toggleCollapse]);
 
   return (
     <div className="dark marketra-dashboard-shell flex min-h-screen bg-[#070a12] text-zinc-100">
       {/* Desktop sidebar */}
       <aside
+        id="dashboard-sidebar"
         data-state={isCollapsed ? "collapsed" : "expanded"}
         className={cn(
-          "hidden shrink-0 border-r border-white/[.055] bg-[#080b13] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col transition-all duration-300",
+          "hidden shrink-0 border-r border-white/[.055] bg-[#080b13] transition-[width] duration-300 motion-reduce:transition-none lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col",
           isCollapsed ? "w-16" : "w-[196px]",
         )}
       >
@@ -254,28 +257,6 @@ export function AppShell({
           <Brand collapsed={isCollapsed} />
         </div>
         <SidebarNav collapsed={isCollapsed} onCollapse={toggleCollapse} />
-        <div className="hidden">
-          {!isCollapsed && (
-            <div className="text-[11px] text-muted-foreground truncate max-w-[140px]">
-              Workspace:{" "}
-              <span className="font-medium text-foreground">{context.activeWorkspace.name}</span>
-            </div>
-          )}
-          <button
-            type="button"
-            id="sidebar-toggle"
-            onClick={toggleCollapse}
-            aria-label="Toggle Sidebar"
-            title={isCollapsed ? "Expand sidebar (Ctrl+B)" : "Collapse sidebar (Ctrl+B)"}
-            className="p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground rounded-md transition-colors mx-auto"
-          >
-            {isCollapsed ? (
-              <PanelLeftOpen className="h-4 w-4" />
-            ) : (
-              <PanelLeftClose className="h-4 w-4" />
-            )}
-          </button>
-        </div>
       </aside>
 
       {/* Mobile drawer */}
@@ -290,7 +271,10 @@ export function AppShell({
             className="absolute inset-0 bg-background/80 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col border-r border-border bg-surface shadow-xl">
+          <aside
+            id="dashboard-mobile-navigation"
+            className="absolute left-0 top-0 flex h-full w-64 flex-col border-r border-border bg-surface shadow-xl"
+          >
             <div className="flex h-14 items-center justify-between border-b border-border px-4">
               <Brand />
               <button
@@ -321,11 +305,26 @@ export function AppShell({
               type="button"
               aria-label="Open navigation"
               aria-expanded={mobileOpen}
+              aria-controls="dashboard-mobile-navigation"
               onClick={() => setMobileOpen(true)}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface text-foreground transition-colors hover:bg-muted lg:hidden"
             >
               <Menu className="h-4 w-4" />
             </button>
+            {isCollapsed && (
+              <button
+                type="button"
+                id="sidebar-open"
+                aria-label="Open sidebar"
+                aria-expanded={false}
+                aria-controls="dashboard-sidebar"
+                title="Open sidebar"
+                onClick={toggleCollapse}
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-md border border-white/[.08] bg-[#0b0f19] text-zinc-400 transition-colors hover:bg-white/[.05] hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 lg:inline-flex"
+              >
+                <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
             <label className="relative hidden h-9 w-[330px] items-center gap-2 rounded-lg border border-white/[.055] bg-[#090d16] px-3 text-zinc-500 focus-within:border-violet-500/40 md:flex">
               <Search className="h-4 w-4" />
               <input
