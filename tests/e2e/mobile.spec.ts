@@ -5,6 +5,13 @@ test.describe("Mobile navigation", () => {
 
   test("mobile marketing nav can open", async ({ page }) => {
     await page.goto("/");
+    const brand = page.getByRole("banner").getByRole("link", { name: "Marketra home" });
+    await expect(brand).toHaveCount(1);
+    await expect(brand).toBeVisible();
+    await expect(page.locator("html")).toHaveJSProperty(
+      "scrollWidth",
+      await page.evaluate(() => document.documentElement.clientWidth),
+    );
     const toggle = page.getByRole("button", { name: "Toggle menu" });
     await expect(toggle).toBeVisible();
     await toggle.click();

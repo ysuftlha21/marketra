@@ -59,17 +59,76 @@ describe("signUpAction safe errors", () => {
     authFailure(code, status);
 
     await expect(signUpAction(validSignUpForm())).resolves.toEqual({
-      error: "Too many confirmation emails have been requested. Please wait a while and try again.",
+      error: "Too many attempts. Please wait before trying again.",
+      errorReference: "AUTH-SIGNUP-RATE-LIMIT",
     });
   });
 
-  it("keeps already-registered responses generic", async () => {
-    authFailure("user_already_exists");
+  it.each(["email_exists", "user_already_exists"])(
+    "keeps duplicate signup responses enumeration-safe (%s)",
+    async (code) => {
+      authFailure(code);
+
+      const response = await signUpAction(validSignUpForm());
+
+      expect(response).toEqual({
+        error: "We could not create this account. Try signing in or resend the confirmation email.",
+        errorReference: "AUTH-SIGNUP-ACCOUNT",
+      });
+      expect(JSON.stringify(response)).not.toContain("already exists");
+      expect(JSON.stringify(logOperation.mock.calls)).not.toContain("founder@example.com");
+      expect(JSON.stringify(logOperation.mock.calls)).not.toContain("raw Supabase provider detail");
+    },
+  );
+
+  it("maps weak passwords to a controlled message and reference", async () => {
+    authFailure("weak_password", 422);
 
     await expect(signUpAction(validSignUpForm())).resolves.toEqual({
-      error: "Could not complete the request. Please try again.",
+      error: "Your password does not meet the security requirements.",
+      errorReference: "AUTH-SIGNUP-WEAK-PASSWORD",
     });
   });
+
+  it.each(["signup_disabled", "email_provider_disabled"])(
+    "maps unavailable email signup safely (%s)",
+    async (code) => {
+      authFailure(code);
+
+      await expect(signUpAction(validSignUpForm())).resolves.toEqual({
+        error: "Email sign-up is currently unavailable.",
+        errorReference: "AUTH-SIGNUP-DISABLED",
+      });
+    },
+  );
+
+  it.each([
+    ["smtp_error", "SMTP connection rejected"],
+    ["email_send_failed", "provider failure"],
+    ["unexpected_failure", "Error sending confirmation email"],
+  ])("maps email delivery failures safely (%s)", async (code, message) => {
+    signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code, status: 500, message },
+    });
+
+    await expect(signUpAction(validSignUpForm())).resolves.toEqual({
+      error: "We could not send the confirmation email. Please try again shortly.",
+      errorReference: "AUTH-SIGNUP-EMAIL-SEND",
+    });
+  });
+
+  it.each(["unexpected_failure", "database_error"])(
+    "maps temporary service failures safely (%s)",
+    async (code) => {
+      authFailure(code, 500);
+
+      await expect(signUpAction(validSignUpForm())).resolves.toEqual({
+        error: "We could not create your account due to a temporary service error.",
+        errorReference: "AUTH-SIGNUP-SERVICE",
+      });
+    },
+  );
 
   it("rejects invalid input before calling Supabase", async () => {
     const formData = validSignUpForm();
@@ -86,8 +145,32 @@ describe("signUpAction safe errors", () => {
     signUp.mockRejectedValue(new Error("stack trace with internal API response"));
 
     await expect(signUpAction(validSignUpForm())).resolves.toEqual({
-      error: "Sign up failed. Please try again.",
+      error: "We could not create your account due to a temporary service error.",
+      errorReference: "AUTH-SIGNUP-SERVICE",
     });
+    expect(JSON.stringify(logOperation.mock.calls)).not.toContain("stack trace");
+  });
+
+  it("logs only structured, safe failure diagnostics", async () => {
+    authFailure("smtp_error", 502);
+
+    await signUpAction(validSignUpForm());
+
+    expect(logOperation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "auth.signup",
+        operationType: "auth.signup",
+        providerErrorCode: "smtp_error",
+        httpStatus: 502,
+        operationId: expect.any(String),
+        environment: expect.any(String),
+        success: false,
+      }),
+    );
+    const serializedLogs = JSON.stringify(logOperation.mock.calls);
+    expect(serializedLogs).not.toContain("founder@example.com");
+    expect(serializedLogs).not.toContain("SecurePass123!");
+    expect(serializedLogs).not.toContain("raw Supabase provider detail");
   });
 
   it("redirects a successful unconfirmed signup to the masked-email flow", async () => {
@@ -177,7 +260,7 @@ describe("resendSignupConfirmationAction", () => {
     });
 
     await expect(resendSignupConfirmationAction(resendForm())).resolves.toEqual({
-      error: "Too many confirmation emails have been requested. Please wait a while and try again.",
+      error: "Too many attempts. Please wait before trying again.",
     });
   });
 

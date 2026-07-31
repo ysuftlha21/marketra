@@ -18,6 +18,7 @@ export function SignUpForm({
   pricingIntent?: { plan?: string; interval?: string; trial?: boolean };
 }) {
   const [error, setError] = React.useState<string | null>(null);
+  const [errorReference, setErrorReference] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
   const pendingRef = React.useRef(false);
   const [showPassword, setShowPassword] = React.useState(false);
@@ -34,6 +35,7 @@ export function SignUpForm({
     if (pendingRef.current) return;
     pendingRef.current = true;
     setError(null);
+    setErrorReference(null);
     setPending(true);
     try {
       const formData = new FormData();
@@ -45,7 +47,10 @@ export function SignUpForm({
       if (pricingIntent?.interval) formData.set("billingInterval", pricingIntent.interval);
       if (pricingIntent?.trial) formData.set("trial", "true");
       const res = await signUpAction(formData);
-      if (res?.error) setError(res.error);
+      if (res?.error) {
+        setError(res.error);
+        setErrorReference("errorReference" in res ? (res.errorReference ?? null) : null);
+      }
     } finally {
       pendingRef.current = false;
       setPending(false);
@@ -239,12 +244,15 @@ export function SignUpForm({
             </div>
 
             {error && (
-              <p
+              <div
                 role="alert"
                 className="rounded-lg border border-danger/20 bg-danger/5 px-3 py-2.5 text-sm text-danger"
               >
-                {error}
-              </p>
+                <p>{error}</p>
+                {errorReference && (
+                  <p className="mt-1 text-xs font-medium">Error reference: {errorReference}</p>
+                )}
+              </div>
             )}
 
             <button

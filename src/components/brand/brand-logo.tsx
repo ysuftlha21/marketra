@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { cn } from "@/lib/utils/cn";
 
 export interface BrandLogoProps {
   variant?: "mark" | "full";
@@ -9,7 +10,9 @@ export interface BrandLogoProps {
   link?: boolean;
 }
 
-const sizes = { sm: { m: 24, f: 100 }, md: { m: 32, f: 140 }, lg: { m: 40, f: 180 } };
+// Full logo assets use a 15:4 aspect ratio. Matching the source ratio prevents
+// the browser from correcting a mismatched intrinsic size after first paint.
+const sizes = { sm: { m: 24, f: 90 }, md: { m: 32, f: 120 }, lg: { m: 40, f: 150 } };
 
 export function BrandLogo({
   variant = "full",
@@ -35,7 +38,7 @@ export function BrandLogo({
           alt={alt}
           width={w}
           height={h}
-          className="object-contain dark:hidden"
+          className="block max-w-none object-contain dark:hidden"
           priority
         />
         <Image
@@ -43,23 +46,41 @@ export function BrandLogo({
           alt={alt}
           width={w}
           height={h}
-          className="hidden object-contain dark:block"
+          className="hidden max-w-none object-contain dark:block"
           priority
         />
       </>
     ) : theme === "dark" ? (
-      <Image src={darkSrc} alt={alt} width={w} height={h} className="object-contain" priority />
+      <Image
+        src={darkSrc}
+        alt={alt}
+        width={w}
+        height={h}
+        className="block max-w-none object-contain"
+        priority
+      />
     ) : (
-      <Image src={lightSrc} alt={alt} width={w} height={h} className="object-contain" priority />
+      <Image
+        src={lightSrc}
+        alt={alt}
+        width={w}
+        height={h}
+        className="block max-w-none object-contain"
+        priority
+      />
     );
 
   if (link) {
     return (
-      <Link href="/" aria-label="Marketra home" className={className}>
+      <Link
+        href="/"
+        aria-label="Marketra home"
+        className={cn("inline-flex min-h-11 shrink-0 items-center", className)}
+      >
         {content}
       </Link>
     );
   }
 
-  return <span className={className}>{content}</span>;
+  return <span className={cn("inline-flex shrink-0 items-center", className)}>{content}</span>;
 }

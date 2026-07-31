@@ -11,6 +11,17 @@ Exact subject:
 Confirm your Marketra account
 ```
 
+Supported variables used by this template:
+
+- `{{ .TokenHash }}` — the one-time confirmation token hash.
+- `{{ .Data.display_name }}` — the normalized display name supplied during signup.
+- `{{ .ConfirmationURL }}` — Supabase's complete confirmation URL, retained as the plain fallback.
+
+These are Supabase Go-template variables, not Liquid/Jinja values. Do not add pipe filters,
+JavaScript, or unsupported helpers. In particular, expressions such as
+`{{ .Data.display_name | default: "there" }}` are not supported and can prevent the message from
+rendering or being sent.
+
 Production HTML:
 
 ```html
@@ -54,7 +65,7 @@ Production HTML:
                   Confirm your email
                 </h1>
                 <p style="margin:0 0 16px;font-size:16px;line-height:25px;color:#52525b;">
-                  Hello {{ if .Data.display_name }}{{ .Data.display_name }}{{ else }}there{{ end }},
+                  Hello {{ .Data.display_name }},
                 </p>
                 <p style="margin:0 0 24px;font-size:16px;line-height:25px;color:#52525b;">
                   Confirm your email address to finish creating your Marketra account.
@@ -63,7 +74,7 @@ Production HTML:
                   <tr>
                     <td style="border-radius:8px;background:#18181b;">
                       <a
-                        href="{{ .ConfirmationURL }}"
+                        href="https://marketra-psi.vercel.app/auth/callback?token_hash={{ .TokenHash }}&amp;type=signup&amp;next=/dashboard"
                         style="display:inline-block;padding:13px 22px;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;"
                       >
                         Confirm email

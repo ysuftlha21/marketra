@@ -27,10 +27,10 @@ export function MarketingHeader() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-sm">
-      <div className="container mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <BrandLogo link variant="full" size="md" theme="auto" className="flex items-center gap-2" />
+      <div className="container mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+        <BrandLogo link variant="full" size="md" theme="auto" />
 
-        <nav aria-label="Marketing" className="hidden items-center gap-1 md:flex">
+        <nav aria-label="Marketing" className="hidden min-w-0 items-center gap-1 md:flex">
           {marketingNavigation.map((item) => {
             const active =
               pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href));
@@ -49,7 +49,7 @@ export function MarketingHeader() {
           })}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <ThemeToggle />
           {isAuthenticated !== null &&
             (isAuthenticated ? (

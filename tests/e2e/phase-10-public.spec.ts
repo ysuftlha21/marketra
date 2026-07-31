@@ -28,6 +28,9 @@ test.describe("Phase 10 public launch surfaces", () => {
     ] as const) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+      await expect(
+        page.getByRole("banner").getByRole("link", { name: "Marketra home" }),
+      ).toBeVisible();
     }
   });
 });

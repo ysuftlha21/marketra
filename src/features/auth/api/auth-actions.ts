@@ -23,6 +23,7 @@ import {
   CLOSED_BETA_MESSAGE,
   normalizeSignupAllowlist,
 } from "@/features/auth/domain/signup-access";
+import { classifySignupError } from "@/features/auth/domain/signup-error";
 
 const pricingIntentSchema = z.object({
   plan: z.enum(["starter", "growth"]).optional(),
@@ -46,23 +47,10 @@ function authError(code: string | undefined | null, fallback: string): string {
   }
 }
 
-const SIGN_UP_EMAIL_RATE_LIMIT_MESSAGE =
-  "Too many confirmation emails have been requested. Please wait a while and try again.";
+const SIGN_UP_EMAIL_RATE_LIMIT_MESSAGE = "Too many attempts. Please wait before trying again.";
 const RESEND_ACCEPTED_MESSAGE =
   "If this address can receive a confirmation email, a new message has been sent.";
 const RESEND_FAILURE_MESSAGE = "We could not request another confirmation email. Please try again.";
-
-function signUpError(error: { code?: string | null; status?: number } | null | undefined): string {
-  if (
-    error?.status === 429 ||
-    error?.code === "over_email_send_rate_limit" ||
-    error?.code === "email_rate_limit_exceeded"
-  ) {
-    return SIGN_UP_EMAIL_RATE_LIMIT_MESSAGE;
-  }
-
-  return authError(error?.code, "Sign up failed. Please try again.");
-}
 
 async function getRedirectNext(): Promise<string> {
   const h = await headers();
@@ -74,6 +62,8 @@ function fallbackForPath(referer: string | null): string {
 }
 
 export async function signUpAction(formData: FormData) {
+  const operationId = randomUUID();
+  const startedAt = Date.now();
   const pricingIntent = pricingIntentSchema.safeParse({
     plan: formData.get("plan") || undefined,
     billingInterval: formData.get("billingInterval") || undefined,
@@ -91,6 +81,7 @@ export async function signUpAction(formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
   const env = parseServerEnv();
+  const environment = env.APP_ENV ?? env.NODE_ENV;
   if (
     !canCreateAccount({
       mode: env.SIGNUP_MODE,
@@ -104,7 +95,23 @@ export async function signUpAction(formData: FormData) {
   try {
     await enforceRateLimit({ operation: "signup", userId: `anonymous:${signupKey}`, limit: 5 });
   } catch {
-    return { error: "Too many signup attempts. Please wait and try again." };
+    const presentation = classifySignupError({
+      code: "rate_limit_exceeded",
+      status: 429,
+    });
+    logOperation({
+      operationId,
+      operation: "auth.signup",
+      operationType: "auth.signup",
+      providerId: "rate_limit",
+      providerErrorCode: presentation.safeCode,
+      httpStatus: 429,
+      durationMs: Date.now() - startedAt,
+      success: false,
+      controlledErrorCode: presentation.reference,
+      environment,
+    });
+    return { error: presentation.message, errorReference: presentation.reference };
   }
   let result: Awaited<ReturnType<Awaited<ReturnType<typeof createServerClient>>["auth"]["signUp"]>>;
   try {
@@ -126,12 +133,59 @@ export async function signUpAction(formData: FormData) {
         emailRedirectTo: `${getPublicAppUrl()}/auth/callback?next=/dashboard`,
       },
     });
-  } catch {
-    return { error: "Sign up failed. Please try again." };
+  } catch (error) {
+    const presentation = classifySignupError(
+      error && typeof error === "object"
+        ? {
+            code: "code" in error ? String(error.code) : undefined,
+            status:
+              "status" in error && typeof error.status === "number" ? error.status : undefined,
+            message: "message" in error ? String(error.message) : undefined,
+          }
+        : {},
+    );
+    logOperation({
+      operationId,
+      operation: "auth.signup",
+      operationType: "auth.signup",
+      providerId: "supabase_auth",
+      providerErrorCode: presentation.safeCode,
+      httpStatus:
+        error && typeof error === "object" && "status" in error && typeof error.status === "number"
+          ? error.status
+          : undefined,
+      durationMs: Date.now() - startedAt,
+      success: false,
+      controlledErrorCode: presentation.reference,
+      environment,
+    });
+    return { error: presentation.message, errorReference: presentation.reference };
   }
   if (result.error) {
-    return { error: signUpError(result.error) };
+    const presentation = classifySignupError(result.error);
+    logOperation({
+      operationId,
+      operation: "auth.signup",
+      operationType: "auth.signup",
+      providerId: "supabase_auth",
+      providerErrorCode: presentation.safeCode,
+      httpStatus: result.error.status,
+      durationMs: Date.now() - startedAt,
+      success: false,
+      controlledErrorCode: presentation.reference,
+      environment,
+    });
+    return { error: presentation.message, errorReference: presentation.reference };
   }
+  logOperation({
+    operationId,
+    operation: "auth.signup",
+    operationType: "auth.signup",
+    providerId: "supabase_auth",
+    durationMs: Date.now() - startedAt,
+    success: true,
+    environment,
+  });
   if (result.data.session) return redirect("/onboarding");
   return redirect(`/sign-up/check-email?email=${encodeURIComponent(parsed.data.email)}`);
 }
@@ -189,7 +243,11 @@ export async function resendSignupConfirmationAction(formData: FormData) {
       },
     });
 
-    if (error?.status === 429 || signUpError(error) === SIGN_UP_EMAIL_RATE_LIMIT_MESSAGE) {
+    if (
+      error?.status === 429 ||
+      error?.code === "over_email_send_rate_limit" ||
+      error?.code === "email_rate_limit_exceeded"
+    ) {
       logOperation({
         operationId,
         operationType: "auth.signup_confirmation_resend",

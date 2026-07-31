@@ -1,5 +1,19 @@
 import { test, expect } from "@playwright/test";
 
+async function expectSharedHeaderBrand(page: import("@playwright/test").Page) {
+  const header = page.getByRole("banner");
+  const brand = header.getByRole("link", { name: "Marketra home" });
+
+  await expect(brand).toHaveCount(1);
+  await expect(brand).toBeVisible();
+  await expect(brand).toHaveAttribute("href", "/");
+  await expect(brand.locator('img[alt="Marketra"]:visible')).toHaveCount(1);
+  await expect(page.locator("html")).toHaveJSProperty(
+    "scrollWidth",
+    await page.evaluate(() => document.documentElement.clientWidth),
+  );
+}
+
 test.describe("Unauthenticated access", () => {
   test("redirects to sign-in when accessing dashboard without auth", async ({ page }) => {
     await page.goto("/dashboard");
@@ -22,11 +36,13 @@ test.describe("Unauthenticated access", () => {
   test("allows access to sign-in page without auth", async ({ page }) => {
     await page.goto("/sign-in");
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await expectSharedHeaderBrand(page);
   });
 
   test("allows access to sign-up page without auth", async ({ page }) => {
     await page.goto("/sign-up");
     await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+    await expectSharedHeaderBrand(page);
   });
 
   test("renders the email confirmation handoff without exposing the full recipient", async ({

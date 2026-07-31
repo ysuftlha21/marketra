@@ -4,6 +4,7 @@ const SENSITIVE_KEY =
 
 export type OperationLog = {
   operationId: string;
+  operation?: string;
   requestId?: string;
   operationType: string;
   workspaceId?: string;
@@ -12,6 +13,8 @@ export type OperationLog = {
   durationMs: number;
   success: boolean;
   controlledErrorCode?: string;
+  providerErrorCode?: string;
+  httpStatus?: number;
   environment: string;
 };
 
