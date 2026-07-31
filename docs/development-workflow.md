@@ -77,3 +77,7 @@ When a task completes, report:
 - commands run (with actual results),
 - warnings or unresolved items,
 - recommended next task.
+
+# Hunter rollout workflow
+
+Hunter activation is an operator-controlled rollout: verify mocked contract tests, run the opt-in read-only smoke test, confirm plan credits and privacy review, then enable one provider selector at a time with monitoring. Roll back by restoring selectors to `mock`; credentials alone do not activate calls.

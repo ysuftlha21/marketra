@@ -2,7 +2,9 @@ import { z } from "zod";
 
 const aiProviderSchema = z.enum(["mock", "openai"]);
 const leadProviderSchema = z.enum(["mock", "manual", "csv", "external"]);
-const companyDiscoveryProviderSchema = z.enum(["mock", "external"]);
+const companyDiscoveryProviderSchema = z.enum(["mock", "external", "hunter"]);
+const buyerDiscoveryProviderSchema = z.enum(["mock", "hunter"]);
+const emailEnrichmentProviderSchema = z.enum(["mock", "hunter"]);
 const outreachProviderSchema = z.enum(["mock", "openai"]);
 const marketProviderSchema = z.enum(["mock", "external"]);
 const billingProviderSchema = z.enum(["mock", "stripe", "paytr", "iyzico"]);
@@ -66,6 +68,16 @@ const serverEnvSchema = z
 
     // Company discovery provider
     DEFAULT_COMPANY_DISCOVERY_PROVIDER: companyDiscoveryProviderSchema.default("mock"),
+    DEFAULT_BUYER_DISCOVERY_PROVIDER: buyerDiscoveryProviderSchema.default("mock"),
+    DEFAULT_EMAIL_ENRICHMENT_PROVIDER: emailEnrichmentProviderSchema.default("mock"),
+    HUNTER_API_KEY: z.string().min(1).optional(),
+    HUNTER_BASE_URL: z.string().url().default("https://api.hunter.io/v2"),
+    HUNTER_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
+    HUNTER_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
+    HUNTER_SMOKE: z
+      .string()
+      .default("false")
+      .transform((value) => value === "true"),
 
     // Outreach provider
     DEFAULT_OUTREACH_PROVIDER: outreachProviderSchema.default("mock"),
@@ -122,6 +134,19 @@ const serverEnvSchema = z
     BUILD_VERSION: z.string().default("development"),
   })
   .superRefine((data, ctx) => {
+    if (
+      (data.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter" ||
+        data.DEFAULT_BUYER_DISCOVERY_PROVIDER === "hunter" ||
+        data.DEFAULT_EMAIL_ENRICHMENT_PROVIDER === "hunter" ||
+        data.HUNTER_SMOKE) &&
+      !data.HUNTER_API_KEY
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["HUNTER_API_KEY"],
+        message: "HUNTER_API_KEY is required when a Hunter provider or smoke test is enabled.",
+      });
+    }
     if (data.DEFAULT_AI_PROVIDER === "openai" && !data.OPENAI_API_KEY) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

@@ -3,7 +3,16 @@
  * These keep vendor SDKs out of application code and AI/business services.
  */
 
-export type ProviderKind = "ai" | "leads" | "market" | "billing" | "email" | "analytics";
+export type ProviderKind =
+  | "ai"
+  | "leads"
+  | "market"
+  | "billing"
+  | "email"
+  | "analytics"
+  | "company_discovery"
+  | "buyer_discovery"
+  | "email_enrichment";
 
 export interface ProviderRunMeta {
   readonly providerName: string;

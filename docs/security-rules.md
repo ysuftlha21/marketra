@@ -90,3 +90,7 @@ When fetching a SaaS product website:
 
 - Authorization + tenant-isolation tests are first-class (see `docs/testing-guidelines.md`).
 - Contract tests against provider mocks. Fuzz the matching/engine where cheap.
+
+# Hunter provider boundary
+
+Hunter is server-only and inactive by default. Company discovery retains the existing workspace/project authorization and fail-closed rate limit. Buyer and email enrichment must call the shared Hunter operation policy with a workspace-aware ownership/entitlement callback before provider access. Provider bodies, credentials, emails, and contact metadata must not be logged.

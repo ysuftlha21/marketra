@@ -40,6 +40,7 @@ export function BrandLogo({
           height={h}
           className="block max-w-none object-contain dark:hidden"
           priority
+          unoptimized
         />
         <Image
           src={darkSrc}
@@ -48,6 +49,7 @@ export function BrandLogo({
           height={h}
           className="hidden max-w-none object-contain dark:block"
           priority
+          unoptimized
         />
       </>
     ) : theme === "dark" ? (
@@ -58,6 +60,7 @@ export function BrandLogo({
         height={h}
         className="block max-w-none object-contain"
         priority
+        unoptimized
       />
     ) : (
       <Image
@@ -67,6 +70,7 @@ export function BrandLogo({
         height={h}
         className="block max-w-none object-contain"
         priority
+        unoptimized
       />
     );
 

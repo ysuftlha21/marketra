@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { ProviderResult } from "../provider-types";
 
-export const companyDiscoveryProviderIdSchema = z.enum(["mock", "external"]);
+export const companyDiscoveryProviderIdSchema = z.enum(["mock", "external", "hunter"]);
 export type CompanyDiscoveryProviderId = z.infer<typeof companyDiscoveryProviderIdSchema>;
 
 export const discoveryCompanyCandidateSchema = z.object({
@@ -28,6 +28,8 @@ export const discoveryCompanyCandidateSchema = z.object({
   sourceUrl: z.string().optional(),
   providerRank: z.number().int().nonnegative().optional(),
   warnings: z.array(z.string()).default([]),
+  dataQuality: z.enum(["high", "medium", "low", "unknown"]).optional(),
+  fetchedAt: z.string().datetime().optional(),
 });
 export type DiscoveryCompanyCandidate = z.infer<typeof discoveryCompanyCandidateSchema>;
 
@@ -47,6 +49,7 @@ export const companyDiscoveryInputV1Schema = z.object({
   technologySignals: z.array(z.string()).default([]),
   exclusionDomains: z.array(z.string()).default([]),
   maxResults: z.number().int().positive().max(200).default(50),
+  offset: z.number().int().nonnegative().max(10000).optional(),
   previousRunId: z.string().optional(),
 });
 export type CompanyDiscoveryInputV1 = z.infer<typeof companyDiscoveryInputV1Schema>;

@@ -20,6 +20,14 @@ export const metadata: Metadata = {
     "Marketra helps SaaS founders select target countries, analyze local markets, generate country-specific ICPs, find matching companies, and create localized outreach.",
   applicationName: "Marketra",
   metadataBase: new URL("http://localhost:3000"),
+  icons: {
+    icon: [
+      { url: "/icon-16x16.png", type: "image/png", sizes: "16x16" },
+      { url: "/icon-32x32.png", type: "image/png", sizes: "32x32" },
+    ],
+    shortcut: [{ url: "/favicon.ico", type: "image/x-icon" }],
+    apple: [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

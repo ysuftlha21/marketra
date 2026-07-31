@@ -202,3 +202,9 @@ Never edit a shipped decision silently. Override an older one with a new entry a
 - Unknown AI pricing remains `null`; no cost is invented.
 - Durable rate limiting uses a vendor-neutral external adapter; memory is local/test only.
 - Production migration/provider activation is an operator-controlled rollout step.
+
+# 2026-07-31 — Add Hunter as an inactive provider foundation
+
+**Decision:** Add server-only Hunter adapters for company discovery, buyer/contact discovery, and email enrichment behind independent selectors that default to `mock`.
+
+**Rationale:** Separate contracts preserve deterministic scoring, workspace controls, and operator-controlled rollout. No migration, automatic outreach, or production activation is included.

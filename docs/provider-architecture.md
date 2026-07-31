@@ -44,6 +44,8 @@ lib/providers/ai/
 
 ## 4. Selection
 
+Hunter company discovery, buyer discovery, and email enrichment are optional adapters documented in `docs/hunter-provider.md`. Their selectors default to `mock`; credentials alone never activate them. Hunter contacts remain separate from AI role recommendations and outbound email delivery.
+
 Env-driven, never hardcoded:
 
 | Env                  | Options                                   |

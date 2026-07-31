@@ -25,8 +25,22 @@ describe("parseServerEnv", () => {
     expect(env.DEFAULT_EMAIL_PROVIDER).toBe("mock");
     expect(env.DEFAULT_ANALYTICS_PROVIDER).toBe("mock");
     expect(env.DEFAULT_COMPANY_DISCOVERY_PROVIDER).toBe("mock");
+    expect(env.DEFAULT_BUYER_DISCOVERY_PROVIDER).toBe("mock");
+    expect(env.DEFAULT_EMAIL_ENRICHMENT_PROVIDER).toBe("mock");
     expect(env.DEFAULT_OUTREACH_PROVIDER).toBe("mock");
     expect(env.DEFAULT_RATE_LIMIT_PROVIDER).toBe("mock");
+  });
+
+  it("requires Hunter credentials only when Hunter or its smoke test is enabled", () => {
+    expect(parseServerEnv({}).HUNTER_BASE_URL).toBe("https://api.hunter.io/v2");
+    expect(() => parseServerEnv({ DEFAULT_COMPANY_DISCOVERY_PROVIDER: "hunter" })).toThrow(
+      EnvironmentValidationError,
+    );
+    expect(
+      parseServerEnv({ DEFAULT_COMPANY_DISCOVERY_PROVIDER: "hunter", HUNTER_API_KEY: "test-key" })
+        .DEFAULT_COMPANY_DISCOVERY_PROVIDER,
+    ).toBe("hunter");
+    expect(() => parseServerEnv({ HUNTER_SMOKE: "true" })).toThrow(EnvironmentValidationError);
   });
 
   it("defaults NODE_ENV to development", () => {

@@ -53,5 +53,8 @@ describe("MarketingHeader", () => {
         expect.stringContaining("marketra-logo-light.png"),
       ]),
     );
+    expect(logoImages.every((image) => image.getAttribute("src")?.startsWith("/brand/"))).toBe(
+      true,
+    );
   });
 });

@@ -1,4 +1,5 @@
 import { createCompanyDiscoveryProvider } from "@/lib/providers/company-discovery/company-discovery.factory";
+import { createHunterClient } from "@/lib/providers/hunter/hunter-config";
 import {
   createDiscoveryRun,
   updateDiscoveryRun,
@@ -135,7 +136,10 @@ export async function startDiscovery(
     disqualificationSignals: icp.disqualification_signals,
   };
 
-  const provider = createCompanyDiscoveryProvider(env.DEFAULT_COMPANY_DISCOVERY_PROVIDER);
+  const provider = createCompanyDiscoveryProvider(env.DEFAULT_COMPANY_DISCOVERY_PROVIDER, {
+    hunterClient:
+      env.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter" ? createHunterClient(env) : undefined,
+  });
   const run = await createDiscoveryRun(wsId, {
     workspace_id: wsId,
     project_id: project.id,
