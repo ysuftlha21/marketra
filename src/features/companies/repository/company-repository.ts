@@ -100,6 +100,9 @@ export interface ProjectCompanySummary {
   company_employee_min: number | null;
   company_employee_max: number | null;
   company_country_code: string;
+  company_city: string | null;
+  company_technologies: string[];
+  company_fetched_at: string;
   source_provider: string | null;
 }
 
@@ -292,7 +295,7 @@ export async function listProjectCompanies(
       `id, company_id, status, fit_score, fit_grade, confidence_score,
        qualification_reasons, disqualification_reasons, matched_signals, missing_signals,
        provider_rank, created_at,
-       companies!inner(canonical_name, primary_domain, industry, employee_count_min, employee_count_max, country_code, source_provider)`,
+       companies!inner(canonical_name, primary_domain, industry, employee_count_min, employee_count_max, country_code, headquarters_city, technology_signals, source_provider, last_seen_at)`,
       { count: "exact" } as never,
     )
     .eq("workspace_id" as never, wsId)
@@ -344,6 +347,9 @@ export async function listProjectCompanies(
         company_employee_min: (company?.employee_count_min as number) ?? null,
         company_employee_max: (company?.employee_count_max as number) ?? null,
         company_country_code: (company?.country_code as string) ?? "",
+        company_city: (company?.headquarters_city as string) ?? null,
+        company_technologies: (company?.technology_signals as string[]) ?? [],
+        company_fetched_at: (company?.last_seen_at as string) ?? (row.created_at as string),
         source_provider: (company?.source_provider as string) ?? null,
       };
     },

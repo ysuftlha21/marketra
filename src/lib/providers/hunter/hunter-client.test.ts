@@ -58,6 +58,24 @@ describe("HunterClient", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
+  it("maps a safe 403 plan code without exposing the raw response", async () => {
+    const client = new HunterClient({
+      apiKey: "secret",
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            errors: [{ id: "no_discover_access", details: "private provider detail" }],
+          }),
+          { status: 403 },
+        ),
+      maxRetries: 0,
+    });
+    await expect(client.request("discover", "/discover")).rejects.toMatchObject({
+      category: "authorization",
+      providerCode: "no_discover_access",
+    });
+  });
+
   it("maps authentication failures to a safe error", async () => {
     const client = new HunterClient({
       apiKey: "secret",

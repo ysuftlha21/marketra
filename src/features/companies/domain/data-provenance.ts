@@ -14,3 +14,12 @@ export const PROVENANCE_LABEL: Record<DataProvenance, string> = {
   demo: "Demo data",
   external: "External source",
 };
+
+export function providerProvenanceLabel(
+  sourceProvider: string | null,
+): "Demo / Mock" | "Hunter" | "Manual" | "External" {
+  if (sourceProvider === "hunter") return "Hunter";
+  if (sourceProvider === "manual") return "Manual";
+  if (!sourceProvider || sourceProvider === "mock") return "Demo / Mock";
+  return "External";
+}

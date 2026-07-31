@@ -47,6 +47,7 @@ export const companyDiscoveryInputV1Schema = z.object({
   disqualificationSignals: z.array(z.string()).default([]),
   purchaseTriggers: z.array(z.string()).default([]),
   technologySignals: z.array(z.string()).default([]),
+  keywords: z.array(z.string()).optional(),
   exclusionDomains: z.array(z.string()).default([]),
   maxResults: z.number().int().positive().max(200).default(50),
   offset: z.number().int().nonnegative().max(10000).optional(),

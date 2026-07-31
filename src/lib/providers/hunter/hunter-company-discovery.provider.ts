@@ -64,6 +64,10 @@ export class HunterCompanyDiscoveryProvider implements CompanyDiscoveryProvider 
     const body: Record<string, unknown> = {
       headquarters_location: { include: [{ country: input.targetCountryCode }] },
       ...(input.industries.length ? { industry: { include: input.industries } } : {}),
+      ...(input.keywords?.length ? { keywords: { include: input.keywords, match: "any" } } : {}),
+      ...(input.technologySignals.length
+        ? { technology: { include: input.technologySignals, match: "any" } }
+        : {}),
     };
     if ((input.offset ?? 0) > 0) {
       body.offset = input.offset;

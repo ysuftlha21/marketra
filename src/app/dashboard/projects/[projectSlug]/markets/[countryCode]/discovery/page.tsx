@@ -35,7 +35,9 @@ import { cn } from "@/lib/utils/cn";
 import type { DiscoveryRunStatus } from "@/features/companies/domain/discovery-run-status";
 import type { ProjectCompanyStatus } from "@/features/companies/domain/company-lifecycle";
 import { ManualCompanyForm } from "@/features/companies/components/manual-company-form";
-import { companyProvenance, PROVENANCE_LABEL } from "@/features/companies/domain/data-provenance";
+import { providerProvenanceLabel } from "@/features/companies/domain/data-provenance";
+import { parseServerEnv } from "@/lib/env/env";
+import { getHunterReadiness } from "@/lib/providers/hunter/hunter-readiness";
 
 interface PageProps {
   params: Promise<{ projectSlug: string; countryCode: string }>;
@@ -91,6 +93,9 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
 
   const latestRun = runs[0] ?? null;
   const cat = getCountry(countryCode);
+  const env = parseServerEnv();
+  const providerLabel = providerProvenanceLabel(env.DEFAULT_COMPANY_DISCOVERY_PROVIDER);
+  const hunterReadiness = getHunterReadiness();
 
   // URL-driven filters
   const filterStatus = sp.status || "";
@@ -151,6 +156,106 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
           </div>
         }
       />
+
+      <Card className="border-border/60">
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Discovery filters</CardTitle>
+              <CardDescription>
+                Searches use the selected provider without silent fallback. Technology filters may
+                require a paid Hunter plan.
+              </CardDescription>
+            </div>
+            <Badge variant="outline">{providerLabel}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form
+            aria-label="Company discovery filters"
+            action={async (fd: FormData) => {
+              "use server";
+              const m = await import("@/features/companies/api/company-actions");
+              await m.startDiscoveryAction(fd);
+            }}
+            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            <input type="hidden" name="projectSlug" value={projectSlug} />
+            <input type="hidden" name="countryId" value={tc.id} />
+            <label className="space-y-1 text-xs text-muted-foreground">
+              Industry
+              <input
+                name="industry"
+                maxLength={100}
+                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+              />
+            </label>
+            <label className="space-y-1 text-xs text-muted-foreground">
+              Minimum employees
+              <input
+                name="employeeMin"
+                type="number"
+                min="0"
+                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+              />
+            </label>
+            <label className="space-y-1 text-xs text-muted-foreground">
+              Maximum employees
+              <input
+                name="employeeMax"
+                type="number"
+                min="0"
+                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+              />
+            </label>
+            <label className="space-y-1 text-xs text-muted-foreground">
+              Result limit
+              <select
+                name="maxResults"
+                defaultValue="25"
+                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+              >
+                <option>10</option>
+                <option>25</option>
+                <option>50</option>
+                <option>100</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
+              Keywords, comma separated
+              <input
+                name="keywords"
+                maxLength={300}
+                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+              />
+            </label>
+            <label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
+              Technologies, comma separated
+              <input
+                name="technologies"
+                maxLength={300}
+                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+              />
+            </label>
+            <div className="flex items-end gap-3 sm:col-span-2 lg:col-span-4">
+              <Button
+                type="submit"
+                disabled={Boolean(
+                  latestRun && isActiveStatus(latestRun.status as DiscoveryRunStatus),
+                )}
+              >
+                <Play className="h-4 w-4" />
+                Run discovery
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {env.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter"
+                  ? hunterReadiness.message
+                  : "Deterministic demo results; never labeled as live."}
+              </p>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card className="border-border/60">
         <CardHeader>
@@ -499,6 +604,10 @@ function CompanyRow({
     matched_signals: string[];
     missing_signals: string[];
     source_provider: string | null;
+    company_country_code: string;
+    company_city: string | null;
+    company_technologies: string[];
+    company_fetched_at: string;
   };
   projectSlug: string;
   countryCode: string;
@@ -514,12 +623,16 @@ function CompanyRow({
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-medium text-foreground">{company.company_name}</p>
               <Badge variant="outline" className="text-[10px] font-normal">
-                {PROVENANCE_LABEL[companyProvenance(company.source_provider)]}
+                {providerProvenanceLabel(company.source_provider)}
               </Badge>
             </div>
             {company.company_domain && (
               <p className="text-xs text-muted-foreground">{company.company_domain}</p>
             )}
+            <p className="text-[11px] text-muted-foreground">
+              {[company.company_country_code, company.company_city].filter(Boolean).join(" · ")} ·
+              Updated {new Date(company.company_fetched_at).toLocaleDateString()}
+            </p>
           </Link>
         </td>
         <td className="px-4 py-3">
@@ -527,6 +640,11 @@ function CompanyRow({
           {company.company_employee_min != null && (
             <p className="text-xs text-muted-foreground tabular-nums">
               {company.company_employee_min}–{company.company_employee_max ?? "∞"} emp.
+            </p>
+          )}
+          {company.company_technologies.length > 0 && (
+            <p className="mt-1 max-w-40 truncate text-[11px] text-muted-foreground">
+              {company.company_technologies.slice(0, 3).join(", ")}
             </p>
           )}
         </td>

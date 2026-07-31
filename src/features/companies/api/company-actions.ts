@@ -17,6 +17,7 @@ import {
 } from "../repository/company-repository";
 import { createManualCompany, ManualCompanyError } from "../services/manual-company-service";
 import { safeRateLimitMessage } from "@/lib/security/rate-limit-service";
+import { startDiscoverySchema } from "../schema/discovery-schemas";
 
 export interface ManualCompanyActionState {
   ok?: boolean;
@@ -50,11 +51,20 @@ export async function startDiscoveryAction(formData: FormData) {
   const ctx = await getAuthContext();
   if (!ctx?.activeWorkspace) return { error: "Sign in." };
 
-  const projectSlug = formData.get("projectSlug") as string;
-  const countryId = formData.get("countryId") as string;
-  const maxResults = parseInt(formData.get("maxResults") as string, 10) || 50;
-
-  if (!projectSlug || !countryId) return { error: "Missing fields." };
+  const parsed = startDiscoverySchema.safeParse({
+    projectSlug: formData.get("projectSlug"),
+    targetCountryId: formData.get("countryId"),
+    maxResults: formData.get("maxResults") || undefined,
+    industry: formData.get("industry") || undefined,
+    employeeMin: formData.get("employeeMin") || undefined,
+    employeeMax: formData.get("employeeMax") || undefined,
+    keywords: formData.get("keywords") || undefined,
+    technologies: formData.get("technologies") || undefined,
+    page: formData.get("providerPage") || 1,
+  });
+  if (!parsed.success)
+    return { error: parsed.error.issues[0]?.message ?? "Enter valid discovery filters." };
+  const { projectSlug, targetCountryId: countryId } = parsed.data;
 
   const project = await getProjectService(projectSlug);
   if (!project) return { error: "Project not found." };
@@ -65,14 +75,32 @@ export async function startDiscoveryAction(formData: FormData) {
       projectSlug,
       countryId,
       ctx.user.id,
-      maxResults,
+      {
+        maxResults: parsed.data.maxResults,
+        industry: parsed.data.industry,
+        employeeMin: parsed.data.employeeMin,
+        employeeMax: parsed.data.employeeMax,
+        keywords: parsed.data.keywords
+          ?.split(",")
+          .map((v) => v.trim())
+          .filter(Boolean),
+        technologies: parsed.data.technologies
+          ?.split(",")
+          .map((v) => v.trim())
+          .filter(Boolean),
+        page: parsed.data.page,
+      },
     );
     revalidatePath(`/dashboard/projects/${projectSlug}/markets`);
     return { ok: true, runId };
   } catch (err) {
     const rateLimitMessage = safeRateLimitMessage(err);
     if (rateLimitMessage) return { error: rateLimitMessage };
-    if (err instanceof DiscoveryError) return { error: safeDiscoveryError(err.code) };
+    if (err instanceof DiscoveryError)
+      return {
+        error: safeDiscoveryError(err.code),
+        errorReference: err.operationId ? `DISCOVERY-${err.operationId}` : undefined,
+      };
     return { error: "Discovery failed." };
   }
 }

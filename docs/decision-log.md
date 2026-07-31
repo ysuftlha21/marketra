@@ -208,3 +208,9 @@ Never edit a shipped decision silently. Override an older one with a new entry a
 **Decision:** Add server-only Hunter adapters for company discovery, buyer/contact discovery, and email enrichment behind independent selectors that default to `mock`.
 
 **Rationale:** Separate contracts preserve deterministic scoring, workspace controls, and operator-controlled rollout. No migration, automatic outreach, or production activation is included.
+
+# 2026-07-31 — Gate Hunter UI and persist buyer workflow data
+
+**Decision:** Add an independently gated, provider-neutral company/buyer/email workflow. Persist buyer contacts, provider operation usage, and outreach draft handoffs in RLS-protected workspace tables. Keep every Hunter selector and the UI gate disabled by default.
+
+**Rationale:** Explicit reveal confirmation, separate usage accounting, idempotent handoff, provenance, and fail-closed authorization are required before live provider activation. The workflow creates drafts only and never sends cold email.

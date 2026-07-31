@@ -25,6 +25,9 @@ import {
   getOutreachRun,
 } from "@/features/outreach/repository/outreach-repository";
 import { resolveWorkspacePlan } from "@/features/workspaces/services/workspace-plan-service";
+import { listBuyerContacts } from "@/features/companies/repository/buyer-workflow-repository";
+import { BuyerDiscoveryPanel } from "@/features/companies/components/buyer-discovery-panel";
+import { parseServerEnv } from "@/lib/env/env";
 
 interface PageProps {
   params: Promise<{ projectSlug: string; countryCode: string; companyId: string }>;
@@ -65,9 +68,10 @@ export default async function CompanyDetailPage({ params }: PageProps) {
   const drRuns = await listDecisionRoleRuns(wsId, companyId);
 
   // Outreach usage
-  const [planResolution, usage] = await Promise.all([
+  const [planResolution, usage, buyerContacts] = await Promise.all([
     resolveWorkspacePlan(wsId),
     getWorkspaceUsage(wsId),
+    listBuyerContacts(wsId, project.id, companyId),
   ]);
   const { plan } = planResolution;
   const outreachUsage = {
@@ -306,6 +310,19 @@ export default async function CompanyDetailPage({ params }: PageProps) {
           />
         </CardContent>
       </Card>
+
+      <div className="pt-4">
+        <BuyerDiscoveryPanel
+          projectId={project.id}
+          companyId={companyId}
+          contacts={buyerContacts}
+          providerLabel={
+            parseServerEnv().DEFAULT_BUYER_DISCOVERY_PROVIDER === "hunter"
+              ? "Hunter"
+              : "Demo / Mock"
+          }
+        />
+      </div>
 
       <div className="pt-4">
         <DecisionRoleSection

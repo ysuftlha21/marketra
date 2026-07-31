@@ -2,11 +2,28 @@ import { z } from "zod";
 import { discoveryRunStatusSchema } from "../domain/discovery-run-status";
 import { projectCompanyStatusSchema } from "../domain/company-lifecycle";
 
-export const startDiscoverySchema = z.object({
-  projectSlug: z.string().min(1),
-  targetCountryId: z.string().uuid(),
-  maxResults: z.coerce.number().int().positive().max(200).optional().default(50),
-});
+export const startDiscoverySchema = z
+  .object({
+    projectSlug: z.string().min(1),
+    targetCountryId: z.string().uuid(),
+    maxResults: z.coerce.number().int().positive().max(200).optional().default(50),
+    industry: z.string().trim().max(100).optional(),
+    employeeMin: z.coerce.number().int().nonnegative().optional(),
+    employeeMax: z.coerce.number().int().nonnegative().optional(),
+    keywords: z.string().trim().max(300).optional(),
+    technologies: z.string().trim().max(300).optional(),
+    page: z.coerce.number().int().positive().default(1),
+  })
+  .refine(
+    (value) =>
+      value.employeeMin === undefined ||
+      value.employeeMax === undefined ||
+      value.employeeMin <= value.employeeMax,
+    {
+      path: ["employeeMax"],
+      message: "Maximum employees must be greater than minimum employees.",
+    },
+  );
 
 export const startDiscoveryResponseSchema = z.object({
   runId: z.string().uuid(),

@@ -19,6 +19,9 @@ import type { ScoringInput } from "../domain/company-scoring";
 import type { DiscoveryCompanyCandidate } from "@/lib/providers/company-discovery/company-discovery.provider";
 import { parseServerEnv } from "@/lib/env/env";
 import { enforceRateLimit } from "@/lib/security/rate-limit-service";
+import { HunterProviderError } from "@/lib/providers/hunter/hunter-client";
+import { assertProviderAllowance, recordProviderOperation } from "./provider-usage-service";
+import { randomUUID } from "node:crypto";
 
 export type DiscoveryErrorCode =
   | "unauthenticated"
@@ -32,11 +35,18 @@ export type DiscoveryErrorCode =
   | "provider_timeout"
   | "invalid_provider_response"
   | "configuration_missing"
+  | "provider_authentication"
+  | "provider_plan_denied"
+  | "provider_rate_limited"
   | "persistence_failure";
 
 export class DiscoveryError extends Error {
   readonly code: DiscoveryErrorCode;
-  constructor(c: DiscoveryErrorCode, m: string) {
+  constructor(
+    c: DiscoveryErrorCode,
+    m: string,
+    readonly operationId?: string,
+  ) {
     super(m);
     this.name = "DiscoveryError";
     this.code = c;
@@ -56,6 +66,9 @@ export function safeDiscoveryError(code: DiscoveryErrorCode): string {
     provider_timeout: "Discovery timed out.",
     invalid_provider_response: "Unexpected response.",
     configuration_missing: "Configuration missing.",
+    provider_authentication: "Hunter is not configured for this operation.",
+    provider_plan_denied: "The Hunter plan does not allow this operation.",
+    provider_rate_limited: "Hunter rate limit reached. Please wait before trying again.",
     persistence_failure: "Save failed.",
   };
   return m[code];
@@ -98,10 +111,25 @@ export async function startDiscovery(
   projectSlug: string,
   targetCountryId: string,
   userId: string,
-  maxResults = 50,
+  optionsOrMax:
+    | number
+    | {
+        maxResults?: number;
+        industry?: string;
+        employeeMin?: number;
+        employeeMax?: number;
+        keywords?: string[];
+        technologies?: string[];
+        page?: number;
+      } = {},
 ): Promise<{ runId: string }> {
   await enforceRateLimit({ operation: "company_discovery", workspaceId: wsId, userId, limit: 10 });
   const env = parseServerEnv();
+  const options = typeof optionsOrMax === "number" ? { maxResults: optionsOrMax } : optionsOrMax;
+  const maxResults = options.maxResults ?? 50;
+  if (env.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter" && !env.HUNTER_DISCOVERY_UI_ENABLED) {
+    throw new DiscoveryError("configuration_missing", "Hunter UI activation is disabled.");
+  }
 
   const project = await getProjectService(projectSlug);
   if (!project)
@@ -126,6 +154,7 @@ export async function startDiscovery(
     },
     country: { code: tc.country_code, name: tc.country_name },
     maxResults,
+    filters: options,
   };
 
   const criteriaSnapshot = {
@@ -159,32 +188,69 @@ export async function startDiscovery(
   });
 
   let providerResult;
+  const operationId = randomUUID();
   try {
+    await assertProviderAllowance(wsId, "company_search");
     providerResult = await provider.discoverCompaniesV1({
       correlationId: `disc_${run.id}`,
       targetCountryCode: tc.country_code,
-      industries:
-        ((criteriaSnapshot.industries as Record<string, unknown>).primary as string[]) ?? [],
+      industries: options.industry
+        ? [options.industry]
+        : (((criteriaSnapshot.industries as Record<string, unknown>).primary as string[]) ?? []),
+      companySizeMinEmployees: options.employeeMin,
+      companySizeMaxEmployees: options.employeeMax,
       companyTypes: [],
       qualificationSignals: (criteriaSnapshot.qualificationSignals as string[]) ?? [],
       disqualificationSignals: (criteriaSnapshot.disqualificationSignals as string[]) ?? [],
-      technologySignals: [],
+      technologySignals: options.technologies ?? [],
+      keywords: options.keywords,
       purchaseTriggers: [],
       exclusionDomains: [],
       maxResults,
+      offset: ((options.page ?? 1) - 1) * maxResults,
+    });
+    await recordProviderOperation({
+      workspaceId: wsId,
+      projectId: project.id,
+      operation: "company_search",
+      providerId: provider.id,
+      operationId,
+      idempotencyKey: `${run.id}:company_search`,
+      success: true,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown";
-    const code: DiscoveryErrorCode = msg.includes("timeout")
-      ? "provider_timeout"
-      : "provider_unavailable";
+    const code: DiscoveryErrorCode =
+      err instanceof HunterProviderError
+        ? err.category === "authentication"
+          ? "provider_authentication"
+          : err.category === "authorization"
+            ? "provider_plan_denied"
+            : err.category === "rate_limit"
+              ? "provider_rate_limited"
+              : err.category === "invalid_response"
+                ? "invalid_provider_response"
+                : "provider_unavailable"
+        : msg.includes("timeout")
+          ? "provider_timeout"
+          : "provider_unavailable";
+    await recordProviderOperation({
+      workspaceId: wsId,
+      projectId: project.id,
+      operation: "company_search",
+      providerId: provider.id,
+      operationId,
+      idempotencyKey: `${run.id}:company_search`,
+      success: false,
+      errorCode: code,
+    }).catch(() => undefined);
     await updateDiscoveryRun(wsId, run.id, {
       status: "failed",
       error_code: code,
       safe_error_message: safeDiscoveryError(code),
       failed_at: new Date().toISOString(),
     });
-    throw new DiscoveryError(code, safeDiscoveryError(code));
+    throw new DiscoveryError(code, safeDiscoveryError(code), operationId);
   }
 
   const output = providerResult.data;
@@ -288,11 +354,7 @@ export async function retryDiscovery(
   const prevRun = await getDiscoveryRun(wsId, runId);
   if (!prevRun)
     throw new DiscoveryError("country_not_found", safeDiscoveryError("country_not_found"));
-  return startDiscovery(
-    wsId,
-    projectSlug,
-    prevRun.target_country_id,
-    userId,
-    (prevRun.input_snapshot.maxResults as number) ?? 50,
-  );
+  return startDiscovery(wsId, projectSlug, prevRun.target_country_id, userId, {
+    maxResults: (prevRun.input_snapshot.maxResults as number) ?? 50,
+  });
 }

@@ -27,6 +27,7 @@ describe("parseServerEnv", () => {
     expect(env.DEFAULT_COMPANY_DISCOVERY_PROVIDER).toBe("mock");
     expect(env.DEFAULT_BUYER_DISCOVERY_PROVIDER).toBe("mock");
     expect(env.DEFAULT_EMAIL_ENRICHMENT_PROVIDER).toBe("mock");
+    expect(env.HUNTER_DISCOVERY_UI_ENABLED).toBe(false);
     expect(env.DEFAULT_OUTREACH_PROVIDER).toBe("mock");
     expect(env.DEFAULT_RATE_LIMIT_PROVIDER).toBe("mock");
   });

@@ -13,7 +13,8 @@ export const buyerContactSchema = z.object({
   email: z.string().email().optional(),
   emailConfidence: z.number().min(0).max(100).optional(),
   linkedinUrl: z.string().url().optional(),
-  source: z.literal("hunter"),
+  emailAvailable: z.boolean().default(false),
+  source: z.enum(["mock", "hunter", "manual"]),
   fetchedAt: z.string().datetime(),
 });
 export type BuyerContact = z.infer<typeof buyerContactSchema>;

@@ -17,6 +17,8 @@ export class HunterProviderError extends Error {
     readonly category: HunterErrorCategory,
     readonly status?: number,
     readonly operationId: string = randomUUID(),
+    readonly providerCode?: string,
+    readonly retryAfterSeconds?: number,
   ) {
     super(`Hunter operation failed (${category}).`);
     this.name = "HunterProviderError";
@@ -93,10 +95,16 @@ export class HunterClient {
             await this.sleep(this.retryDelay(response.headers.get("retry-after"), attempt));
             continue;
           }
+          const safeProviderCode = await this.safeProviderCode(response);
+          const retryAfterSeconds = this.retryAfterSeconds(response.headers.get("retry-after"));
           throw new HunterProviderError(
-            this.categoryForStatus(response.status),
+            response.status === 403 && safeProviderCode?.startsWith("no_")
+              ? "authorization"
+              : this.categoryForStatus(response.status),
             response.status,
             operationId,
+            safeProviderCode,
+            retryAfterSeconds,
           );
         }
         const declaredLength = Number(response.headers.get("content-length"));
@@ -169,6 +177,11 @@ export class HunterClient {
     return Math.min(500 * 2 ** attempt + Math.floor(this.random() * 250), 5000);
   }
 
+  private retryAfterSeconds(value: string | null): number | undefined {
+    const seconds = value ? Number(value) : Number.NaN;
+    return Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds) : undefined;
+  }
+
   private categoryForStatus(status: number): HunterErrorCategory {
     if (status === 401) return "authentication";
     if (status === 403 || status === 429) return "rate_limit";
@@ -176,5 +189,15 @@ export class HunterClient {
     if (status === 404) return "not_found";
     if (status >= 400 && status < 500) return "invalid_request";
     return "provider_unavailable";
+  }
+
+  private async safeProviderCode(response: Response): Promise<string | undefined> {
+    try {
+      const payload = (await response.clone().json()) as { errors?: Array<{ id?: unknown }> };
+      const value = payload.errors?.[0]?.id;
+      return typeof value === "string" && /^[a-z0-9_]{1,64}$/i.test(value) ? value : undefined;
+    } catch {
+      return undefined;
+    }
   }
 }

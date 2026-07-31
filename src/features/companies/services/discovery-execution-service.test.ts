@@ -170,6 +170,11 @@ vi.mock("@/lib/env/env", () => ({
   }),
 }));
 
+vi.mock("./provider-usage-service", () => ({
+  assertProviderAllowance: vi.fn().mockResolvedValue({ used: 0, limit: 10, remaining: 10 }),
+  recordProviderOperation: vi.fn().mockResolvedValue(undefined),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetProjectService.mockResolvedValue(mockProject);

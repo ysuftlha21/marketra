@@ -4,12 +4,30 @@
 
 Hunter is an optional, server-only data provider. Company, buyer, and email-enrichment defaults remain `mock`; adding credentials does not activate Hunter. Production activation is operator-controlled after plan, entitlement, rate-limit, privacy, and credit monitoring review. This foundation sends no cold email and the smoke test writes no Marketra data.
 
+The end-to-end UI remains in demo mode unless an operator both selects Hunter and sets `HUNTER_DISCOVERY_UI_ENABLED=true`. There is no silent fallback: a selected Hunter provider returns a controlled configuration/provider error instead of demo data.
+
 ## Configuration
 
 - `HUNTER_API_KEY` is required only when a Hunter provider or `HUNTER_SMOKE=true` is selected.
 - `HUNTER_BASE_URL` defaults to `https://api.hunter.io/v2`.
 - `HUNTER_TIMEOUT_MS` defaults to 15000 and `HUNTER_MAX_RETRIES` to 2.
 - The three `DEFAULT_*_PROVIDER` selectors activate company, buyer, and email enrichment independently.
+- `HUNTER_DISCOVERY_UI_ENABLED=false` is the production-safe default and independently gates live company discovery UI calls.
+
+Exact Vercel variables for a later controlled rollout:
+
+```text
+HUNTER_API_KEY=<real server-only credential>
+HUNTER_BASE_URL=https://api.hunter.io/v2
+HUNTER_TIMEOUT_MS=15000
+HUNTER_MAX_RETRIES=2
+HUNTER_DISCOVERY_UI_ENABLED=true
+DEFAULT_COMPANY_DISCOVERY_PROVIDER=hunter
+DEFAULT_BUYER_DISCOVERY_PROVIDER=hunter
+DEFAULT_EMAIL_ENRICHMENT_PROVIDER=hunter
+```
+
+Do not prefix any Hunter variable with `NEXT_PUBLIC_`. Roll out the selectors one at a time after migration `0035_hunter_discovery_workflow.sql` is applied and verified.
 
 Never expose credentials through `NEXT_PUBLIC_*`, UI responses, logs, screenshots, fixtures, or commits.
 
@@ -36,4 +54,6 @@ The test logs only sanitized operation metadata and never prints keys, response 
 
 ## Rollback
 
-Set all Hunter selectors back to `mock` and redeploy. No database migration is introduced. Existing company records keep their provenance and remain readable.
+Set all Hunter selectors and the UI gate back to `mock`/`false` and redeploy. Existing company records keep their provenance and remain readable.
+
+The end-to-end workflow introduces additive migration `0035_hunter_discovery_workflow.sql` for workspace-scoped buyer contacts, separate provider usage events, and idempotent outreach lead handoffs. Provider rollback does not require dropping these tables; leave them in place so saved workflow data remains readable.

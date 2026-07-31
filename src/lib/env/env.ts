@@ -127,6 +127,10 @@ const serverEnvSchema = z
       .default("true")
       .transform((v) => v === "true")
       .pipe(z.boolean()),
+    HUNTER_DISCOVERY_UI_ENABLED: z
+      .string()
+      .default("false")
+      .transform((value) => value === "true"),
 
     // Launch/legal metadata (public text, never credentials)
     LEGAL_EFFECTIVE_DATE: z.string().default("2026-07-23"),

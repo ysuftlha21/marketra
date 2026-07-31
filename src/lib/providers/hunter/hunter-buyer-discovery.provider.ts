@@ -45,6 +45,7 @@ function normalizePerson(person: z.infer<typeof personSchema>): BuyerContact {
     seniority: person.seniority,
     department: person.department,
     email: person.email,
+    emailAvailable: Boolean(person.email),
     emailConfidence: person.confidence,
     linkedinUrl: person.linkedin,
     source: "hunter",
