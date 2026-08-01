@@ -244,3 +244,12 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   a server-side readiness retrieval using the configured API project before its request mapping or
   capabilities are enabled. The readiness result exposes only safe booleans, a controlled category,
   and an operation ID; it performs no text generation.
+
+# 2026-08-01 — Strict product-analysis structured output
+
+- `gpt-4o-mini` product analysis uses Chat Completions strict `json_schema` generated from the
+  canonical Zod result schema. Arrays and strings are bounded for concise output, and product
+  analysis receives a task-specific 1,200-token cap. At most one repair call is allowed when JSON
+  parses but field validation fails. Safe operation metadata records finish reason, invalid paths,
+  token totals, and retry state without storing prompts or generated content. A failed run remains
+  separate from the latest successful result so prior valid analysis stays available.

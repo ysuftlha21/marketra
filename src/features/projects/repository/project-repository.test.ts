@@ -270,6 +270,25 @@ describe("project-repository — analysis runs", () => {
     expect(result?.status).toBe("succeeded");
   });
 
+  it("getLatestSuccessfulAnalysisRun preserves the prior valid output after a newer failure", async () => {
+    const successfulRun = { id: runId, status: "succeeded", output: { schemaVersion: "v2" } };
+    const statusEq = vi.fn(() => ({
+      order: () => ({ limit: () => ({ maybeSingle: makeSingle(successfulRun) }) }),
+    }));
+    mockServerClient.mockResolvedValue({
+      from: () => ({
+        select: () => ({
+          eq: () => ({ eq: statusEq }),
+        }),
+      }),
+    });
+
+    const { getLatestSuccessfulAnalysisRun } = await import("./project-repository");
+    const result = await getLatestSuccessfulAnalysisRun(projectId);
+    expect(statusEq).toHaveBeenCalledWith("status", "succeeded");
+    expect(result?.output).toEqual({ schemaVersion: "v2" });
+  });
+
   it("listAnalysisRuns filters by workspace_id and project_id", async () => {
     mockServerClient.mockResolvedValue({
       from: () => ({

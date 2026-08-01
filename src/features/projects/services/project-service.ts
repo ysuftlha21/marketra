@@ -6,6 +6,7 @@ import {
   listWorkspaceProjects,
   getExistingSlugs,
   getLatestAnalysisRun,
+  getLatestSuccessfulAnalysisRun,
   listAnalysisRuns,
   saveClarificationAnswer,
   getClarificationAnswers,
@@ -244,12 +245,17 @@ export async function getProjectAnalysisService(
   projectId: string,
   workspaceId: string,
   limit = 10,
-): Promise<{ latest: AnalysisRunRow | null; history: AnalysisRunRow[] }> {
-  const [latest, history] = await Promise.all([
+): Promise<{
+  latest: AnalysisRunRow | null;
+  latestSuccessful: AnalysisRunRow | null;
+  history: AnalysisRunRow[];
+}> {
+  const [latest, latestSuccessful, history] = await Promise.all([
     getLatestAnalysisRun(projectId),
+    getLatestSuccessfulAnalysisRun(projectId),
     listAnalysisRuns(workspaceId, projectId, limit),
   ]);
-  return { latest, history };
+  return { latest, latestSuccessful, history };
 }
 
 export async function saveClarificationAnswersService(

@@ -13,6 +13,8 @@ describe("observability redaction", () => {
           databaseUrl: "postgres://secret",
           sessionData: "session",
           durationMs: 4,
+          inputTokens: 20,
+          outputTokens: 10,
         },
       }),
     ).toEqual({
@@ -24,6 +26,8 @@ describe("observability redaction", () => {
         databaseUrl: "[REDACTED]",
         sessionData: "[REDACTED]",
         durationMs: 4,
+        inputTokens: 20,
+        outputTokens: 10,
       },
     });
   });

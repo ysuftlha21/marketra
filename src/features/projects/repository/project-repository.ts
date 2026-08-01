@@ -243,6 +243,23 @@ export async function getLatestAnalysisRun(projectId: string): Promise<AnalysisR
   return (data as unknown as AnalysisRunRow) ?? null;
 }
 
+export async function getLatestSuccessfulAnalysisRun(
+  projectId: string,
+): Promise<AnalysisRunRow | null> {
+  const supabase = await createServerClient();
+  const { data } = await supabase
+    .from("product_analysis_runs")
+    .select(
+      "id, workspace_id, project_id, requested_by, provider, model, prompt_version, schema_version, provider_version, status, current_stage, input_snapshot, output, error_code, safe_error_message, input_tokens, output_tokens, estimated_cost, started_at, completed_at, created_at, updated_at",
+    )
+    .eq("project_id", projectId)
+    .eq("status", "succeeded")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as unknown as AnalysisRunRow) ?? null;
+}
+
 export async function getAnalysisRun(wsId: string, runId: string): Promise<AnalysisRunRow | null> {
   const supabase = await createServerClient();
   const { data } = await supabase

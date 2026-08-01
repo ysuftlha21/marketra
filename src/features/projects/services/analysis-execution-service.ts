@@ -65,6 +65,8 @@ export class AnalysisServiceError extends Error {
     stage: string = "unknown",
     readonly reference?: string,
     readonly operationId?: string,
+    readonly providerErrorCode?: AiProviderErrorCode,
+    readonly providerDiagnostics?: AiProviderError["diagnostics"],
   ) {
     super(message);
     this.name = "AnalysisServiceError";
@@ -73,7 +75,7 @@ export class AnalysisServiceError extends Error {
   }
 }
 
-const PROVIDER_ERROR_REFERENCE: Record<AiProviderErrorCode, string> = {
+const PROVIDER_ERROR_REFERENCE: Partial<Record<AiProviderErrorCode, string>> = {
   model_not_found: "AI-PROVIDER-MODEL",
   model_access_denied: "AI-PROVIDER-MODEL",
   invalid_api_key: "AI-PROVIDER-AUTH",
@@ -85,11 +87,26 @@ const PROVIDER_ERROR_REFERENCE: Record<AiProviderErrorCode, string> = {
   provider_unavailable: "AI-PROVIDER-UNAVAILABLE",
 };
 
+const PROVIDER_OUTPUT_ERROR_CODES = new Set<AiProviderErrorCode>([
+  "structured_output_invalid",
+  "empty_completion",
+  "refusal",
+  "truncated_output",
+  "invalid_json",
+  "markdown_wrapped_json",
+  "missing_required_field",
+  "wrong_field_type",
+  "unexpected_enum_value",
+  "extra_unsupported_structure",
+  "schema_version_mismatch",
+  "provider_response_extraction_failed",
+]);
+
 function providerServiceError(error: AiProviderError): AnalysisServiceError {
   const code: AnalysisServiceErrorCode =
     error.code === "timeout"
       ? "provider_timeout"
-      : error.code === "structured_output_invalid"
+      : PROVIDER_OUTPUT_ERROR_CODES.has(error.code)
         ? "provider_output_invalid"
         : error.code === "rate_limited"
           ? "rate_limited"
@@ -98,8 +115,10 @@ function providerServiceError(error: AiProviderError): AnalysisServiceError {
     code,
     safeAnalysisError(code),
     "provider call",
-    PROVIDER_ERROR_REFERENCE[error.code],
+    PROVIDER_ERROR_REFERENCE[error.code] ?? "AI-PROVIDER-OUTPUT",
     error.operationId,
+    error.code,
+    error.diagnostics,
   );
 }
 
@@ -325,6 +344,7 @@ export async function runProductAnalysis(
               isMock: false,
               modelId: env.OPENAI_MODEL,
               durationMs: 0,
+              attempts: err.diagnostics.attempts,
             },
             success: false,
             controlledErrorCode: err.code,
@@ -380,8 +400,8 @@ export async function runProductAnalysis(
         status: "succeeded",
         current_stage: "finalizing_analysis",
         output: result as unknown as Record<string, unknown>,
-        input_tokens: meta.tokens ?? null,
-        output_tokens: null,
+        input_tokens: meta.inputTokens ?? meta.tokens ?? null,
+        output_tokens: meta.outputTokens ?? null,
         estimated_cost: meta.estimatedCostUsd ?? null,
         completed_at: new Date().toISOString(),
       });
@@ -413,10 +433,37 @@ export async function runProductAnalysis(
     // Update DB to failed
     if (run) {
       try {
+        const analysisError = svcErr as AnalysisServiceError;
+        const attempts = analysisError.providerDiagnostics?.attempts;
+        const inputTokens = attempts?.reduce(
+          (total, attempt) => total + (attempt.inputTokens ?? 0),
+          0,
+        );
+        const outputTokens = attempts?.reduce(
+          (total, attempt) => total + (attempt.outputTokens ?? 0),
+          0,
+        );
+        const safeMetadata = [
+          analysisError.code,
+          analysisError.stage,
+          analysisError.providerErrorCode,
+          analysisError.operationId,
+          analysisError.providerDiagnostics?.finishReason
+            ? `finish=${analysisError.providerDiagnostics.finishReason}`
+            : undefined,
+          analysisError.providerDiagnostics?.invalidFieldPaths?.length
+            ? `fields=${analysisError.providerDiagnostics.invalidFieldPaths.join(",")}`
+            : undefined,
+          analysisError.providerDiagnostics?.retryAttempted ? "retry=true" : undefined,
+        ]
+          .filter(Boolean)
+          .join("|");
         await updateAnalysisRun(ctx.workspaceId, run.id, {
           status: "failed",
-          error_code: `${(svcErr as AnalysisServiceError).code}|${(svcErr as AnalysisServiceError).stage}`,
+          error_code: safeMetadata,
           safe_error_message: (svcErr as Error).message,
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
           completed_at: new Date().toISOString(),
         });
       } catch {

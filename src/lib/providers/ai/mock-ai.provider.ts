@@ -187,9 +187,9 @@ export class MockAiProvider implements AiProvider {
         "Pricing page indicates 4 distinct tiers",
       ],
       sectionConfidences: {
-        market_analysis: "high",
-        competitive_landscape: "medium",
-        pricing_strategy: "high",
+        productCategory: "high",
+        targetCustomerSegments: "high",
+        valueProposition: "medium",
       },
       missingInformation: [
         "Exact data coverage metrics by country",
@@ -209,6 +209,7 @@ export class MockAiProvider implements AiProvider {
           isRequired: false,
         },
       ],
+      confidence: "medium",
     };
     return { data, meta: buildMeta(this.name, this.isMock, startedAt, { tokens: 0 }) };
   }

@@ -23,6 +23,9 @@ export const v1ProductAnalysisInputSchema = z.object({
 export type V1ProductAnalysisInput = z.infer<typeof v1ProductAnalysisInputSchema>;
 
 export const analysisConfidenceSchema = z.enum(["low", "medium", "high"]);
+const conciseAnalysisTextSchema = z.string().min(1).max(600);
+const conciseAnalysisItemSchema = z.string().min(1).max(240);
+const conciseAnalysisListSchema = z.array(conciseAnalysisItemSchema).max(5);
 
 export const v1ProductAnalysisResultSchema = z.object({
   isMock: z.boolean(),
@@ -65,37 +68,46 @@ export const clarificationQuestionSchema = z.object({
 });
 export type ClarificationQuestion = z.infer<typeof clarificationQuestionSchema>;
 
-export const v2ProductAnalysisResultSchema = z.object({
-  schemaVersion: z.literal("v2"),
-  isMock: z.boolean(),
-  productCategory: z.string(),
-  targetCustomerSegments: z.array(z.string()),
-  userPersonas: z.array(z.string()),
-  buyerRoles: z.array(z.string()),
-  primaryPainPoints: z.array(z.string()),
-  jobsToBeDone: z.array(z.string()),
-  keyCapabilities: z.array(z.string()),
-  customerBenefits: z.array(z.string()),
-  valueProposition: z.string(),
-  positioning: z.string(),
-  differentiators: z.array(z.string()),
-  competitorCategories: z.array(z.string()),
-  alternativesCustomersCurrentlyUse: z.array(z.string()),
-  businessModel: z.string(),
-  pricingInterpretation: z.string(),
-  purchaseTriggers: z.array(z.string()),
-  likelyObjections: z.array(z.string()),
-  adoptionBarriers: z.array(z.string()),
-  useCases: z.array(z.string()),
-  strengths: z.array(z.string()),
-  weaknesses: z.array(z.string()),
-  risks: z.array(z.string()),
-  assumptions: z.array(z.string()),
-  evidenceExtractedFromWebsite: z.array(z.string()),
-  sectionConfidences: z.record(z.string(), analysisConfidenceSchema),
-  missingInformation: z.array(z.string()),
-  clarificationQuestions: z.array(clarificationQuestionSchema),
-});
+export const v2ProductAnalysisResultSchema = z
+  .object({
+    schemaVersion: z.literal("v2"),
+    isMock: z.boolean(),
+    productCategory: conciseAnalysisTextSchema,
+    targetCustomerSegments: conciseAnalysisListSchema,
+    userPersonas: conciseAnalysisListSchema,
+    buyerRoles: conciseAnalysisListSchema,
+    primaryPainPoints: conciseAnalysisListSchema,
+    jobsToBeDone: conciseAnalysisListSchema,
+    keyCapabilities: conciseAnalysisListSchema,
+    customerBenefits: conciseAnalysisListSchema,
+    valueProposition: conciseAnalysisTextSchema,
+    positioning: conciseAnalysisTextSchema,
+    differentiators: conciseAnalysisListSchema,
+    competitorCategories: conciseAnalysisListSchema,
+    alternativesCustomersCurrentlyUse: conciseAnalysisListSchema,
+    businessModel: conciseAnalysisTextSchema,
+    pricingInterpretation: conciseAnalysisTextSchema,
+    purchaseTriggers: conciseAnalysisListSchema,
+    likelyObjections: conciseAnalysisListSchema,
+    adoptionBarriers: conciseAnalysisListSchema,
+    useCases: conciseAnalysisListSchema,
+    strengths: conciseAnalysisListSchema,
+    weaknesses: conciseAnalysisListSchema,
+    risks: conciseAnalysisListSchema,
+    assumptions: conciseAnalysisListSchema,
+    evidenceExtractedFromWebsite: conciseAnalysisListSchema,
+    sectionConfidences: z
+      .object({
+        productCategory: analysisConfidenceSchema,
+        targetCustomerSegments: analysisConfidenceSchema,
+        valueProposition: analysisConfidenceSchema,
+      })
+      .strict(),
+    missingInformation: conciseAnalysisListSchema,
+    clarificationQuestions: z.array(clarificationQuestionSchema.strict()).max(5),
+    confidence: analysisConfidenceSchema,
+  })
+  .strict();
 export type V2ProductAnalysisResult = z.infer<typeof v2ProductAnalysisResultSchema>;
 
 export const productAnalysisResultAnySchema = z.discriminatedUnion("schemaVersion", [

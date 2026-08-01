@@ -1,6 +1,7 @@
 const REDACTED = "[REDACTED]";
 const SENSITIVE_KEY =
   /api.?key|authorization|cookie|token|password|secret|signature|database.?url|session|prompt|message|cv/i;
+const SAFE_USAGE_KEYS = new Set(["inputTokens", "outputTokens", "providerCalls"]);
 
 export type OperationLog = {
   operationId: string;
@@ -16,6 +17,13 @@ export type OperationLog = {
   providerErrorCode?: string;
   httpStatus?: number;
   environment: string;
+  finishReason?: string;
+  validationCategory?: string;
+  invalidFields?: readonly string[];
+  retryAttempted?: boolean;
+  inputTokens?: number;
+  outputTokens?: number;
+  providerCalls?: number;
 };
 
 export function redactLogValue(value: unknown): unknown {
@@ -24,7 +32,7 @@ export function redactLogValue(value: unknown): unknown {
     return Object.fromEntries(
       Object.entries(value).map(([key, nested]) => [
         key,
-        SENSITIVE_KEY.test(key) ? REDACTED : redactLogValue(nested),
+        SENSITIVE_KEY.test(key) && !SAFE_USAGE_KEYS.has(key) ? REDACTED : redactLogValue(nested),
       ]),
     );
   }

@@ -68,11 +68,11 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   const ctx = await getAuthContext();
   const project = await getProjectService(projectSlug, true);
   if (!project) notFound();
-  const { latest: latestRun, history } = await getProjectAnalysisService(
-    project.id,
-    project.workspace_id,
-    10,
-  );
+  const {
+    latest: latestRun,
+    latestSuccessful,
+    history,
+  } = await getProjectAnalysisService(project.id, project.workspace_id, 10);
   const answers = await getClarificationAnswersService(project.id);
   const savedAnswersRecord: Record<string, string> = {};
   for (const a of answers) {
@@ -231,6 +231,21 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                 isRetry
                 previousRunId={latestRun.id}
               />
+              {latestSuccessful?.output && latestSuccessful.id !== latestRun.id && (
+                <div className="space-y-3 border-t border-border pt-4">
+                  <p className="text-sm font-medium">Previous successful analysis</p>
+                  <ProductAnalysisView
+                    output={latestSuccessful.output as Record<string, unknown>}
+                    meta={{
+                      provider: latestSuccessful.provider,
+                      promptVersion: latestSuccessful.prompt_version,
+                      confidence:
+                        ((latestSuccessful.output as Record<string, unknown>)
+                          .confidence as string) || "medium",
+                    }}
+                  />
+                </div>
+              )}
             </div>
           ) : latestRun.output ? (
             <ProductAnalysisView

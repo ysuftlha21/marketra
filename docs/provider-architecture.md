@@ -128,6 +128,9 @@ integrations yet. No API keys required to run the app locally on mocks.
 - OpenAI and SMTP have separate opt-in smoke scripts; deterministic CI never requires credentials.
 - OpenAI output is operation-schema validated, token/cost accounted, timeout/retry bounded, and
   capped by `OPENAI_MAX_OUTPUT_TOKENS`.
+- Product analysis derives strict Chat Completions JSON Schema from the same canonical Zod schema
+  used after response extraction. Its 1,200-token task budget does not raise outreach or other AI
+  budgets. One schema-only repair attempt is permitted for valid JSON with invalid fields.
 - The centralized OpenAI registry contains only API model IDs verified for Marketra's configured
   project. `gpt-4o-mini` uses Chat Completions without reasoning parameters. ChatGPT product names
   are never treated as API model IDs without a server-side readiness check.

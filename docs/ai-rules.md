@@ -94,12 +94,17 @@ never secretly determined by the model.
 
 ## 10. OpenAI API compatibility
 
-- The verified `gpt-4o-mini` route uses Chat Completions, JSON-object mode, and
-  `max_completion_tokens`; reasoning parameters are never sent to it.
+- The verified `gpt-4o-mini` route uses Chat Completions and
+  `max_completion_tokens`; reasoning parameters are never sent to it. Product analysis uses strict
+  `json_schema` output derived directly from its canonical Zod schema.
 - Model IDs are admitted only after a server-side readiness check confirms access for the configured
   API project. ChatGPT product names and OpenAI API model IDs must not be assumed to match.
 - Pricing is versioned separately in `src/config/ai-pricing.ts`; unknown models have no inferred
   monetary cost.
+- Product-analysis output is concise and capped at 1,200 tokens independently of shorter AI tasks.
+  A syntactically valid JSON object that fails schema validation may receive one bounded repair
+  attempt. Authentication, quota, rate-limit, refusal, malformed JSON, and truncation failures are
+  never repair-retried. Every provider call is accounted separately.
 
 ## 11. Privacy & safety
 

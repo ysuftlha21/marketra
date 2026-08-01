@@ -11,6 +11,28 @@ export async function recordProviderUsage(input: {
   success?: boolean;
   controlledErrorCode?: string;
 }): Promise<void> {
+  if (input.meta.attempts?.length) {
+    await Promise.all(
+      input.meta.attempts.map((attempt, index) =>
+        recordProviderUsage({
+          ...input,
+          operationType: `${input.operationType}_call_${index + 1}`,
+          meta: {
+            providerName: input.meta.providerName,
+            isMock: input.meta.isMock,
+            durationMs: attempt.durationMs,
+            inputTokens: attempt.inputTokens,
+            outputTokens: attempt.outputTokens,
+            tokens: attempt.tokens,
+            modelId: attempt.modelId ?? input.meta.modelId,
+          },
+          success: attempt.success,
+          controlledErrorCode: attempt.controlledErrorCode,
+        }),
+      ),
+    );
+    return;
+  }
   const providerId = input.meta.providerName;
   const estimatedCost = estimateAiCostUsd(
     providerId,

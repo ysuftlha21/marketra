@@ -49,6 +49,7 @@ vi.mock("../repository/project-repository", () => ({
   getExistingSlugs: (...args: unknown[]) => mockGetExistingSlugs(...args),
   listWorkspaceProjects: vi.fn(),
   getLatestAnalysisRun: vi.fn(),
+  getLatestSuccessfulAnalysisRun: vi.fn(),
   listAnalysisRuns: vi.fn(),
 }));
 

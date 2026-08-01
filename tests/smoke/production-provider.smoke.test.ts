@@ -5,9 +5,13 @@ import {
   resolveOpenAiReadinessConfig,
 } from "@/lib/providers/ai/openai-readiness";
 import { SmtpEmailProvider } from "@/lib/providers/email/smtp-email.provider";
+import { OpenAiProvider } from "@/lib/providers/ai/openai-ai.provider";
+import { AiProviderError } from "@/lib/providers/ai/openai-client";
+import { v2ProductAnalysisResultSchema } from "@/lib/providers/ai/ai.provider";
 
 const openAiEnabled = process.env.REAL_OPENAI_SMOKE === "true";
 const smtpEnabled = process.env.REAL_SMTP_SMOKE === "true";
+const productAnalysisEnabled = process.env.REAL_OPENAI_PRODUCT_ANALYSIS_SMOKE === "true";
 
 describe("opt-in production provider smoke tests", () => {
   it.runIf(openAiEnabled)("checks OpenAI authentication and configured model access", async () => {
@@ -32,6 +36,62 @@ describe("opt-in production provider smoke tests", () => {
       errorCategory: null,
     });
   });
+
+  it.runIf(productAnalysisEnabled)(
+    "runs one sanitized strict product-analysis operation",
+    async () => {
+      const env = resolveOpenAiReadinessConfig(process.env);
+      const provider = new OpenAiProvider({
+        apiKey: env.OPENAI_API_KEY,
+        model: env.OPENAI_MODEL,
+        timeoutMs: Math.min(env.OPENAI_TIMEOUT_MS, 30_000),
+        maxRetries: 0,
+        maxOutputTokens: 800,
+      });
+      try {
+        const result = await provider.analyzeProductV2({
+          schemaVersion: "v2",
+          productName: "Sanitized B2B SaaS Fixture",
+          productDescription:
+            "A generic workflow tool for small business teams. This fixture contains no user data.",
+          currentMarkets: [],
+          preferredLanguage: "en",
+        });
+        const schemaValid = v2ProductAnalysisResultSchema.safeParse(result.data).success;
+        console.info(
+          JSON.stringify({
+            event: "openai.product_analysis_smoke",
+            success: schemaValid,
+            schemaValid,
+            finishReason: result.meta.finishReason,
+            inputTokens: result.meta.inputTokens,
+            outputTokens: result.meta.outputTokens,
+            provider: result.meta.providerName,
+            model: result.meta.modelId,
+            providerCalls: result.meta.providerCalls,
+            operationId: result.meta.operationId,
+          }),
+        );
+        expect(schemaValid).toBe(true);
+      } catch (error) {
+        if (error instanceof AiProviderError) {
+          console.error(
+            JSON.stringify({
+              event: "openai.product_analysis_smoke",
+              success: false,
+              category: error.code,
+              finishReason: error.diagnostics.finishReason,
+              invalidFields: error.diagnostics.invalidFieldPaths,
+              retryAttempted: error.diagnostics.retryAttempted,
+              providerCalls: error.diagnostics.attempts?.length,
+              operationId: error.operationId,
+            }),
+          );
+        }
+        throw error;
+      }
+    },
+  );
 
   it.runIf(smtpEnabled)(
     "sends one SMTP message only to the explicit operator address",

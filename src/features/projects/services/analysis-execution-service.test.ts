@@ -290,6 +290,51 @@ describe("runProductAnalysis", () => {
     });
   });
 
+  it("persists only safe structured-output diagnostics and attempt token totals", async () => {
+    mockProvider.analyzeProductV1.mockRejectedValueOnce(
+      new AiProviderError(
+        "missing_required_field",
+        "raw generated content must not persist",
+        "safe-output-operation-id",
+        undefined,
+        {
+          finishReason: "stop",
+          invalidFieldPaths: ["valueProposition"],
+          retryAttempted: true,
+          attempts: [
+            {
+              durationMs: 10,
+              inputTokens: 10,
+              outputTokens: 20,
+              success: false,
+              controlledErrorCode: "missing_required_field",
+            },
+            {
+              durationMs: 10,
+              inputTokens: 5,
+              outputTokens: 10,
+              success: false,
+              controlledErrorCode: "missing_required_field",
+            },
+          ],
+        },
+      ),
+    );
+    const { runProductAnalysis } = await import("./analysis-execution-service");
+    await expect(
+      runProductAnalysis(ctx, { ...mockInput, schemaVersion: "v1" }),
+    ).rejects.toMatchObject({ reference: "AI-PROVIDER-OUTPUT" });
+
+    const failed = mockUpdateAnalysisRun.mock.calls.find(
+      (call) => (call[2] as Record<string, unknown>).status === "failed",
+    )?.[2] as Record<string, unknown>;
+    expect(failed).toMatchObject({ input_tokens: 15, output_tokens: 30 });
+    expect(failed.error_code).toContain("missing_required_field");
+    expect(failed.error_code).toContain("fields=valueProposition");
+    expect(failed.error_code).toContain("retry=true");
+    expect(JSON.stringify(failed)).not.toContain("raw generated content");
+  });
+
   it("passes workspace_id to updateAnalysisRun calls", async () => {
     const { runProductAnalysis } = await import("./analysis-execution-service");
     await runProductAnalysis(ctx, mockInput);

@@ -26,6 +26,24 @@ export interface ProviderRunMeta {
   readonly cacheWriteInputTokens?: number;
   readonly modelId?: string;
   readonly estimatedCostUsd?: number;
+  readonly finishReason?: string;
+  readonly validationCategory?: string;
+  readonly invalidFieldPaths?: readonly string[];
+  readonly retryAttempted?: boolean;
+  readonly providerCalls?: number;
+  readonly operationId?: string;
+  readonly attempts?: readonly ProviderAttemptMeta[];
+}
+
+export interface ProviderAttemptMeta {
+  readonly durationMs: number;
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+  readonly tokens?: number;
+  readonly modelId?: string;
+  readonly finishReason?: string;
+  readonly success: boolean;
+  readonly controlledErrorCode?: string;
 }
 
 export interface ProviderResult<T> {
