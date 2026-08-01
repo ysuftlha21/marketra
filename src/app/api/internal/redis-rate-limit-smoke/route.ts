@@ -16,6 +16,21 @@ export const maxDuration = 10;
 
 const NO_STORE = { "Cache-Control": "no-store, max-age=0" };
 
+function logSafeFailure(result: {
+  failureCategory?: string;
+  operationId: string;
+  cleanupPassed: boolean;
+}) {
+  console.warn(
+    JSON.stringify({
+      operation: "redis_preview_smoke",
+      failureCategory: result.failureCategory ?? "smoke_internal_error",
+      operationId: result.operationId,
+      cleanupPassed: result.cleanupPassed,
+    }),
+  );
+}
+
 function unavailable() {
   return NextResponse.json({ ok: false }, { status: 404, headers: NO_STORE });
 }
@@ -54,32 +69,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 409, headers: NO_STORE });
   }
 
+  let providerConfigured = false;
   try {
     const provider = createRateLimitProvider("redis", {
       url: env.RATE_LIMIT_REDIS_URL,
       token: env.RATE_LIMIT_REDIS_TOKEN,
       timeoutMs: Math.min(env.RATE_LIMIT_REQUEST_TIMEOUT_MS, 1_000),
     });
-    const result = await runRedisRateLimitSmoke(provider);
+    providerConfigured = true;
+    const result = await runRedisRateLimitSmoke(provider, { namespace: env.RATE_LIMIT_NAMESPACE });
+    if (!result.ok) logSafeFailure(result);
     return NextResponse.json(result, {
       status: result.ok ? 200 : 503,
       headers: NO_STORE,
     });
   } catch {
-    return NextResponse.json(
-      {
-        ok: false,
-        providerConfigured: false,
-        evalSupported: false,
-        atomicConsumePassed: false,
-        denialPassed: false,
-        ttlPassed: false,
-        remainingPassed: false,
-        cleanupPassed: false,
-        operationId: randomUUID(),
-      },
-      { status: 503, headers: NO_STORE },
-    );
+    const result = {
+      ok: false,
+      providerConfigured,
+      evalSupported: false,
+      atomicConsumePassed: false,
+      denialPassed: false,
+      ttlPassed: false,
+      remainingPassed: false,
+      cleanupPassed: false,
+      operationId: randomUUID(),
+      failureCategory: providerConfigured ? "smoke_internal_error" : "configuration_unavailable",
+    };
+    logSafeFailure(result);
+    return NextResponse.json(result, { status: 503, headers: NO_STORE });
   } finally {
     releasePreviewSmokeExecution(subject);
   }

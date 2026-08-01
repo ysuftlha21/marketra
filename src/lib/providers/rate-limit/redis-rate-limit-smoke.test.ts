@@ -1,11 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import type { RateLimitProvider, RateLimitRequest } from "./rate-limit.provider";
+import { RateLimitProviderUnavailableError } from "./rate-limit.provider";
 import { runRedisRateLimitSmoke } from "./redis-rate-limit-smoke";
 
-function providerFixture(options?: { failConsume?: boolean; healthy?: boolean }) {
+function providerFixture(options?: {
+  failConsume?: boolean;
+  healthy?: boolean;
+  invalidAtomic?: boolean;
+  invalidTtl?: boolean;
+  failCleanup?: boolean;
+}) {
   let count = 0;
   const touchedKeys: string[] = [];
   const reset = vi.fn(async () => {
+    if (options?.failCleanup) throw new Error("raw cleanup failure");
     count = 0;
   });
   const provider: RateLimitProvider = {
@@ -13,13 +21,13 @@ function providerFixture(options?: { failConsume?: boolean; healthy?: boolean })
     healthCheck: vi.fn(async () => options?.healthy !== false),
     consume: vi.fn(async (request: RateLimitRequest) => {
       touchedKeys.push(request.key);
-      if (options?.failConsume) throw new Error("raw Redis failure");
+      if (options?.failConsume) throw new RateLimitProviderUnavailableError("timeout");
       count += 1;
       return {
-        allowed: count <= request.limit,
+        allowed: options?.invalidAtomic ? true : count <= request.limit,
         remaining: Math.max(0, request.limit - count),
         limit: request.limit,
-        resetAt: Date.now() + request.windowMs,
+        resetAt: options?.invalidTtl ? Date.now() - 1 : Date.now() + request.windowMs,
         retryAfterSeconds: 10,
         operationId: "provider-operation",
       };
@@ -59,9 +67,27 @@ describe("runRedisRateLimitSmoke", () => {
     const result = await runRedisRateLimitSmoke(fixture.provider);
     expect(result.ok).toBe(false);
     expect(result.evalSupported).toBe(false);
+    expect(result.failureCategory).toBe("redis_timeout");
     expect(result.cleanupPassed).toBe(true);
     expect(fixture.reset).toHaveBeenCalledOnce();
     expect(JSON.stringify(result)).not.toContain("raw Redis failure");
+  });
+
+  it("categorizes atomic and TTL assertion failures safely", async () => {
+    await expect(
+      runRedisRateLimitSmoke(providerFixture({ invalidAtomic: true }).provider),
+    ).resolves.toMatchObject({ failureCategory: "atomic_consume_failed", cleanupPassed: true });
+    await expect(
+      runRedisRateLimitSmoke(providerFixture({ invalidTtl: true }).provider),
+    ).resolves.toMatchObject({ failureCategory: "ttl_validation_failed", cleanupPassed: true });
+  });
+
+  it("reports cleanup failure after an earlier failure without leaking diagnostics", async () => {
+    const result = await runRedisRateLimitSmoke(
+      providerFixture({ failConsume: true, failCleanup: true }).provider,
+    );
+    expect(result).toMatchObject({ failureCategory: "cleanup_failed", cleanupPassed: false });
+    expect(JSON.stringify(result)).not.toContain("raw cleanup failure");
   });
 
   it("attempts cleanup after a connectivity failure", async () => {

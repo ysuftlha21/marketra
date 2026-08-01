@@ -22,8 +22,12 @@ export interface RateLimitProvider {
   check(request: RateLimitRequest): Promise<RateLimitResult>;
   reset?(key: string): Promise<void>;
   healthCheck(): Promise<boolean>;
+  diagnoseHealth?(): Promise<void>;
   getRemaining?(request: RateLimitRequest): Promise<number>;
 }
+
+export type RateLimitProviderFailureReason =
+  "auth_failed" | "command_unsupported" | "connectivity_failed" | "response_invalid" | "timeout";
 
 export class RateLimitExceededError extends Error {
   constructor(readonly result: RateLimitResult) {
@@ -37,7 +41,7 @@ export class RateLimitExceededError extends Error {
 }
 
 export class RateLimitProviderUnavailableError extends Error {
-  constructor() {
+  constructor(readonly reason: RateLimitProviderFailureReason = "connectivity_failed") {
     super("Request protection is temporarily unavailable.");
     this.name = "RateLimitProviderUnavailableError";
   }

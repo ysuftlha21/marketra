@@ -94,8 +94,11 @@ using fixed-length SHA-256 digests with `timingSafeEqual`. Query-string tokens a
 The endpoint has no command/key input, uses a unique `marketra:smoke:preview:*` key, permits only
 one active run per authorization subject, allows two executions per five minutes per instance, and
 bounds each Redis request to one second. It returns only assertion booleans and a random operation
-ID with `Cache-Control: no-store`. The disposable key is deleted in `finally` after success or
-failure. Production and Development receive 404.
+ID with `Cache-Control: no-store`. Failures include only an allowlisted stage category covering
+configuration, Redis authentication/connectivity/command/response/timeout, atomicity, TTL,
+remaining-count, cleanup, or an unexpected internal failure. The same safe category, operation ID,
+and cleanup flag can be recorded in runtime logs; raw provider diagnostics are discarded. The
+disposable key is deleted in `finally` after success or failure. Production and Development receive 404.
 
 Preview activation procedure:
 

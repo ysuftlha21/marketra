@@ -54,6 +54,7 @@ describe("Preview Redis rate-limit smoke route", () => {
     });
     mocks.createProvider.mockReturnValue({ id: "redis" });
     mocks.runSmoke.mockResolvedValue(safeSuccess);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
   it("returns 404 outside Preview or when opt-in is disabled", async () => {
@@ -93,6 +94,7 @@ describe("Preview Redis rate-limit smoke route", () => {
       token: "secret-redis-token",
       timeoutMs: 1_000,
     });
+    expect(mocks.runSmoke).toHaveBeenCalledWith(expect.anything(), { namespace: undefined });
   });
 
   it("suppresses Redis configuration and failure details", async () => {
@@ -105,12 +107,40 @@ describe("Preview Redis rate-limit smoke route", () => {
     expect(body).not.toContain("secret-redis-token");
     expect(body).not.toContain("secret-redis.example");
     expect(body).not.toContain(token);
+    expect(body).toContain("configuration_unavailable");
+    const safeLog = String(vi.mocked(console.warn).mock.calls.at(-1)?.[0]);
+    expect(safeLog).toContain("configuration_unavailable");
+    expect(safeLog).not.toContain("secret-redis-token");
+    expect(safeLog).not.toContain("secret-redis.example");
+    expect(safeLog).not.toContain(token);
   });
 
   it("returns safe failed assertions when EVAL is unavailable", async () => {
-    mocks.runSmoke.mockResolvedValue({ ...safeSuccess, ok: false, evalSupported: false });
+    mocks.runSmoke.mockResolvedValue({
+      ...safeSuccess,
+      ok: false,
+      evalSupported: false,
+      failureCategory: "redis_eval_failed",
+    });
     const response = await POST(request(`Bearer ${token}`));
     expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ ok: false, evalSupported: false });
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      evalSupported: false,
+      failureCategory: "redis_eval_failed",
+    });
+  });
+
+  it("categorizes an unexpected smoke exception without provider details", async () => {
+    mocks.runSmoke.mockRejectedValue(new Error("secret-redis-token provider-host"));
+    const response = await POST(request(`Bearer ${token}`));
+    const body = await response.json();
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      ok: false,
+      providerConfigured: true,
+      failureCategory: "smoke_internal_error",
+    });
+    expect(JSON.stringify(body)).not.toContain("provider-host");
   });
 });

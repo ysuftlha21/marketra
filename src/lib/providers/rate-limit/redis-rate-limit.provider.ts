@@ -23,13 +23,33 @@ export class RedisRateLimitProvider implements RateLimitProvider {
         body: JSON.stringify(command),
         signal: controller.signal,
       });
-      if (!response.ok) throw new RateLimitProviderUnavailableError();
-      const parsed = redisResponseSchema.safeParse(await response.json());
-      if (!parsed.success) throw new RateLimitProviderUnavailableError();
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new RateLimitProviderUnavailableError("auth_failed");
+        }
+        if ([400, 404, 405, 422].includes(response.status)) {
+          throw new RateLimitProviderUnavailableError("command_unsupported");
+        }
+        if (response.status === 408 || response.status === 504) {
+          throw new RateLimitProviderUnavailableError("timeout");
+        }
+        throw new RateLimitProviderUnavailableError("connectivity_failed");
+      }
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new RateLimitProviderUnavailableError("response_invalid");
+      }
+      const parsed = redisResponseSchema.safeParse(payload);
+      if (!parsed.success) throw new RateLimitProviderUnavailableError("response_invalid");
       return parsed.data.result;
     } catch (error) {
       if (error instanceof RateLimitProviderUnavailableError) throw error;
-      throw new RateLimitProviderUnavailableError();
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new RateLimitProviderUnavailableError("timeout");
+      }
+      throw new RateLimitProviderUnavailableError("connectivity_failed");
     } finally {
       clearTimeout(timer);
     }
@@ -47,7 +67,9 @@ export class RedisRateLimitProvider implements RateLimitProvider {
     const parsed = z
       .tuple([z.coerce.number().int().positive(), z.coerce.number().int()])
       .safeParse(result);
-    if (!parsed.success || parsed.data[1] < 0) throw new RateLimitProviderUnavailableError();
+    if (!parsed.success || parsed.data[1] < 0) {
+      throw new RateLimitProviderUnavailableError("response_invalid");
+    }
     const [count, ttl] = parsed.data;
     const now = Date.now();
     return {
@@ -62,7 +84,9 @@ export class RedisRateLimitProvider implements RateLimitProvider {
 
   async check(request: RateLimitRequest): Promise<RateLimitResult> {
     const result = await this.command(["MGET", request.key]);
-    const count = Array.isArray(result) ? Number(result[0] ?? 0) : 0;
+    const parsed = z.tuple([z.coerce.number().int().nonnegative().nullable()]).safeParse(result);
+    if (!parsed.success) throw new RateLimitProviderUnavailableError("response_invalid");
+    const count = parsed.data[0] ?? 0;
     return {
       allowed: count < request.limit,
       remaining: Math.max(0, request.limit - count),
@@ -77,9 +101,15 @@ export class RedisRateLimitProvider implements RateLimitProvider {
   }
   async healthCheck() {
     try {
-      return (await this.command(["PING"])) === "PONG";
+      await this.diagnoseHealth();
+      return true;
     } catch {
       return false;
+    }
+  }
+  async diagnoseHealth() {
+    if ((await this.command(["PING"])) !== "PONG") {
+      throw new RateLimitProviderUnavailableError("response_invalid");
     }
   }
   async getRemaining(request: RateLimitRequest) {

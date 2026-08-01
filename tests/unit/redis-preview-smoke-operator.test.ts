@@ -32,8 +32,46 @@ describe("Redis Preview smoke operator response handling", () => {
       classifyRedisPreviewSmokeResponse(200, { ...successPayload, cleanupPassed: false }),
     ).toEqual({
       success: false,
-      output: { httpStatus: 200, errorCategory: "smoke_assertion_failed" },
+      output: {
+        httpStatus: 200,
+        errorCategory: "smoke_assertion_failed",
+        ...successPayload,
+        cleanupPassed: false,
+      },
     });
+  });
+
+  it("renders only an allowlisted provider failure category and safe result fields", () => {
+    const result = classifyRedisPreviewSmokeResponse(503, {
+      ...successPayload,
+      ok: false,
+      evalSupported: false,
+      cleanupPassed: true,
+      failureCategory: "redis_eval_failed",
+      raw: "provider host and secret must not appear",
+    });
+    expect(result).toEqual({
+      success: false,
+      output: {
+        httpStatus: 503,
+        errorCategory: "redis_eval_failed",
+        ...successPayload,
+        ok: false,
+        evalSupported: false,
+        cleanupPassed: true,
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("provider host and secret");
+  });
+
+  it("rejects a provider-supplied category outside the allowlist", () => {
+    expect(
+      classifyRedisPreviewSmokeResponse(503, {
+        ...successPayload,
+        ok: false,
+        failureCategory: "secret-provider-message",
+      }).output,
+    ).toMatchObject({ errorCategory: "http_error" });
   });
 
   it("prints only allowlisted safe fields on success", () => {

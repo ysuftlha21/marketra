@@ -20,7 +20,12 @@ describe("RedisRateLimitProvider", () => {
     expect(body[0]).toBe("EVAL");
   });
 
-  it.each([401, 500])("fails closed for HTTP %s", async (status) => {
+  it.each([
+    [401, "auth_failed"],
+    [403, "auth_failed"],
+    [400, "command_unsupported"],
+    [500, "connectivity_failed"],
+  ] as const)("fails closed for HTTP %s", async (status, reason) => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status }));
     const provider = new RedisRateLimitProvider({
       url: "https://redis.example",
@@ -29,6 +34,7 @@ describe("RedisRateLimitProvider", () => {
     });
     await expect(provider.consume(request)).rejects.toMatchObject({
       name: "RateLimitProviderUnavailableError",
+      reason,
     });
   });
 
@@ -43,6 +49,7 @@ describe("RedisRateLimitProvider", () => {
     });
     await expect(provider.consume(request)).rejects.toMatchObject({
       name: "RateLimitProviderUnavailableError",
+      reason: "response_invalid",
     });
   });
 
@@ -62,6 +69,47 @@ describe("RedisRateLimitProvider", () => {
     });
     await expect(provider.consume(request)).rejects.toMatchObject({
       name: "RateLimitProviderUnavailableError",
+      reason: "timeout",
+    });
+  });
+
+  it("sends Upstash-compatible PING, EVAL, MGET, and DEL command arrays", async () => {
+    const responses: unknown[] = ["PONG", [1, 60000], ["1"], 1];
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () =>
+        Promise.resolve(
+          new Response(JSON.stringify({ result: responses.shift() }), { status: 200 }),
+        ),
+      );
+    const provider = new RedisRateLimitProvider({
+      url: "https://redis.example",
+      token: "secret",
+      timeoutMs: 100,
+    });
+    await provider.diagnoseHealth();
+    await provider.consume(request);
+    await provider.getRemaining(request);
+    await provider.reset(request.key);
+
+    const commands = fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body)));
+    expect(commands[0]).toEqual(["PING"]);
+    expect(commands[1]).toEqual([
+      "EVAL",
+      expect.stringContaining("INCR"),
+      "1",
+      request.key,
+      String(request.limit),
+      String(request.windowMs),
+    ]);
+    expect(commands[1][1]).toContain("PEXPIRE");
+    expect(commands[1][1]).toContain("PTTL");
+    expect(commands[2]).toEqual(["MGET", request.key]);
+    expect(commands[3]).toEqual(["DEL", request.key]);
+    expect(fetchMock.mock.calls.every((call) => call[1]?.headers)).toBe(true);
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+      authorization: "Bearer secret",
+      "content-type": "application/json",
     });
   });
 
