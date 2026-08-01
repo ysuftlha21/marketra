@@ -3,12 +3,16 @@ import { listWorkspaceProjects } from "@/features/projects/repository/project-re
 import { listProjectTargetCountries } from "@/features/markets/repository/market-repository";
 import type { DashboardSnapshot } from "../domain/dashboard-view-model";
 
-export async function loadDashboardSnapshot(workspace: {
-  id: string;
-  name: string;
-}): Promise<DashboardSnapshot> {
+export async function loadDashboardSnapshot(
+  workspace: {
+    id: string;
+    name: string;
+  },
+  activeProjectId?: string,
+): Promise<DashboardSnapshot> {
   const projects = await listWorkspaceProjects(workspace.id);
-  const selected = projects[0] ?? null;
+  const selected =
+    projects.find((project) => project.id === activeProjectId) ?? projects[0] ?? null;
   if (!selected)
     return {
       workspace,

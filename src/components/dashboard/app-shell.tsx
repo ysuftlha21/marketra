@@ -13,13 +13,13 @@ import {
   Search,
   Bell,
   Building2,
-  Flag,
 } from "lucide-react";
 import { Brand, SidebarNav } from "./sidebar-nav";
 import { signOutAction } from "@/features/auth/api/auth-actions";
 import { switchWorkspaceAction } from "@/features/workspaces/api/workspace-actions";
 import { cn } from "@/lib/utils/cn";
 import type { WorkspaceRole } from "@/features/workspaces/domain/roles";
+import { switchProjectAction } from "@/features/projects/api/project-actions";
 
 export interface AppShellWorkspace {
   id: string;
@@ -31,6 +31,8 @@ export interface AppShellContext {
   user: { email: string; displayName: string };
   activeWorkspace: AppShellWorkspace;
   workspaces: AppShellWorkspace[];
+  activeProject?: { id: string; name: string; slug: string } | null;
+  projects?: Array<{ id: string; name: string; slug: string }>;
 }
 interface AppShellProps {
   context: AppShellContext;
@@ -75,8 +77,11 @@ function WorkspaceSwitcher({
     try {
       const formData = new FormData();
       formData.set("workspaceId", id);
-      await switchWorkspaceAction(formData);
-      router.refresh();
+      const result = await switchWorkspaceAction(formData);
+      if (result.ok) {
+        router.push("/dashboard");
+        router.refresh();
+      }
     } finally {
       setPending(false);
     }
@@ -128,6 +133,47 @@ function WorkspaceSwitcher({
         </div>
       )}
     </div>
+  );
+}
+
+function ProjectSwitcher({
+  context,
+  mobile = false,
+}: {
+  context: AppShellContext;
+  mobile?: boolean;
+}) {
+  const router = useRouter();
+  const projects = context.projects ?? [];
+  if (!context.activeProject || projects.length === 0) return null;
+
+  return (
+    <label className={cn("items-center", mobile ? "flex w-full" : "hidden sm:flex")}>
+      <span className="sr-only">Active project</span>
+      <select
+        aria-label="Active project"
+        value={context.activeProject.slug}
+        onChange={async (event) => {
+          const formData = new FormData();
+          formData.set("projectSlug", event.target.value);
+          const result = await switchProjectAction(formData);
+          if (result.ok) {
+            router.push("/dashboard");
+            router.refresh();
+          }
+        }}
+        className={cn(
+          "h-8 rounded-md border border-white/[.055] bg-[#0b0f19] px-2 text-[10px] text-zinc-200",
+          mobile ? "w-full" : "max-w-44",
+        )}
+      >
+        {projects.map((project) => (
+          <option key={project.id} value={project.slug}>
+            {project.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -207,8 +253,6 @@ export function AppShell({
   const [isCollapsed, setIsCollapsed] = React.useState(initialCollapsed);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [countryOpen, setCountryOpen] = React.useState(false);
-  const [country, setCountry] = React.useState("United States");
 
   const toggleCollapse = React.useCallback(() => {
     const newVal = !isCollapsed;
@@ -288,6 +332,9 @@ export function AppShell({
             </div>
             <SidebarNav onNavigate={() => setMobileOpen(false)} />
             <div className="mt-auto border-t border-border px-4 py-3">
+              <div className="mb-2">
+                <ProjectSwitcher context={context} mobile />
+              </div>
               <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
                 <Building2 className="h-4 w-4 shrink-0 text-violet-400" />
                 <WorkspaceSwitcher context={context} menuPlacement="up" />
@@ -370,41 +417,7 @@ export function AppShell({
             </label>
           </div>
           <div className="flex items-center gap-2">
-            <div className="relative hidden sm:block">
-              <button
-                type="button"
-                aria-haspopup="listbox"
-                aria-expanded={countryOpen}
-                onClick={() => setCountryOpen((value) => !value)}
-                className="flex h-8 items-center gap-2 rounded-md border border-white/[.055] bg-[#0b0f19] px-3 text-[10px]"
-              >
-                <Flag className="h-4 w-4 text-red-400" /> {country}
-                <ChevronDown className="h-3 w-3" />
-              </button>
-              {countryOpen && (
-                <div
-                  role="listbox"
-                  aria-label="Country"
-                  className="absolute right-0 top-10 z-50 w-40 rounded-lg border border-white/[.08] bg-[#0d111c] p-1 shadow-xl"
-                >
-                  {["United States", "Germany", "United Kingdom", "Canada", "Japan"].map((item) => (
-                    <button
-                      key={item}
-                      role="option"
-                      aria-selected={country === item}
-                      type="button"
-                      onClick={() => {
-                        setCountry(item);
-                        setCountryOpen(false);
-                      }}
-                      className="block w-full rounded px-2 py-2 text-left text-[10px] text-zinc-300 hover:bg-violet-500/10"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ProjectSwitcher context={context} />
             <span className="hidden h-8 items-center gap-2 rounded-md border border-white/[.055] bg-[#0b0f19] px-2 lg:flex">
               <Building2 className="h-4 w-4 text-violet-400" />
               <WorkspaceSwitcher context={context} />

@@ -11,11 +11,11 @@ const primaryNavigation = [
   { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
   { label: "Markets", href: "/dashboard/markets", icon: "Globe" },
   { label: "Company Discovery", href: "/dashboard/companies", icon: "Building2" },
-  { label: "Buyer Discovery", href: "/dashboard/companies", icon: "Users" },
-  { label: "ICP Builder", href: "/dashboard/projects", icon: "PenLine" },
+  { label: "Buyer Discovery", href: "/dashboard/buyers", icon: "Users" },
+  { label: "ICP Builder", href: "/dashboard/icp", icon: "PenLine" },
   { label: "AI Outreach", href: "/dashboard/outreach", icon: "Mail" },
   { label: "Campaigns", href: "/dashboard/crm", icon: "Megaphone", legacyLabel: "CRM" },
-  { label: "Analytics", href: "/dashboard", icon: "ChartNoAxesCombined" },
+  { label: "Analytics", href: "/dashboard/analytics", icon: "ChartNoAxesCombined" },
 ] as const;
 
 const secondaryNavigation = [

@@ -7,6 +7,8 @@ import {
   listOutreachDashboardFilterOptions,
   listWorkspaceOutreachDrafts,
 } from "@/features/outreach/repository/outreach-repository";
+import { resolveAuthenticatedProjectContext } from "@/features/projects/services/project-context-service";
+import { buttonVariants } from "@/components/ui/button";
 
 export const metadata = { title: "Outreach" };
 const PAGE_SIZE = 20;
@@ -18,10 +20,11 @@ const one = (value: string | string[] | undefined) =>
 export default async function OutreachPage({ searchParams }: { searchParams: SearchParams }) {
   const ctx = await getAuthContext();
   if (!ctx?.activeWorkspace) return null;
+  const projectContext = await resolveAuthenticatedProjectContext();
   const params = await searchParams;
   const page = Math.max(1, Number(one(params.page)) || 1);
   const filters = {
-    projectId: one(params.project),
+    projectId: one(params.project) ?? projectContext.project?.id,
     countryId: one(params.country),
     channel: one(params.channel),
     status: one(params.status),
@@ -103,8 +106,26 @@ export default async function OutreachPage({ searchParams }: { searchParams: Sea
       {typedRows.length === 0 ? (
         <EmptyState
           icon={Mail}
-          title="No outreach drafts found"
-          description="Generate outreach from a discovered company, or adjust these filters."
+          title={
+            projectContext.counts.buyers > 0 ? "Create an outreach draft" : "Select a buyer first"
+          }
+          description={
+            projectContext.counts.buyers > 0
+              ? "Open a saved company and choose a buyer role to prepare localized outreach."
+              : "Discover a company and choose a buyer before preparing outreach."
+          }
+          action={
+            <Link
+              href={
+                projectContext.project && projectContext.activeMarket
+                  ? `/dashboard/projects/${projectContext.project.slug}/markets/${projectContext.activeMarket.country_code}/discovery`
+                  : "/dashboard/companies"
+              }
+              className={buttonVariants()}
+            >
+              {projectContext.counts.buyers > 0 ? "Choose buyer" : "Discover companies"}
+            </Link>
+          }
         />
       ) : (
         <div className="overflow-hidden rounded-lg border border-border/60 bg-card">

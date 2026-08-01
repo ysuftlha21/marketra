@@ -2,6 +2,7 @@ import { DashboardOverview } from "@/features/dashboard/components/dashboard-ove
 import { DashboardStateOverview } from "@/features/dashboard/components/dashboard-state-overview";
 import { getAuthContext } from "@/lib/auth/session";
 import { getDashboardViewModel } from "@/features/dashboard/services/dashboard-service";
+import { resolveAuthenticatedProjectContext } from "@/features/projects/services/project-context-service";
 
 export const metadata = { title: "Overview" };
 
@@ -29,10 +30,14 @@ export default async function DashboardOverviewPage({
   if (!context?.activeWorkspace) return null;
   let model;
   try {
-    model = await getDashboardViewModel({
-      id: context.activeWorkspace.workspace.id,
-      name: context.activeWorkspace.workspace.name,
-    });
+    const projectContext = await resolveAuthenticatedProjectContext();
+    model = await getDashboardViewModel(
+      {
+        id: context.activeWorkspace.workspace.id,
+        name: context.activeWorkspace.workspace.name,
+      },
+      projectContext.project?.id,
+    );
   } catch {
     return (
       <div className="marketra-panel mx-auto mt-16 max-w-lg p-8 text-center">

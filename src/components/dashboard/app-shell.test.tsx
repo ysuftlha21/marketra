@@ -8,6 +8,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/features/auth/api/auth-actions", () => ({ signOutAction: vi.fn() }));
 vi.mock("@/features/workspaces/api/workspace-actions", () => ({ switchWorkspaceAction: vi.fn() }));
+vi.mock("@/features/projects/api/project-actions", () => ({ switchProjectAction: vi.fn() }));
 
 const context: AppShellContext = {
   user: { email: "owner@example.com", displayName: "Owner" },
@@ -66,5 +67,22 @@ describe("AppShell sidebar", () => {
     expect(screen.queryByRole("button", { name: "Collapse sidebar" })).not.toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "Dashboard navigation" })).not.toBeInTheDocument();
+  });
+
+  it("renders the canonical active project selector on desktop and mobile", () => {
+    render(
+      <AppShell
+        context={{
+          ...context,
+          activeProject: { id: "project-1", name: "Marketra", slug: "marketra" },
+          projects: [{ id: "project-1", name: "Marketra", slug: "marketra" }],
+        }}
+      >
+        <div>Dashboard content</div>
+      </AppShell>,
+    );
+    expect(screen.getByRole("combobox", { name: "Active project" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(screen.getAllByRole("combobox", { name: "Active project" })).toHaveLength(2);
   });
 });

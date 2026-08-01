@@ -253,3 +253,14 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   parses but field validation fails. Safe operation metadata records finish reason, invalid paths,
   token totals, and retry state without storing prompts or generated content. A failed run remains
   separate from the latest successful result so prior valid analysis stays available.
+
+### 2026-08-01 — Canonical authenticated project context
+
+- Decision: workspace-level dashboard routes use a single server-only project context resolver and
+  an HTTP-only active-project cookie whose slug is revalidated against the authenticated workspace.
+- Reason: sidebar routes previously selected projects independently or rendered legacy placeholder
+  pages, causing valid ICP and market data to appear missing.
+- Security: the cookie is a navigation preference only; repositories remain workspace-scoped and RLS
+  remains authoritative. Invalid or cross-workspace slugs never expose project data.
+- Compatibility: existing project, analysis, market, and ICP rows are read in place. No migration or
+  backfill is required.

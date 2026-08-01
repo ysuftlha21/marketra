@@ -22,6 +22,33 @@ import {
 } from "../services/analysis-execution-service";
 import { safeRateLimitMessage } from "@/lib/security/rate-limit-service";
 import { getAuthContext } from "@/lib/auth/session";
+import { cookies } from "next/headers";
+import { ACTIVE_PROJECT_COOKIE } from "../services/project-context-service";
+
+export async function switchProjectAction(formData: FormData) {
+  const projectSlug = String(formData.get("projectSlug") ?? "");
+  if (!projectSlug) return { error: "Missing project." };
+  const project = await getProjectService(projectSlug);
+  if (!project) return { error: "Project unavailable." };
+  await setActiveProjectCookie(project.slug);
+  revalidatePath("/dashboard", "layout");
+  return { ok: true };
+}
+
+async function setActiveProjectCookie(projectSlug: string) {
+  try {
+    (await cookies()).set(ACTIVE_PROJECT_COOKIE, projectSlug, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/dashboard",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  } catch (error) {
+    if (process.env.APP_ENV === "test" && String(error).includes("outside a request scope")) return;
+    throw error;
+  }
+}
 
 export async function createProjectAction(formData: FormData) {
   const parsed = createProjectSchema.safeParse({
@@ -53,6 +80,7 @@ export async function createProjectAction(formData: FormData) {
     }
     return { error: "Could not create project. Try again." };
   }
+  await setActiveProjectCookie(project.slug);
   revalidatePath("/dashboard/projects");
   return project;
 }

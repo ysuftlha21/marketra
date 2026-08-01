@@ -92,6 +92,7 @@ export async function startDiscoveryAction(formData: FormData) {
       },
     );
     revalidatePath(`/dashboard/projects/${projectSlug}/markets`);
+    revalidatePath("/dashboard", "layout");
     return { ok: true, runId };
   } catch (err) {
     const rateLimitMessage = safeRateLimitMessage(err);

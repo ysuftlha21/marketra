@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Play,
   RotateCcw,
   CheckCircle,
   XCircle,
@@ -38,6 +37,8 @@ import { ManualCompanyForm } from "@/features/companies/components/manual-compan
 import { providerProvenanceLabel } from "@/features/companies/domain/data-provenance";
 import { parseServerEnv } from "@/lib/env/env";
 import { getHunterReadiness } from "@/lib/providers/hunter/hunter-readiness";
+import { getProjectIcpReadiness } from "@/features/icp/services/icp-readiness-service";
+import { DiscoverySubmitButton } from "@/features/companies/components/discovery-submit-button";
 
 interface PageProps {
   params: Promise<{ projectSlug: string; countryCode: string }>;
@@ -96,6 +97,31 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
   const env = parseServerEnv();
   const providerLabel = providerProvenanceLabel(env.DEFAULT_COMPANY_DISCOVERY_PROVIDER);
   const hunterReadiness = getHunterReadiness();
+  const discoveryEnabled =
+    env.DEFAULT_COMPANY_DISCOVERY_PROVIDER !== "hunter" || env.HUNTER_DISCOVERY_UI_ENABLED;
+  const icpReadiness = await getProjectIcpReadiness(projectSlug, countryCode);
+  const approvedIcp = icpReadiness.state === "ready" ? icpReadiness.profile : null;
+  const primaryIndustries = Array.isArray(approvedIcp?.industry_segments.primary)
+    ? approvedIcp.industry_segments.primary
+    : [];
+  const defaultIndustry = primaryIndustries
+    .map((item) =>
+      typeof item === "string"
+        ? item
+        : item && typeof item === "object" && "name" in item
+          ? String(item.name)
+          : "",
+    )
+    .find(Boolean);
+  const employeeRange = String(approvedIcp?.company_attributes.employeeRange ?? "");
+  const employeeMatches = employeeRange.match(/(\d[\d,]*)\D+(\d[\d,]*)/);
+  const defaultEmployeeMin = employeeMatches?.[1]?.replaceAll(",", "") ?? "";
+  const defaultEmployeeMax = employeeMatches?.[2]?.replaceAll(",", "") ?? "";
+  const defaultKeywords = approvedIcp?.qualification_signals.slice(0, 6).join(", ") ?? "";
+  const defaultTechnologies =
+    approvedIcp?.technology_context && typeof approvedIcp.technology_context.summary === "string"
+      ? approvedIcp.technology_context.summary
+      : "";
 
   // URL-driven filters
   const filterStatus = sp.status || "";
@@ -133,12 +159,15 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
         description={`Discover and evaluate companies matching the ICP for ${project.name}`}
         actions={
           <div className="flex flex-wrap gap-2">
-            {latestRun && isActiveStatus(latestRun.status as DiscoveryRunStatus) ? (
+            {approvedIcp &&
+            discoveryEnabled &&
+            latestRun &&
+            isActiveStatus(latestRun.status as DiscoveryRunStatus) ? (
               <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                 <RefreshCw className="h-4 w-4 animate-spin" />
                 Running…
               </span>
-            ) : (
+            ) : approvedIcp && discoveryEnabled ? (
               <form
                 action={async (fd: FormData) => {
                   "use server";
@@ -148,114 +177,181 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
               >
                 <input type="hidden" name="projectSlug" value={projectSlug} />
                 <input type="hidden" name="countryId" value={tc.id} />
-                <Button type="submit">
-                  <Play className="h-4 w-4" /> Start Discovery
-                </Button>
+                <DiscoverySubmitButton label="Start Discovery" />
               </form>
-            )}
+            ) : null}
           </div>
         }
       />
 
-      <Card className="border-border/60">
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <CardTitle className="text-base">Discovery filters</CardTitle>
-              <CardDescription>
-                Searches use the selected provider without silent fallback. Technology filters may
-                require a paid Hunter plan.
-              </CardDescription>
+      {icpReadiness.state === "missing" && (
+        <EmptyState
+          icon={Users}
+          title="Create ICP"
+          description="A country-specific ICP is required so discovery can score and explain matches safely."
+          action={
+            <Link
+              href={`/dashboard/projects/${projectSlug}/markets/${countryCode}/icp`}
+              className={buttonVariants()}
+            >
+              Create ICP
+            </Link>
+          }
+        />
+      )}
+
+      {icpReadiness.state === "incomplete" && (
+        <EmptyState
+          icon={Info}
+          title="Complete ICP"
+          description={`Finish the required ICP sections: ${icpReadiness.incompleteSections.join(", ")}.`}
+          action={
+            <Link
+              href={`/dashboard/projects/${projectSlug}/markets/${countryCode}/icp`}
+              className={buttonVariants()}
+            >
+              Complete ICP
+            </Link>
+          }
+        />
+      )}
+
+      {icpReadiness.state === "inaccessible" && (
+        <EmptyState
+          icon={Info}
+          title="ICP unavailable"
+          description="We could not verify ICP access for this project. Refresh or return to the project."
+          action={
+            <Link href={`/dashboard/projects/${projectSlug}`} className={buttonVariants()}>
+              Return to project
+            </Link>
+          }
+        />
+      )}
+
+      {approvedIcp && !discoveryEnabled && (
+        <EmptyState
+          icon={Info}
+          title="Company discovery is unavailable"
+          description="The configured company discovery provider is disabled. Your project and ICP are ready and remain unchanged."
+          action={
+            <Link href="/dashboard/settings" className={buttonVariants()}>
+              View integrations
+            </Link>
+          }
+        />
+      )}
+
+      {approvedIcp && discoveryEnabled && (
+        <Card className="border-border/60">
+          <CardHeader>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">Discovery filters</CardTitle>
+                <CardDescription>
+                  Searches use the selected provider without silent fallback. Technology filters may
+                  require a paid Hunter plan.
+                </CardDescription>
+              </div>
+              <Badge variant="outline">{providerLabel}</Badge>
             </div>
-            <Badge variant="outline">{providerLabel}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form
-            aria-label="Company discovery filters"
-            action={async (fd: FormData) => {
-              "use server";
-              const m = await import("@/features/companies/api/company-actions");
-              await m.startDiscoveryAction(fd);
-            }}
-            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-          >
-            <input type="hidden" name="projectSlug" value={projectSlug} />
-            <input type="hidden" name="countryId" value={tc.id} />
-            <label className="space-y-1 text-xs text-muted-foreground">
-              Industry
-              <input
-                name="industry"
-                maxLength={100}
-                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-              />
-            </label>
-            <label className="space-y-1 text-xs text-muted-foreground">
-              Minimum employees
-              <input
-                name="employeeMin"
-                type="number"
-                min="0"
-                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-              />
-            </label>
-            <label className="space-y-1 text-xs text-muted-foreground">
-              Maximum employees
-              <input
-                name="employeeMax"
-                type="number"
-                min="0"
-                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-              />
-            </label>
-            <label className="space-y-1 text-xs text-muted-foreground">
-              Result limit
-              <select
-                name="maxResults"
-                defaultValue="25"
-                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-              >
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
-                <option>100</option>
-              </select>
-            </label>
-            <label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
-              Keywords, comma separated
-              <input
-                name="keywords"
-                maxLength={300}
-                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-              />
-            </label>
-            <label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
-              Technologies, comma separated
-              <input
-                name="technologies"
-                maxLength={300}
-                className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-              />
-            </label>
-            <div className="flex items-end gap-3 sm:col-span-2 lg:col-span-4">
-              <Button
-                type="submit"
-                disabled={Boolean(
-                  latestRun && isActiveStatus(latestRun.status as DiscoveryRunStatus),
-                )}
-              >
-                <Play className="h-4 w-4" />
-                Run discovery
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                {env.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter"
-                  ? hunterReadiness.message
-                  : "Deterministic demo results; never labeled as live."}
-              </p>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <form
+              aria-label="Company discovery filters"
+              action={async (fd: FormData) => {
+                "use server";
+                const m = await import("@/features/companies/api/company-actions");
+                await m.startDiscoveryAction(fd);
+              }}
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            >
+              <input type="hidden" name="projectSlug" value={projectSlug} />
+              <input type="hidden" name="countryId" value={tc.id} />
+              <label className="space-y-1 text-xs text-muted-foreground">
+                Country / market
+                <input
+                  value={`${tc.country_name} (${tc.country_code})`}
+                  readOnly
+                  className="block h-10 w-full rounded-md border border-border bg-muted/30 px-3 text-sm text-foreground"
+                />
+              </label>
+              <label className="space-y-1 text-xs text-muted-foreground">
+                Industry
+                <input
+                  name="industry"
+                  maxLength={100}
+                  defaultValue={defaultIndustry}
+                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+                />
+              </label>
+              <label className="space-y-1 text-xs text-muted-foreground">
+                Minimum employees
+                <input
+                  name="employeeMin"
+                  type="number"
+                  min="0"
+                  defaultValue={defaultEmployeeMin}
+                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+                />
+              </label>
+              <label className="space-y-1 text-xs text-muted-foreground">
+                Maximum employees
+                <input
+                  name="employeeMax"
+                  type="number"
+                  min="0"
+                  defaultValue={defaultEmployeeMax}
+                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+                />
+              </label>
+              <label className="space-y-1 text-xs text-muted-foreground">
+                Result limit
+                <select
+                  name="maxResults"
+                  defaultValue="25"
+                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+                >
+                  <option>10</option>
+                  <option>25</option>
+                  <option>50</option>
+                  <option>100</option>
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
+                Keywords, comma separated
+                <input
+                  name="keywords"
+                  maxLength={300}
+                  defaultValue={defaultKeywords}
+                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+                />
+              </label>
+              <label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
+                Technologies, comma separated
+                <input
+                  name="technologies"
+                  maxLength={300}
+                  defaultValue={defaultTechnologies}
+                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+                />
+              </label>
+              <div className="flex items-end gap-3 sm:col-span-2 lg:col-span-4">
+                <DiscoverySubmitButton
+                  disabled={Boolean(
+                    latestRun && isActiveStatus(latestRun.status as DiscoveryRunStatus),
+                  )}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {env.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter"
+                    ? hunterReadiness.message
+                    : "Deterministic demo results; never labeled as live."}
+                </p>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-border/60">
         <CardHeader>
@@ -353,6 +449,7 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
         hrefFn={href}
         pageSize={pageSize}
         countryCode={countryCode}
+        canStartDiscovery={Boolean(approvedIcp && discoveryEnabled)}
       />
     </div>
   );
@@ -384,6 +481,7 @@ interface CompanyResultsProps {
   hrefFn: (fields: Record<string, string | undefined>) => string;
   pageSize: number;
   countryCode: string;
+  canStartDiscovery: boolean;
 }
 
 async function CompanyResultsSection({
@@ -399,6 +497,7 @@ async function CompanyResultsSection({
   hrefFn,
   pageSize,
   countryCode,
+  canStartDiscovery,
 }: CompanyResultsProps) {
   if (!wsId) return null;
 
@@ -430,19 +529,19 @@ async function CompanyResultsSection({
             title="No companies discovered yet"
             description='Click "Start Discovery" to find matching companies for this market.'
             action={
-              <form
-                action={async (fd: FormData) => {
-                  "use server";
-                  const m = await import("@/features/companies/api/company-actions");
-                  await m.startDiscoveryAction(fd);
-                }}
-              >
-                <input type="hidden" name="projectSlug" value={projectSlug} />
-                <input type="hidden" name="countryId" value={targetCountryId} />
-                <Button type="submit">
-                  <Play className="h-4 w-4" /> Start Discovery
-                </Button>
-              </form>
+              canStartDiscovery ? (
+                <form
+                  action={async (fd: FormData) => {
+                    "use server";
+                    const m = await import("@/features/companies/api/company-actions");
+                    await m.startDiscoveryAction(fd);
+                  }}
+                >
+                  <input type="hidden" name="projectSlug" value={projectSlug} />
+                  <input type="hidden" name="countryId" value={targetCountryId} />
+                  <DiscoverySubmitButton label="Start Discovery" />
+                </form>
+              ) : undefined
             }
           />
         </CardContent>

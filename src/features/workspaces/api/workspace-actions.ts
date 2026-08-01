@@ -67,7 +67,7 @@ export async function switchWorkspaceAction(formData: FormData) {
     return { error: "Could not switch workspace." };
   }
   revalidatePath("/dashboard", "layout");
-  redirect("/dashboard");
+  return { ok: true };
 }
 
 export async function updateMemberRoleAction(formData: FormData) {

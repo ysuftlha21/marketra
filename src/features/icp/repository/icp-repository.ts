@@ -122,6 +122,24 @@ export async function getLatestIcpProfile(
     .order("version" as never, { ascending: false } as never)
     .limit(1)
     .maybeSingle();
+  if (r.error) throw r.error;
+  return (r.data as unknown as IcpProfileRow) ?? null;
+}
+
+export async function getLatestApprovedIcpProfile(
+  wsId: string,
+  tcId: string,
+): Promise<IcpProfileRow | null> {
+  const supabase = await client();
+  const r = await icpProfilesQuery(supabase)
+    .select(ICP_PROFILE_COLS)
+    .eq("workspace_id", wsId)
+    .eq("project_target_country_id", tcId)
+    .eq("status", "approved")
+    .order("version" as never, { ascending: false } as never)
+    .limit(1)
+    .maybeSingle();
+  if (r.error) throw r.error;
   return (r.data as unknown as IcpProfileRow) ?? null;
 }
 

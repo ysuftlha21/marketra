@@ -30,6 +30,7 @@ export async function generateIcpAction(formData: FormData) {
       ctx.user.id,
     );
     revalidatePath(`/dashboard/projects/${projectSlug}/markets`);
+    revalidatePath("/dashboard", "layout");
     return { ok: true, runId };
   } catch (err) {
     if (err instanceof IcpGenError) return { error: safeIcpError(err.code) };
@@ -44,6 +45,7 @@ export async function approveIcpAction(formData: FormData) {
   try {
     await approveIcp(icpId);
     revalidatePath(`/dashboard/projects/${projectSlug}/markets`);
+    revalidatePath("/dashboard", "layout");
     return { ok: true };
   } catch (err) {
     if (err instanceof IcpServiceError) return { error: err.message };
@@ -58,6 +60,7 @@ export async function rejectIcpAction(formData: FormData) {
   try {
     await rejectIcp(icpId);
     revalidatePath(`/dashboard/projects/${projectSlug}/markets`);
+    revalidatePath("/dashboard", "layout");
     return { ok: true };
   } catch (err) {
     if (err instanceof IcpServiceError) return { error: err.message };
@@ -72,6 +75,7 @@ export async function restoreIcpAction(formData: FormData) {
   try {
     await restoreIcpToDraft(icpId);
     revalidatePath(`/dashboard/projects/${projectSlug}/markets`);
+    revalidatePath("/dashboard", "layout");
     return { ok: true };
   } catch (err) {
     if (err instanceof IcpServiceError) return { error: err.message };
@@ -86,6 +90,7 @@ export async function archiveIcpAction(formData: FormData) {
   try {
     await archiveIcp(icpId);
     revalidatePath(`/dashboard/projects/${projectSlug}/markets`);
+    revalidatePath("/dashboard", "layout");
     return { ok: true };
   } catch (err) {
     if (err instanceof IcpServiceError) return { error: err.message };

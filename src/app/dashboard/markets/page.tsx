@@ -1,37 +1,46 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Globe } from "lucide-react";
+import { resolveAuthenticatedProjectContext } from "@/features/projects/services/project-context-service";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
-import { CountryBadge } from "@/components/common/country-badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { countries } from "@/config/countries";
+import { buttonVariants } from "@/components/ui/button";
 
 export const metadata = { title: "Markets" };
 
-export default function MarketsPage() {
+export default async function MarketsPage() {
+  const context = await resolveAuthenticatedProjectContext();
+  if (context.project) redirect(`/dashboard/projects/${context.project.slug}/markets`);
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <PageHeader
         eyebrow="Markets"
         title="Target countries"
-        description="Pick the countries you want to sell into. Marketra analyzes each one in context."
+        description="Analyze markets in the context of one authenticated project."
       />
       <EmptyState
         icon={Globe}
-        title="No target markets selected"
-        description="Add a project first, then choose the countries you want to analyze."
+        title={
+          context.state === "project_inaccessible" ? "Project unavailable" : "Create a project"
+        }
+        description={
+          context.state === "project_inaccessible"
+            ? "The selected project is unavailable in this workspace."
+            : "Add your SaaS product before choosing target countries."
+        }
+        action={
+          <Link
+            href={
+              context.state === "project_inaccessible"
+                ? "/dashboard/projects"
+                : "/dashboard/projects/new"
+            }
+            className={buttonVariants()}
+          >
+            {context.state === "project_inaccessible" ? "Choose project" : "Create project"}
+          </Link>
+        }
       />
-      <Card>
-        <CardContent>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Supported countries
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {countries.map((c) => (
-              <CountryBadge key={c.code} countryCode={c.code} />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
