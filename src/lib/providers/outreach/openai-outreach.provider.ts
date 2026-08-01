@@ -24,7 +24,7 @@ export class OpenAiOutreachProvider implements OutreachProvider {
     const draft = result.data.draft;
     const request = input.outreachRequest;
     if (request.channel.startsWith("linkedin_") && draft.subject !== null) {
-      throw new AiProviderError("invalid_output", "Outreach output was incompatible.");
+      throw new AiProviderError("structured_output_invalid", "Outreach output was incompatible.");
     }
     if (
       draft.channel !== request.channel ||
@@ -33,7 +33,7 @@ export class OpenAiOutreachProvider implements OutreachProvider {
       draft.tone !== request.tone ||
       draft.length !== request.length
     ) {
-      throw new AiProviderError("invalid_output", "Outreach output was incompatible.");
+      throw new AiProviderError("structured_output_invalid", "Outreach output was incompatible.");
     }
     return result;
   }

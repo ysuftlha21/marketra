@@ -5,16 +5,14 @@ export type OpenAiModelId = keyof typeof OPENAI_MODEL_REGISTRY;
 
 export interface OpenAiModelDefinition {
   readonly modelId: string;
-  readonly family: "GPT-4o" | "GPT-5.6";
+  readonly family: "GPT-4o";
   readonly defaultReasoningEffort: OpenAiReasoningEffort | null;
-  readonly api: "chat_completions" | "responses";
+  readonly api: "chat_completions";
   readonly structuredOutput: true;
-  readonly costTier: "legacy_economy" | "efficient" | "balanced" | "flagship";
-  readonly intendedTaskClass: "legacy_general" | "high_volume" | "balanced" | "quality_first";
+  readonly costTier: "legacy_economy";
+  readonly intendedTaskClass: "legacy_general";
   readonly supportedReasoningEfforts: readonly OpenAiReasoningEffort[];
 }
-
-const GPT_5_6_REASONING = OPENAI_REASONING_EFFORTS;
 
 export const OPENAI_MODEL_REGISTRY = {
   "gpt-4o-mini": {
@@ -26,46 +24,6 @@ export const OPENAI_MODEL_REGISTRY = {
     costTier: "legacy_economy",
     intendedTaskClass: "legacy_general",
     supportedReasoningEfforts: [],
-  },
-  "gpt-5.6-luna": {
-    modelId: "gpt-5.6-luna",
-    family: "GPT-5.6",
-    defaultReasoningEffort: "low",
-    api: "responses",
-    structuredOutput: true,
-    costTier: "efficient",
-    intendedTaskClass: "high_volume",
-    supportedReasoningEfforts: GPT_5_6_REASONING,
-  },
-  "gpt-5.6-terra": {
-    modelId: "gpt-5.6-terra",
-    family: "GPT-5.6",
-    defaultReasoningEffort: "low",
-    api: "responses",
-    structuredOutput: true,
-    costTier: "balanced",
-    intendedTaskClass: "balanced",
-    supportedReasoningEfforts: GPT_5_6_REASONING,
-  },
-  "gpt-5.6-sol": {
-    modelId: "gpt-5.6-sol",
-    family: "GPT-5.6",
-    defaultReasoningEffort: "low",
-    api: "responses",
-    structuredOutput: true,
-    costTier: "flagship",
-    intendedTaskClass: "quality_first",
-    supportedReasoningEfforts: GPT_5_6_REASONING,
-  },
-  "gpt-5.6": {
-    modelId: "gpt-5.6",
-    family: "GPT-5.6",
-    defaultReasoningEffort: "low",
-    api: "responses",
-    structuredOutput: true,
-    costTier: "flagship",
-    intendedTaskClass: "quality_first",
-    supportedReasoningEfforts: GPT_5_6_REASONING,
   },
 } as const satisfies Record<string, OpenAiModelDefinition>;
 

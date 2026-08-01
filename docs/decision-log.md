@@ -237,10 +237,10 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   its unique smoke key in `finally`, rate-limits executions, returns safe booleans only, and is
   indistinguishable from a missing route in Production and Development.
 
-# 2026-08-01 — GPT-5.6 model-family compatibility
+# 2026-08-01 — Project-verified OpenAI API model registry
 
-- OpenAI model IDs and capabilities are centralized in a typed registry. GPT-5.6 Luna, Terra, Sol,
-  and the Sol alias use Responses API strict structured output with explicit compatible reasoning;
-  `gpt-4o-mini` remains on the legacy Chat Completions path. Luna with low reasoning and an
-  800-token output cap is the production product-analysis recommendation. Model prices are not
-  inferred: cost remains unknown until authoritative versioned pricing metadata is added.
+- The registry contains only `gpt-4o-mini`, the API model already proven by Marketra runtime use.
+  ChatGPT product labels are not assumed to be OpenAI API model IDs. Adding another model requires
+  a server-side readiness retrieval using the configured API project before its request mapping or
+  capabilities are enabled. The readiness result exposes only safe booleans, a controlled category,
+  and an operation ID; it performs no text generation.

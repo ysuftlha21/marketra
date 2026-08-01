@@ -25,6 +25,7 @@ import type {
 import { fetchProductWebsite } from "@/lib/security/ssrf";
 import { enforceRateLimit } from "@/lib/security/rate-limit-service";
 import { recordProviderUsage } from "@/features/ai-usage/services/ai-usage-service";
+import { AiProviderError, type AiProviderErrorCode } from "@/lib/providers/ai/openai-client";
 
 export interface AnalysisContext {
   workspaceId: string;
@@ -58,12 +59,48 @@ export type AnalysisServiceErrorCode =
 export class AnalysisServiceError extends Error {
   readonly code: AnalysisServiceErrorCode;
   readonly stage: string;
-  constructor(code: AnalysisServiceErrorCode, message: string, stage: string = "unknown") {
+  constructor(
+    code: AnalysisServiceErrorCode,
+    message: string,
+    stage: string = "unknown",
+    readonly reference?: string,
+    readonly operationId?: string,
+  ) {
     super(message);
     this.name = "AnalysisServiceError";
     this.code = code;
     this.stage = stage;
   }
+}
+
+const PROVIDER_ERROR_REFERENCE: Record<AiProviderErrorCode, string> = {
+  model_not_found: "AI-PROVIDER-MODEL",
+  model_access_denied: "AI-PROVIDER-MODEL",
+  invalid_api_key: "AI-PROVIDER-AUTH",
+  insufficient_quota: "AI-PROVIDER-QUOTA",
+  rate_limited: "AI-PROVIDER-RATE",
+  invalid_request: "AI-PROVIDER-REQUEST",
+  timeout: "AI-PROVIDER-TIMEOUT",
+  structured_output_invalid: "AI-PROVIDER-OUTPUT",
+  provider_unavailable: "AI-PROVIDER-UNAVAILABLE",
+};
+
+function providerServiceError(error: AiProviderError): AnalysisServiceError {
+  const code: AnalysisServiceErrorCode =
+    error.code === "timeout"
+      ? "provider_timeout"
+      : error.code === "structured_output_invalid"
+        ? "provider_output_invalid"
+        : error.code === "rate_limited"
+          ? "rate_limited"
+          : "provider_execution_failed";
+  return new AnalysisServiceError(
+    code,
+    safeAnalysisError(code),
+    "provider call",
+    PROVIDER_ERROR_REFERENCE[error.code],
+    error.operationId,
+  );
 }
 
 export function safeAnalysisError(code: AnalysisServiceErrorCode): string {
@@ -276,15 +313,24 @@ export async function runProductAnalysis(
       console.error(
         `[Diagnostic] Stage: provider call - FAILED - RunID: ${run.id} - Error: provider_execution_failed - Class: `,
       );
-      const message = String(
-        (err instanceof Error ? err.message : String(err)) || "",
-      ).toLowerCase();
-      if (message.includes("timeout") || message.includes("timed out")) {
-        throw new AnalysisServiceError(
-          "provider_timeout",
-          safeAnalysisError("provider_timeout"),
-          "provider call",
-        );
+      if (err instanceof AiProviderError) {
+        if (env.AI_COST_TRACKING_ENABLED) {
+          await recordProviderUsage({
+            workspaceId: ctx.workspaceId,
+            projectId: ctx.projectId,
+            operationType: "product_analysis",
+            generationRunId: run.id,
+            meta: {
+              providerName: "openai",
+              isMock: false,
+              modelId: env.OPENAI_MODEL,
+              durationMs: 0,
+            },
+            success: false,
+            controlledErrorCode: err.code,
+          }).catch(() => undefined);
+        }
+        throw providerServiceError(err);
       }
       throw new AnalysisServiceError(
         "provider_execution_failed",

@@ -27,6 +27,10 @@ export function RunAnalysisButton({
   const [localPending, setLocalPending] = React.useState(false);
   const [isTransitioning, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = React.useState<{
+    reference?: string;
+    operationId?: string;
+  } | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
 
   const isServerPending = status === "pending" || status === "running";
@@ -70,12 +74,21 @@ export function RunAnalysisButton({
   async function handleClick() {
     setLocalPending(true);
     setError(null);
+    setErrorDetails(null);
     setSuccess(null);
     try {
       const formData = new FormData();
       formData.set("projectSlug", projectSlug);
 
-      let res: { ok?: boolean; error?: string; runId?: string } | undefined;
+      let res:
+        | {
+            ok?: boolean;
+            error?: string;
+            runId?: string;
+            errorReference?: string;
+            operationId?: string;
+          }
+        | undefined;
       if (isRetry && previousRunId) {
         formData.set("previousRunId", previousRunId);
         res = await retryAnalysisAction(formData);
@@ -84,6 +97,7 @@ export function RunAnalysisButton({
       }
       if (res?.error) {
         setError(res.error);
+        setErrorDetails({ reference: res.errorReference, operationId: res.operationId });
         setLocalPending(false);
       } else {
         setSuccess("Analysis completed successfully.");
@@ -122,9 +136,15 @@ export function RunAnalysisButton({
         )}
       </Button>
       {error && (
-        <p className="mt-2 text-sm text-danger" role="alert">
-          {error}
-        </p>
+        <div className="mt-2 text-sm text-danger" role="alert">
+          <p>{error}</p>
+          {errorDetails?.reference && (
+            <p className="text-xs">
+              Error reference: {errorDetails.reference}
+              {errorDetails.operationId ? ` · Operation ID: ${errorDetails.operationId}` : ""}
+            </p>
+          )}
+        </div>
       )}
       {success && !error && (
         <p className="mt-2 text-sm text-green-600 dark:text-green-400" role="status">

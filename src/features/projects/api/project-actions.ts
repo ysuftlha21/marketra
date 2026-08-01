@@ -180,7 +180,11 @@ export async function runAnalysisAction(formData: FormData) {
     const rateLimitMessage = safeRateLimitMessage(err);
     if (rateLimitMessage) return { error: rateLimitMessage };
     if (err instanceof AnalysisServiceError) {
-      return { error: safeAnalysisError(err.code) };
+      return {
+        error: safeAnalysisError(err.code),
+        errorReference: err.reference,
+        operationId: err.operationId,
+      };
     }
     return { error: "Analysis failed. Try again." };
   }
@@ -214,7 +218,11 @@ export async function retryAnalysisAction(formData: FormData) {
     const rateLimitMessage = safeRateLimitMessage(err);
     if (rateLimitMessage) return { error: rateLimitMessage };
     if (err instanceof AnalysisServiceError) {
-      return { error: safeAnalysisError(err.code) };
+      return {
+        error: safeAnalysisError(err.code),
+        errorReference: err.reference,
+        operationId: err.operationId,
+      };
     }
     return { error: "Retry failed. Try again." };
   }

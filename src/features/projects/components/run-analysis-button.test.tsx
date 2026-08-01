@@ -112,6 +112,18 @@ describe("RunAnalysisButton", () => {
     expect(await screen.findByText(/analysis failed. try again/i)).toBeInTheDocument();
   });
 
+  it("shows a safe provider reference and operation ID without raw details", async () => {
+    vi.mocked(runAnalysisAction).mockResolvedValueOnce({
+      error: "The AI provider encountered an error during analysis.",
+      errorReference: "AI-PROVIDER-MODEL",
+      operationId: "safe-operation-id",
+    });
+    render(<RunAnalysisButton projectSlug="test" canRun={true} />);
+    fireEvent.click(screen.getByRole("button", { name: /start analysis/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("AI-PROVIDER-MODEL");
+    expect(screen.getByRole("alert")).toHaveTextContent("safe-operation-id");
+  });
+
   it("duplicate active run remains blocked", () => {
     render(<RunAnalysisButton projectSlug="test" canRun={true} status="running" />);
     // Initial render with running status should disable button

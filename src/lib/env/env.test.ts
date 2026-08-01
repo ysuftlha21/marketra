@@ -68,28 +68,22 @@ describe("parseServerEnv", () => {
     expect(parseServerEnv({}).OPENAI_REASONING_EFFORT).toBeUndefined();
   });
 
-  it.each(["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6"] as const)(
-    "accepts supported GPT-5.6 model %s with low reasoning by default",
-    (model) => {
-      const env = parseServerEnv({ OPENAI_MODEL: model });
-      expect(env.OPENAI_MODEL).toBe(model);
-      expect(env.OPENAI_REASONING_EFFORT).toBe("low");
-    },
-  );
-
-  it("preserves the supported legacy OpenAI model", () => {
+  it("accepts the verified OpenAI API model", () => {
     expect(parseServerEnv({ OPENAI_MODEL: "gpt-4o-mini" }).OPENAI_MODEL).toBe("gpt-4o-mini");
   });
 
   it("validates reasoning effort compatibility centrally", () => {
-    expect(
-      parseServerEnv({ OPENAI_MODEL: "gpt-5.6-luna", OPENAI_REASONING_EFFORT: "none" })
-        .OPENAI_REASONING_EFFORT,
-    ).toBe("none");
     expect(() =>
       parseServerEnv({ OPENAI_MODEL: "gpt-4o-mini", OPENAI_REASONING_EFFORT: "low" }),
     ).toThrow(EnvironmentValidationError);
   });
+
+  it.each(["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6"])(
+    "rejects unverified API model %s",
+    (model) => {
+      expect(() => parseServerEnv({ OPENAI_MODEL: model })).toThrow(EnvironmentValidationError);
+    },
+  );
 
   it("defaults OPENAI_PROMPT_VERSION to v1", () => {
     expect(parseServerEnv({}).OPENAI_PROMPT_VERSION).toBe("v1");

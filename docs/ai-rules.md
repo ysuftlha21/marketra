@@ -10,8 +10,7 @@
 - Services call the `AiProvider` interface. They **never** import an AI SDK, reference a model
   name, or pass vendor params.
 - Model selection is env-driven through the typed registry in `src/config/openai-models.ts`.
-  Production product-analysis recommendation: `gpt-5.6-luna`, low reasoning, and an 800-token
-  output cap. `gpt-4o-mini` remains a supported legacy route.
+  Production uses the project-verified `gpt-4o-mini` API model with an 800-token output cap.
 - The factory returns the configured provider (mock by default in foundation).
 
 ## 2. Structured, validated output
@@ -95,14 +94,12 @@ never secretly determined by the model.
 
 ## 10. OpenAI API compatibility
 
-- GPT-5.6 models use the Responses API with strict JSON Schema structured output,
-  `max_output_tokens`, and explicit `reasoning.effort`.
-- The legacy `gpt-4o-mini` route keeps Chat Completions, JSON-object mode, and
+- The verified `gpt-4o-mini` route uses Chat Completions, JSON-object mode, and
   `max_completion_tokens`; reasoning parameters are never sent to it.
-- Reasoning compatibility is validated centrally. Product prompts request only the final JSON
-  contract and never ask for verbose reasoning output.
-- Pricing is versioned separately in `src/config/ai-pricing.ts`. Unknown GPT-5.6 pricing remains
-  `null` until authoritative pricing metadata is deliberately added.
+- Model IDs are admitted only after a server-side readiness check confirms access for the configured
+  API project. ChatGPT product names and OpenAI API model IDs must not be assumed to match.
+- Pricing is versioned separately in `src/config/ai-pricing.ts`; unknown models have no inferred
+  monetary cost.
 
 ## 11. Privacy & safety
 

@@ -1,37 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 import { parseServerEnv } from "@/lib/env/env";
-import { StructuredOpenAiClient } from "@/lib/providers/ai/openai-client";
+import {
+  checkOpenAiReadiness,
+  resolveOpenAiReadinessConfig,
+} from "@/lib/providers/ai/openai-readiness";
 import { SmtpEmailProvider } from "@/lib/providers/email/smtp-email.provider";
 
 const openAiEnabled = process.env.REAL_OPENAI_SMOKE === "true";
 const smtpEnabled = process.env.REAL_SMTP_SMOKE === "true";
 
 describe("opt-in production provider smoke tests", () => {
-  it
-    .runIf(openAiEnabled)
-    .each([
-      "product_analysis",
-      "market_analysis",
-      "decision_role_generation",
-      "outreach_generation",
-    ])("runs bounded OpenAI connectivity for %s", async (operation) => {
-    const env = parseServerEnv();
-    if (!env.OPENAI_API_KEY)
-      throw new Error("OPENAI_API_KEY is required for the opt-in smoke test.");
-    const client = new StructuredOpenAiClient({
+  it.runIf(openAiEnabled)("checks OpenAI authentication and configured model access", async () => {
+    let env: ReturnType<typeof resolveOpenAiReadinessConfig>;
+    try {
+      env = resolveOpenAiReadinessConfig(process.env);
+    } catch (error) {
+      void error;
+      console.error(JSON.stringify({ event: "openai.readiness.configuration_invalid" }));
+      throw new Error("OpenAI readiness configuration is invalid.");
+    }
+    const result = await checkOpenAiReadiness({
       apiKey: env.OPENAI_API_KEY,
       model: env.OPENAI_MODEL,
       timeoutMs: Math.min(env.OPENAI_TIMEOUT_MS, 15_000),
-      maxRetries: 0,
-      maxOutputTokens: 32,
     });
-    const result = await client.generate(
-      operation,
-      { smokeTest: true, instruction: 'Return {"ok":true}.' },
-      z.object({ ok: z.literal(true) }),
-    );
-    expect(result.data).toEqual({ ok: true });
+    expect(result).toMatchObject({
+      providerConfigured: true,
+      authenticationValid: true,
+      modelConfigured: true,
+      modelAccessible: true,
+      errorCategory: null,
+    });
   });
 
   it.runIf(smtpEnabled)(

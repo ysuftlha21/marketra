@@ -93,7 +93,7 @@ describe("OpenAiOutreachProvider", () => {
       maxRetries: 0,
     });
     await expect(provider.generateOutreachDraft(input)).rejects.toMatchObject({
-      code: "invalid_output",
+      code: "structured_output_invalid",
       message: "Outreach output was incompatible.",
     });
   });

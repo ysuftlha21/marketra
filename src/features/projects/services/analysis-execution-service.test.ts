@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { AiProviderError } from "@/lib/providers/ai/openai-client";
 
 const wsId = "8a3b2c1d-0000-4000-a000-000000000001";
 const projectId = "9b4c3d2e-0000-4000-a000-000000000002";
@@ -125,6 +126,7 @@ vi.mock("@/lib/env/env", () => ({
     OPENAI_PROMPT_VERSION: "v1",
     OPENAI_PROMPT_VERSION_V2: "product-analysis-v2",
     PRODUCT_ANALYSIS_VERSION: "v2",
+    AI_COST_TRACKING_ENABLED: false,
   }),
 }));
 
@@ -266,6 +268,26 @@ describe("runProductAnalysis", () => {
     ][];
     const failCall = allCalls.find((call) => call[2]?.status === "failed");
     expect(failCall).toBeDefined();
+  });
+
+  it("preserves safe provider category correlation without raw provider details", async () => {
+    mockProvider.analyzeProductV1.mockRejectedValueOnce(
+      new AiProviderError(
+        "model_not_found",
+        "raw provider detail must not escape",
+        "safe-operation-id",
+        404,
+      ),
+    );
+    const { runProductAnalysis } = await import("./analysis-execution-service");
+    await expect(
+      runProductAnalysis(ctx, { ...mockInput, schemaVersion: "v1" }),
+    ).rejects.toMatchObject({
+      code: "provider_execution_failed",
+      reference: "AI-PROVIDER-MODEL",
+      operationId: "safe-operation-id",
+      message: "The AI provider encountered an error during analysis.",
+    });
   });
 
   it("passes workspace_id to updateAnalysisRun calls", async () => {
