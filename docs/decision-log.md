@@ -228,3 +228,11 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   Server env normalization falls back to Vercel-managed `RATE_LIMIT_REDIS_KV_REST_API_URL` and
   `RATE_LIMIT_REDIS_KV_REST_API_TOKEN`. Canonical values win when both exist. Read-only tokens and
   non-REST KV URLs are never accepted because rate limiting requires atomic writes.
+
+# 2026-08-01 — Preview-only Redis runtime smoke verification
+
+- Sensitive Marketplace Redis credentials remain inside Vercel. A fixed-command, POST-only
+  internal route can run disposable Redis assertions only when explicitly enabled in Preview and
+  protected by a separate timing-safe Bearer token. It accepts no Redis command/key input, deletes
+  its unique smoke key in `finally`, rate-limits executions, returns safe booleans only, and is
+  indistinguishable from a missing route in Production and Development.

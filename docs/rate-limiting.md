@@ -81,3 +81,38 @@ An opt-in disposable smoke test is available with `npm run test:smoke:redis-rate
 only when `RATE_LIMIT_REDIS_SMOKE=true` and Redis credentials are present. It uses a random
 `marketra:smoke:*` bucket, verifies atomic `EVAL` consumption and TTL/denial behavior, then removes
 the bucket with `DEL`. It never prints the endpoint, token, or full key.
+
+## Preview runtime smoke endpoint
+
+Sensitive Vercel Marketplace credentials cannot be exported to a local CLI. The fixed-command
+`POST /api/internal/redis-rate-limit-smoke` endpoint therefore runs the same smoke service inside
+the Preview runtime. It returns 404 unless both `VERCEL_ENV=preview` and
+`RATE_LIMIT_REDIS_SMOKE=true` are present. A separate high-entropy
+`RATE_LIMIT_REDIS_SMOKE_TOKEN` must be supplied in an `Authorization: Bearer` header and is compared
+using fixed-length SHA-256 digests with `timingSafeEqual`. Query-string tokens are never accepted.
+
+The endpoint has no command/key input, uses a unique `marketra:smoke:preview:*` key, permits only
+one active run per authorization subject, allows two executions per five minutes per instance, and
+bounds each Redis request to one second. It returns only assertion booleans and a random operation
+ID with `Cache-Control: no-store`. The disposable key is deleted in `finally` after success or
+failure. Production and Development receive 404.
+
+Preview activation procedure:
+
+1. Set Preview-only `RATE_LIMIT_REDIS_SMOKE=true`.
+2. Set Preview-only `RATE_LIMIT_REDIS_SMOKE_TOKEN` to a new random high-entropy secret of at least
+   32 characters. Do not reuse a Redis or application credential.
+3. Keep `DEFAULT_RATE_LIMIT_PROVIDER=redis` and the Marketplace-managed write REST variables
+   attached to Preview.
+4. Redeploy the Preview deployment.
+5. In the operator shell, set `MARKETRA_PREVIEW_URL` and `RATE_LIMIT_REDIS_SMOKE_TOKEN`, then run:
+
+   ```powershell
+   npm run smoke:redis-rate-limit:preview
+   ```
+
+6. After a successful result, set `RATE_LIMIT_REDIS_SMOKE=false` or remove both smoke variables,
+   then redeploy Preview again. The Redis Marketplace credentials remain unchanged.
+
+The operator script sends POST only, prints only the safe response fields, never prints the Bearer
+token, and exits non-zero if any assertion or the HTTP request fails.

@@ -44,6 +44,12 @@ Vercel Marketplace-managed write REST names `RATE_LIMIT_REDIS_KV_REST_API_URL` a
 `RATE_LIMIT_REDIS_KV_URL` are intentionally unsupported. Mock/memory rate limiting is not suitable
 for multi-instance production.
 
+For a one-time Preview runtime verification of Sensitive Marketplace credentials, set Preview-only
+`RATE_LIMIT_REDIS_SMOKE=true` and a separate high-entropy `RATE_LIMIT_REDIS_SMOKE_TOKEN`, redeploy,
+and run `npm run smoke:redis-rate-limit:preview` with `MARKETRA_PREVIEW_URL` and the same smoke token
+set only in the operator environment. Disable/remove both smoke variables and redeploy immediately
+after verification. The endpoint is unavailable outside Vercel Preview.
+
 ## Provider and Auth smoke tests
 
 ```pwsh

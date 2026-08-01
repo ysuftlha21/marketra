@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parsePublicEnv, parseServerEnv, EnvironmentValidationError } from "@/lib/env/env";
+import {
+  parsePublicEnv,
+  parseServerEnv,
+  EnvironmentValidationError,
+  isRedisPreviewSmokeEnabled,
+} from "@/lib/env/env";
 
 describe("parsePublicEnv", () => {
   it("applies defaults for missing public env", () => {
@@ -262,6 +267,42 @@ describe("parseServerEnv", () => {
         RATE_LIMIT_REDIS_TOKEN: "secret",
       }).RATE_LIMIT_REDIS_SMOKE,
     ).toBe(true);
+  });
+
+  it("requires a high-entropy smoke token only for an enabled Preview endpoint", () => {
+    const credentials = {
+      RATE_LIMIT_REDIS_SMOKE: "true",
+      RATE_LIMIT_REDIS_URL: "https://redis.example",
+      RATE_LIMIT_REDIS_TOKEN: "write-secret",
+    };
+    expect(() => parseServerEnv({ ...credentials, VERCEL_ENV: "preview" })).toThrow(
+      EnvironmentValidationError,
+    );
+    expect(
+      parseServerEnv({
+        ...credentials,
+        VERCEL_ENV: "preview",
+        RATE_LIMIT_REDIS_SMOKE_TOKEN: "high-entropy-preview-token-at-least-32-chars",
+      }).RATE_LIMIT_REDIS_SMOKE,
+    ).toBe(true);
+    expect(parseServerEnv({ ...credentials, VERCEL_ENV: "production" }).VERCEL_ENV).toBe(
+      "production",
+    );
+  });
+
+  it("enables the runtime endpoint only for explicit Vercel Preview opt-in", () => {
+    expect(
+      isRedisPreviewSmokeEnabled({ VERCEL_ENV: "preview", RATE_LIMIT_REDIS_SMOKE: "true" }),
+    ).toBe(true);
+    expect(
+      isRedisPreviewSmokeEnabled({ VERCEL_ENV: "production", RATE_LIMIT_REDIS_SMOKE: "true" }),
+    ).toBe(false);
+    expect(
+      isRedisPreviewSmokeEnabled({ VERCEL_ENV: "development", RATE_LIMIT_REDIS_SMOKE: "true" }),
+    ).toBe(false);
+    expect(
+      isRedisPreviewSmokeEnabled({ VERCEL_ENV: "preview", RATE_LIMIT_REDIS_SMOKE: "false" }),
+    ).toBe(false);
   });
 
   it("rejects unknown OpenAI models", () => {

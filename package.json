@@ -23,6 +23,7 @@
     "test:smoke:smtp": "cross-env REAL_SMTP_SMOKE=true vitest run tests/smoke/production-provider.smoke.test.ts",
     "test:smoke:hunter": "cross-env HUNTER_SMOKE=true vitest run --config vitest.smoke.config.ts tests/smoke/hunter.smoke.test.ts",
     "test:smoke:redis-rate-limit": "vitest run --config vitest.smoke.config.ts tests/smoke/redis-rate-limit.smoke.test.ts",
+    "smoke:redis-rate-limit:preview": "node scripts/redis-rate-limit-preview-smoke.mjs",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test:unit && npm run build"
   },
   "dependencies": {

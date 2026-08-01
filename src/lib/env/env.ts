@@ -40,6 +40,7 @@ const serverEnvSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     APP_ENV: appEnvSchema.optional(),
+    VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
     NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
     NEXT_PUBLIC_APP_NAME: z.string().default("Marketra"),
     NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
@@ -134,6 +135,7 @@ const serverEnvSchema = z
       .string()
       .default("false")
       .transform((value) => value === "true"),
+    RATE_LIMIT_REDIS_SMOKE_TOKEN: z.string().min(32).optional(),
 
     // Cost tracking
     AI_COST_TRACKING_ENABLED: z
@@ -226,6 +228,17 @@ const serverEnvSchema = z
         message: "Memory rate limiting is not supported in production.",
       });
     }
+    if (
+      data.VERCEL_ENV === "preview" &&
+      data.RATE_LIMIT_REDIS_SMOKE &&
+      !data.RATE_LIMIT_REDIS_SMOKE_TOKEN
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["RATE_LIMIT_REDIS_SMOKE_TOKEN"],
+        message: "A Preview Redis smoke authorization token is required.",
+      });
+    }
   })
   .transform(
     ({ RATE_LIMIT_REDIS_KV_REST_API_URL, RATE_LIMIT_REDIS_KV_REST_API_TOKEN, ...data }) => ({
@@ -248,6 +261,10 @@ export class EnvironmentValidationError extends Error {
 }
 
 type EnvSource = Record<string, string | undefined>;
+
+export function isRedisPreviewSmokeEnabled(source: EnvSource = process.env): boolean {
+  return source.VERCEL_ENV === "preview" && source.RATE_LIMIT_REDIS_SMOKE === "true";
+}
 
 export function parsePublicEnv(source: EnvSource = process.env): PublicEnv {
   const parsed = publicEnvSchema.safeParse(source);
