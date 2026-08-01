@@ -111,6 +111,12 @@ Preview activation procedure:
    npm run smoke:redis-rate-limit:preview
    ```
 
+   If Vercel Deployment Protection is enabled, also set
+   `MARKETRA_USE_VERCEL_CLI=true`. The script then uses the authenticated `vercel curl` transport,
+   passes the smoke Bearer header through a short-lived owner-only curl config rather than a
+   command-line argument, deletes that config after the request, suppresses raw CLI/body diagnostics,
+   and still prints only the safe allowlisted result.
+
 6. After a successful result, set `RATE_LIMIT_REDIS_SMOKE=false` or remove both smoke variables,
    then redeploy Preview again. The Redis Marketplace credentials remain unchanged.
 
