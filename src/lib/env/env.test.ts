@@ -154,10 +154,95 @@ describe("parseServerEnv", () => {
     );
   });
 
-  it("requires endpoint credentials for Redis rate limiting", () => {
-    expect(() => parseServerEnv({ DEFAULT_RATE_LIMIT_PROVIDER: "redis" })).toThrow(
-      EnvironmentValidationError,
-    );
+  it("resolves canonical Redis REST names", () => {
+    const env = parseServerEnv({
+      DEFAULT_RATE_LIMIT_PROVIDER: "redis",
+      RATE_LIMIT_REDIS_URL: "https://canonical.example",
+      RATE_LIMIT_REDIS_TOKEN: "canonical-token",
+    });
+    expect(env.RATE_LIMIT_REDIS_URL).toBe("https://canonical.example");
+    expect(env.RATE_LIMIT_REDIS_TOKEN).toBe("canonical-token");
+  });
+
+  it("resolves Vercel-managed Redis REST names", () => {
+    const env = parseServerEnv({
+      DEFAULT_RATE_LIMIT_PROVIDER: "redis",
+      RATE_LIMIT_REDIS_KV_REST_API_URL: "https://managed.example",
+      RATE_LIMIT_REDIS_KV_REST_API_TOKEN: "managed-token",
+    });
+    expect(env.RATE_LIMIT_REDIS_URL).toBe("https://managed.example");
+    expect(env.RATE_LIMIT_REDIS_TOKEN).toBe("managed-token");
+    expect(env).not.toHaveProperty("RATE_LIMIT_REDIS_KV_REST_API_URL");
+    expect(env).not.toHaveProperty("RATE_LIMIT_REDIS_KV_REST_API_TOKEN");
+  });
+
+  it("gives canonical Redis names precedence over managed names", () => {
+    const env = parseServerEnv({
+      DEFAULT_RATE_LIMIT_PROVIDER: "redis",
+      RATE_LIMIT_REDIS_URL: "https://canonical.example",
+      RATE_LIMIT_REDIS_TOKEN: "canonical-token",
+      RATE_LIMIT_REDIS_KV_REST_API_URL: "https://managed.example",
+      RATE_LIMIT_REDIS_KV_REST_API_TOKEN: "managed-token",
+    });
+    expect(env.RATE_LIMIT_REDIS_URL).toBe("https://canonical.example");
+    expect(env.RATE_LIMIT_REDIS_TOKEN).toBe("canonical-token");
+  });
+
+  it("rejects Redis mode when the supported REST URL is missing", () => {
+    expect(() =>
+      parseServerEnv({
+        DEFAULT_RATE_LIMIT_PROVIDER: "redis",
+        RATE_LIMIT_REDIS_KV_REST_API_TOKEN: "write-token",
+      }),
+    ).toThrow(EnvironmentValidationError);
+  });
+
+  it("rejects Redis mode when the supported write token is missing", () => {
+    expect(() =>
+      parseServerEnv({
+        DEFAULT_RATE_LIMIT_PROVIDER: "redis",
+        RATE_LIMIT_REDIS_KV_REST_API_URL: "https://managed.example",
+      }),
+    ).toThrow(EnvironmentValidationError);
+  });
+
+  it("never accepts the managed read-only token as a write credential", () => {
+    expect(() =>
+      parseServerEnv({
+        DEFAULT_RATE_LIMIT_PROVIDER: "redis",
+        RATE_LIMIT_REDIS_KV_REST_API_URL: "https://managed.example",
+        RATE_LIMIT_REDIS_KV_REST_API_READ_ONLY_TOKEN: "read-only-secret",
+      }),
+    ).toThrow(EnvironmentValidationError);
+  });
+
+  it("never accepts the non-REST KV URL", () => {
+    expect(() =>
+      parseServerEnv({
+        DEFAULT_RATE_LIMIT_PROVIDER: "redis",
+        RATE_LIMIT_REDIS_KV_URL: "redis://managed.example:6379",
+        RATE_LIMIT_REDIS_KV_REST_API_TOKEN: "write-token",
+      }),
+    ).toThrow(EnvironmentValidationError);
+  });
+
+  it("does not require Redis credentials in mock mode", () => {
+    expect(
+      parseServerEnv({ DEFAULT_RATE_LIMIT_PROVIDER: "mock" }).RATE_LIMIT_REDIS_URL,
+    ).toBeUndefined();
+  });
+
+  it("does not leak Redis secret values in validation errors", () => {
+    const secret = "managed-write-secret-value";
+    try {
+      parseServerEnv({
+        DEFAULT_RATE_LIMIT_PROVIDER: "redis",
+        RATE_LIMIT_REDIS_KV_REST_API_TOKEN: secret,
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(EnvironmentValidationError);
+      expect(JSON.stringify((error as EnvironmentValidationError).issues)).not.toContain(secret);
+    }
   });
 
   it("rejects memory rate limiting in production", () => {

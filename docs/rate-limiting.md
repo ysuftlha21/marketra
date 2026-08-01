@@ -54,6 +54,20 @@ Use a Redis REST service that accepts Redis command arrays and supports `EVAL`. 
 production and preview instances consistently. The readiness endpoint performs a bounded `PING`
 when Redis is selected and returns only ready/unavailable—never host or credential details.
 
+Vercel Marketplace-managed Upstash/KV installations can expose write-capable REST credentials
+under managed names that cannot be copied or aliased. The server environment layer normalizes them
+with this precedence:
+
+1. URL: `RATE_LIMIT_REDIS_URL`, then `RATE_LIMIT_REDIS_KV_REST_API_URL`.
+2. Token: `RATE_LIMIT_REDIS_TOKEN`, then `RATE_LIMIT_REDIS_KV_REST_API_TOKEN`.
+
+`RATE_LIMIT_REDIS_KV_REST_API_READ_ONLY_TOKEN` is never accepted because atomic consumption and
+smoke cleanup require writes. `RATE_LIMIT_REDIS_KV_URL` is a non-REST connection value and is also
+never accepted. Features and providers receive only normalized `url` and `token` configuration;
+they do not read Vercel-specific variables. Managed values do not need to be revealed, recreated,
+copied, or manually aliased. After attaching the integration to another Vercel environment, that
+environment must be redeployed so the new managed variables reach the server runtime.
+
 Rollout: provision Redis, restrict the token, set preview variables, deploy, verify readiness and
 denial telemetry, run concurrency smoke tests, then promote the same configuration to production.
 Rollback by restoring the previous healthy Redis endpoint/token. Do not switch production to

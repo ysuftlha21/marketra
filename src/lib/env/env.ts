@@ -119,6 +119,8 @@ const serverEnvSchema = z
     DEFAULT_RATE_LIMIT_PROVIDER: rateLimitProviderSchema.default("mock"),
     RATE_LIMIT_REDIS_URL: optionalUrlSchema,
     RATE_LIMIT_REDIS_TOKEN: z.string().optional(),
+    RATE_LIMIT_REDIS_KV_REST_API_URL: optionalUrlSchema,
+    RATE_LIMIT_REDIS_KV_REST_API_TOKEN: z.string().optional(),
     RATE_LIMIT_NAMESPACE: z
       .string()
       .regex(/^[a-z0-9:_-]+$/i)
@@ -201,15 +203,21 @@ const serverEnvSchema = z
         message: 'SMTP credentials are required when DEFAULT_EMAIL_PROVIDER is "smtp".',
       });
     }
-    if (
-      (data.DEFAULT_RATE_LIMIT_PROVIDER === "redis" || data.RATE_LIMIT_REDIS_SMOKE) &&
-      (!data.RATE_LIMIT_REDIS_URL || !data.RATE_LIMIT_REDIS_TOKEN)
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["RATE_LIMIT_REDIS_URL"],
-        message: "Redis rate-limit provider credentials are required.",
-      });
+    if (data.DEFAULT_RATE_LIMIT_PROVIDER === "redis" || data.RATE_LIMIT_REDIS_SMOKE) {
+      if (!(data.RATE_LIMIT_REDIS_URL ?? data.RATE_LIMIT_REDIS_KV_REST_API_URL)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["RATE_LIMIT_REDIS_URL"],
+          message: "A supported Redis REST URL is required.",
+        });
+      }
+      if (!(data.RATE_LIMIT_REDIS_TOKEN ?? data.RATE_LIMIT_REDIS_KV_REST_API_TOKEN)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["RATE_LIMIT_REDIS_TOKEN"],
+          message: "A write-capable Redis REST token is required.",
+        });
+      }
     }
     if (data.APP_ENV === "production" && data.DEFAULT_RATE_LIMIT_PROVIDER === "memory") {
       ctx.addIssue({
@@ -218,7 +226,14 @@ const serverEnvSchema = z
         message: "Memory rate limiting is not supported in production.",
       });
     }
-  });
+  })
+  .transform(
+    ({ RATE_LIMIT_REDIS_KV_REST_API_URL, RATE_LIMIT_REDIS_KV_REST_API_TOKEN, ...data }) => ({
+      ...data,
+      RATE_LIMIT_REDIS_URL: data.RATE_LIMIT_REDIS_URL ?? RATE_LIMIT_REDIS_KV_REST_API_URL,
+      RATE_LIMIT_REDIS_TOKEN: data.RATE_LIMIT_REDIS_TOKEN ?? RATE_LIMIT_REDIS_KV_REST_API_TOKEN,
+    }),
+  );
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

@@ -38,8 +38,11 @@ DEFAULT_ANALYTICS_PROVIDER=mock
 DEFAULT_RATE_LIMIT_PROVIDER=redis
 ```
 
-The Redis limiter requires `RATE_LIMIT_REDIS_URL` and `RATE_LIMIT_REDIS_TOKEN`. Mock/memory rate
-limiting is not suitable for multi-instance production.
+The Redis limiter accepts canonical `RATE_LIMIT_REDIS_URL` and `RATE_LIMIT_REDIS_TOKEN`, or the
+Vercel Marketplace-managed write REST names `RATE_LIMIT_REDIS_KV_REST_API_URL` and
+`RATE_LIMIT_REDIS_KV_REST_API_TOKEN`. Canonical names take precedence. Read-only tokens and
+`RATE_LIMIT_REDIS_KV_URL` are intentionally unsupported. Mock/memory rate limiting is not suitable
+for multi-instance production.
 
 ## Provider and Auth smoke tests
 

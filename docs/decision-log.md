@@ -221,3 +221,10 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   fixed-window Lua operation. Mock remains deterministic for tests and memory is explicitly
   local-only and rejected in production. Sensitive scopes are hashed, policies are centralized,
   and costly/security-sensitive actions fail closed without Redis-to-memory fallback.
+
+# 2026-08-01 — Vercel-managed Redis REST environment compatibility
+
+- Canonical rate-limit variables remain `RATE_LIMIT_REDIS_URL` and `RATE_LIMIT_REDIS_TOKEN`.
+  Server env normalization falls back to Vercel-managed `RATE_LIMIT_REDIS_KV_REST_API_URL` and
+  `RATE_LIMIT_REDIS_KV_REST_API_TOKEN`. Canonical values win when both exist. Read-only tokens and
+  non-REST KV URLs are never accepted because rate limiting requires atomic writes.
