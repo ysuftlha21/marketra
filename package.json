@@ -16,11 +16,13 @@
     "test:unit": "vitest run",
     "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",
-    "test:e2e": "cross-env NODE_ENV=test E2E_TEST_MODE=true playwright test",
+    "pretest:e2e": "npm run build",
+    "test:e2e": "cross-env NODE_ENV=test APP_ENV=test E2E_TEST_MODE=true playwright test",
     "test:e2e:ui": "cross-env NODE_ENV=test E2E_TEST_MODE=true playwright test --ui",
     "test:smoke:openai": "cross-env REAL_OPENAI_SMOKE=true vitest run tests/smoke/production-provider.smoke.test.ts",
     "test:smoke:smtp": "cross-env REAL_SMTP_SMOKE=true vitest run tests/smoke/production-provider.smoke.test.ts",
     "test:smoke:hunter": "cross-env HUNTER_SMOKE=true vitest run --config vitest.smoke.config.ts tests/smoke/hunter.smoke.test.ts",
+    "test:smoke:redis-rate-limit": "vitest run --config vitest.smoke.config.ts tests/smoke/redis-rate-limit.smoke.test.ts",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test:unit && npm run build"
   },
   "dependencies": {

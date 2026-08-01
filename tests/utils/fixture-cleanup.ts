@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { boundedE2eFetch } from "./bounded-fetch";
 
 export interface CleanupResult {
   desktopUserId?: string;
@@ -240,7 +241,9 @@ export async function cleanTestFixtures(): Promise<CleanupResult> {
     throw new Error("Fixture cleanup aborted: Missing SUPABASE_SERVICE_ROLE_KEY");
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    global: { fetch: boundedE2eFetch },
+  });
   const desktopEmail = process.env.E2E_DESKTOP_USER_EMAIL || "e2e-test@example.com";
   const mobileEmail = process.env.E2E_MOBILE_USER_EMAIL || "e2e-test-mobile@example.com";
   const stateEmail = process.env.E2E_SIGNOUT_USER_EMAIL || "e2e-test-signout@example.com";

@@ -24,7 +24,36 @@ export class InMemoryRateLimitProvider implements RateLimitProvider {
     return {
       allowed,
       remaining: Math.max(0, request.limit - bucket.count),
-      retryAfterSeconds: allowed ? null : Math.max(1, Math.ceil((bucket.resetsAt - now) / 1000)),
+      limit: request.limit,
+      resetAt: bucket.resetsAt,
+      retryAfterSeconds: Math.max(0, Math.ceil((bucket.resetsAt - now) / 1000)),
+      operationId: randomUUID(),
     };
   }
+
+  async check(request: RateLimitRequest): Promise<RateLimitResult> {
+    const now = this.now();
+    const bucket = this.buckets.get(request.key);
+    const count = !bucket || bucket.resetsAt <= now ? 0 : bucket.count;
+    const resetAt = !bucket || bucket.resetsAt <= now ? now + request.windowMs : bucket.resetsAt;
+    return {
+      allowed: count < request.limit,
+      remaining: Math.max(0, request.limit - count),
+      limit: request.limit,
+      resetAt,
+      retryAfterSeconds: Math.max(0, Math.ceil((resetAt - now) / 1000)),
+      operationId: randomUUID(),
+    };
+  }
+
+  async reset(key: string) {
+    this.buckets.delete(key);
+  }
+  async healthCheck() {
+    return true;
+  }
+  async getRemaining(request: RateLimitRequest) {
+    return (await this.check(request)).remaining;
+  }
 }
+import { randomUUID } from "node:crypto";

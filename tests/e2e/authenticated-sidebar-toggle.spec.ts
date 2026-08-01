@@ -23,10 +23,9 @@ async function expectNoHorizontalOverflow(page: import("@playwright/test").Page)
 }
 
 test.describe("dashboard sidebar toggle", () => {
-  test.beforeEach(async ({ page }) => {
-    await page
-      .context()
-      .addCookies([{ name: "sidebar:state", value: "false", url: "http://localhost:3000" }]);
+  test.beforeEach(async ({ page }, testInfo) => {
+    const baseURL = String(testInfo.project.use.baseURL);
+    await page.context().addCookies([{ name: "sidebar:state", value: "false", url: baseURL }]);
   });
 
   test("desktop open, collapse, persisted reopen, and repeated cycles", async ({

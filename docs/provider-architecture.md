@@ -130,7 +130,8 @@ integrations yet. No API keys required to run the app locally on mocks.
   capped by `OPENAI_MAX_OUTPUT_TOKENS`.
 - SMTP validates headers and recipients, permits only application-owned transactional categories,
   assigns operation IDs, and never sends prospect Outreach automatically.
-- The external rate-limit adapter is vendor-neutral, timeout bounded, retries once, and fails closed
+- The Redis rate-limit adapter is vendor-neutral at the feature boundary, timeout bounded, uses an
+  atomic fixed-window Lua operation, and fails closed
   for signup, billing, mutation, and high-cost AI operations.
 - No billing or company-data vendor is selected. Their Mock/manual paths are truthful defaults;
   signature verification and durable webhook-event storage are mandatory before a real billing

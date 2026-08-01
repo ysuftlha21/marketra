@@ -42,6 +42,9 @@ The HTTP client exposes a provider-neutral `onUsage` callback with operation, op
 ## Security and privacy
 
 - Provider calls are server-only. Discovery retains existing workspace/project ownership checks and fail-closed rate limiting.
+- Hunter company, buyer, email-find, and email-verification operations consume distinct durable
+  rate-limit policies after authorization/entitlement checks and before provider access. See
+  `docs/rate-limiting.md`; enabling Hunter never changes the selected limiter automatically.
 - Buyer discovery, enrichment, and verification are registered as fail-closed operations and must be wired through an authorized service before any UI activation.
 - Person/email calls must be explicit user actions for selected records and pass plan entitlements before activation.
 - Persist only workflow-required fields with provenance and fetch time. Honor retention/deletion rules. Never use the integration for unlawful scraping, automated LinkedIn actions, account enumeration, or unsolicited bulk email.

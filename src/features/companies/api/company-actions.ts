@@ -16,7 +16,7 @@ import {
   updateProjectCompanyNotes,
 } from "../repository/company-repository";
 import { createManualCompany, ManualCompanyError } from "../services/manual-company-service";
-import { safeRateLimitMessage } from "@/lib/security/rate-limit-service";
+import { enforceRateLimit, safeRateLimitMessage } from "@/lib/security/rate-limit-service";
 import { startDiscoverySchema } from "../schema/discovery-schemas";
 
 export interface ManualCompanyActionState {
@@ -152,6 +152,11 @@ export async function changeCompanyLifecycleAction(formData: FormData) {
   if (!pc) return { error: "Company not found in project." };
 
   try {
+    await enforceRateLimit({
+      operation: "company_saving",
+      userId: ctx.user.id,
+      workspaceId: ctx.activeWorkspace.workspace.id,
+    });
     await updateProjectCompanyLifecycle(
       ctx.activeWorkspace.workspace.id,
       pcId,
@@ -160,7 +165,9 @@ export async function changeCompanyLifecycleAction(formData: FormData) {
     );
     revalidatePath(`/dashboard/projects/${projectSlug}/discovery`);
     return { ok: true };
-  } catch {
+  } catch (error) {
+    const rateLimitMessage = safeRateLimitMessage(error);
+    if (rateLimitMessage) return { error: rateLimitMessage };
     return { error: "Update failed." };
   }
 }

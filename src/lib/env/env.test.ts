@@ -154,10 +154,29 @@ describe("parseServerEnv", () => {
     );
   });
 
-  it("requires endpoint credentials for external rate limiting", () => {
-    expect(() => parseServerEnv({ DEFAULT_RATE_LIMIT_PROVIDER: "external" })).toThrow(
+  it("requires endpoint credentials for Redis rate limiting", () => {
+    expect(() => parseServerEnv({ DEFAULT_RATE_LIMIT_PROVIDER: "redis" })).toThrow(
       EnvironmentValidationError,
     );
+  });
+
+  it("rejects memory rate limiting in production", () => {
+    expect(() =>
+      parseServerEnv({ APP_ENV: "production", DEFAULT_RATE_LIMIT_PROVIDER: "memory" }),
+    ).toThrow(EnvironmentValidationError);
+  });
+
+  it("requires Redis credentials when the opt-in smoke test is enabled", () => {
+    expect(() => parseServerEnv({ RATE_LIMIT_REDIS_SMOKE: "true" })).toThrow(
+      EnvironmentValidationError,
+    );
+    expect(
+      parseServerEnv({
+        RATE_LIMIT_REDIS_SMOKE: "true",
+        RATE_LIMIT_REDIS_URL: "https://redis.example",
+        RATE_LIMIT_REDIS_TOKEN: "secret",
+      }).RATE_LIMIT_REDIS_SMOKE,
+    ).toBe(true);
   });
 
   it("rejects unknown OpenAI models", () => {

@@ -35,10 +35,10 @@ DEFAULT_COMPANY_DISCOVERY_PROVIDER=mock
 DEFAULT_BILLING_PROVIDER=mock
 DEFAULT_EMAIL_PROVIDER=mock
 DEFAULT_ANALYTICS_PROVIDER=mock
-DEFAULT_RATE_LIMIT_PROVIDER=external
+DEFAULT_RATE_LIMIT_PROVIDER=redis
 ```
 
-The external limiter requires `RATE_LIMIT_API_URL` and `RATE_LIMIT_API_TOKEN`. Mock/memory rate
+The Redis limiter requires `RATE_LIMIT_REDIS_URL` and `RATE_LIMIT_REDIS_TOKEN`. Mock/memory rate
 limiting is not suitable for multi-instance production.
 
 ## Provider and Auth smoke tests

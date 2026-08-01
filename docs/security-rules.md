@@ -94,3 +94,8 @@ When fetching a SaaS product website:
 # Hunter provider boundary
 
 Hunter is server-only and inactive by default. Company discovery retains the existing workspace/project authorization and fail-closed rate limit. Buyer and email enrichment must call the shared Hunter operation policy with a workspace-aware ownership/entitlement callback before provider access. Provider bodies, credentials, emails, and contact metadata must not be logged.
+
+Production rate limiting uses the shared provider-neutral boundary described in
+`docs/rate-limiting.md`. Redis keys contain only environment/namespace, operation names, and hashed
+server-resolved scopes. Memory limiting is forbidden in production; costly and abuse-sensitive
+actions fail closed without a silent local fallback.

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { parseServerEnv } from "@/lib/env/env";
 import { createHunterClient } from "@/lib/providers/hunter/hunter-config";
 import { authorizeHunterOperation } from "@/lib/providers/hunter/hunter-operation-policy";
+import { enforceRateLimit } from "@/lib/security/rate-limit-service";
 import { createBuyerDiscoveryProvider } from "@/lib/providers/buyer-discovery/buyer-discovery.factory";
 import { createEmailEnrichmentProvider } from "@/lib/providers/email-enrichment/email-enrichment.factory";
 import { HunterProviderError } from "@/lib/providers/hunter/hunter-client";
@@ -280,6 +281,12 @@ export async function handoffBuyerToOutreach(input: {
       input.contactId,
     );
     if (!company || !contact) throw new Error("The selected buyer is not available.");
+    await enforceRateLimit({
+      operation: "outreach_handoff",
+      userId: input.userId,
+      workspaceId: input.workspaceId,
+      projectId: input.projectId,
+    });
     const state = await createOutreachLead(
       input.workspaceId,
       input.projectId,

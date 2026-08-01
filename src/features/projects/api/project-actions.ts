@@ -46,6 +46,8 @@ export async function createProjectAction(formData: FormData) {
   try {
     project = await createProjectService(parsed.data);
   } catch (err) {
+    const rateLimitMessage = safeRateLimitMessage(err);
+    if (rateLimitMessage) return { error: rateLimitMessage };
     if (err instanceof ProjectServiceError) {
       return { error: err.message };
     }

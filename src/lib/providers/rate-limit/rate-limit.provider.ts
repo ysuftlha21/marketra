@@ -10,18 +10,29 @@ export type RateLimitRequest = z.infer<typeof rateLimitRequestSchema>;
 export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
-  retryAfterSeconds: number | null;
+  limit: number;
+  resetAt: number;
+  retryAfterSeconds: number;
+  operationId: string;
 }
 
 export interface RateLimitProvider {
   readonly id: string;
   consume(request: RateLimitRequest): Promise<RateLimitResult>;
+  check(request: RateLimitRequest): Promise<RateLimitResult>;
+  reset?(key: string): Promise<void>;
+  healthCheck(): Promise<boolean>;
+  getRemaining?(request: RateLimitRequest): Promise<number>;
 }
 
 export class RateLimitExceededError extends Error {
-  constructor(readonly retryAfterSeconds: number) {
+  constructor(readonly result: RateLimitResult) {
     super("Too many requests. Please wait and try again.");
     this.name = "RateLimitExceededError";
+  }
+
+  get retryAfterSeconds() {
+    return this.result.retryAfterSeconds;
   }
 }
 

@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
-const PORT = process.env.PLAYWRIGHT_PORT ?? "3000";
+const PORT = process.env.PLAYWRIGHT_PORT ?? "3100";
+const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -13,7 +14,7 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? "line" : "list",
   use: {
-    baseURL: `http://localhost:${PORT}`,
+    baseURL: BASE_URL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -55,6 +56,7 @@ export default defineConfig({
         "**/dashboard.spec.ts",
         "**/screenshots-marketing*",
         "**/phase-10-public.spec.ts",
+        "**/rate-limit-denial.spec.ts",
       ],
       use: {
         browserName: "chromium",
@@ -117,9 +119,24 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run build && npm run start",
-    url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
+    command: `npm run start -- --hostname 127.0.0.1 --port ${PORT}`,
+    url: `${BASE_URL}/api/health/live`,
+    reuseExistingServer: false,
     timeout: 180_000,
+    stdout: "pipe",
+    stderr: "pipe",
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      APP_ENV: "test",
+      NEXT_PUBLIC_APP_URL: BASE_URL,
+      DEFAULT_RATE_LIMIT_PROVIDER: process.env.E2E_RATE_LIMIT_PROVIDER ?? "mock",
+      DEFAULT_COMPANY_DISCOVERY_PROVIDER: "mock",
+      DEFAULT_BUYER_DISCOVERY_PROVIDER: "mock",
+      DEFAULT_EMAIL_ENRICHMENT_PROVIDER: "mock",
+      DEFAULT_AI_PROVIDER: "mock",
+      DEFAULT_OUTREACH_PROVIDER: "mock",
+      DEFAULT_BILLING_PROVIDER: "mock",
+    },
   },
 });

@@ -24,6 +24,7 @@ import {
   normalizeSignupAllowlist,
 } from "@/features/auth/domain/signup-access";
 import { classifySignupError } from "@/features/auth/domain/signup-error";
+import { getPrivacySafeClientIpScope } from "@/lib/security/client-ip";
 
 const pricingIntentSchema = z.object({
   plan: z.enum(["starter", "growth"]).optional(),
@@ -293,6 +294,19 @@ export async function signInAction(formData: FormData) {
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
+  try {
+    await enforceRateLimit({
+      operation: "signin_failure",
+      userId: `anonymous:${getPrivacySafeClientIpScope(await headers())}`,
+      sensitiveIdentifier: parsed.data.email,
+    });
+  } catch (error) {
+    return {
+      error:
+        safeRateLimitMessage(error) ??
+        "Sign in is temporarily unavailable. Please try again shortly.",
+    };
+  }
   const supabase = await createServerClient();
   const { error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
@@ -315,6 +329,16 @@ export async function forgotPasswordAction(formData: FormData) {
   const parsed = forgotPasswordSchema.safeParse({ email: formData.get("email") });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  try {
+    await enforceRateLimit({
+      operation: "password_reset",
+      userId: `anonymous:${getPrivacySafeClientIpScope(await headers())}`,
+      sensitiveIdentifier: parsed.data.email,
+    });
+  } catch {
+    // Preserve anti-enumeration while refusing to call the email provider.
+    return { ok: true };
   }
   const supabase = await createServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {

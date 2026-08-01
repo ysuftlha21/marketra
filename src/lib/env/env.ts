@@ -10,7 +10,7 @@ const marketProviderSchema = z.enum(["mock", "external"]);
 const billingProviderSchema = z.enum(["mock", "stripe", "paytr", "iyzico"]);
 const emailProviderSchema = z.enum(["mock", "smtp"]);
 const analyticsProviderSchema = z.enum(["mock", "external"]);
-const rateLimitProviderSchema = z.enum(["mock", "memory", "external"]);
+const rateLimitProviderSchema = z.enum(["mock", "memory", "redis"]);
 const signupModeSchema = z.enum(["open", "invite_only", "allowlist", "disabled"]);
 
 const appEnvSchema = z.enum(["development", "test", "staging", "production"]);
@@ -117,9 +117,21 @@ const serverEnvSchema = z
     RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
     RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(60),
     DEFAULT_RATE_LIMIT_PROVIDER: rateLimitProviderSchema.default("mock"),
-    RATE_LIMIT_API_URL: optionalUrlSchema,
-    RATE_LIMIT_API_TOKEN: z.string().optional(),
-    RATE_LIMIT_PROVIDER_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
+    RATE_LIMIT_REDIS_URL: optionalUrlSchema,
+    RATE_LIMIT_REDIS_TOKEN: z.string().optional(),
+    RATE_LIMIT_NAMESPACE: z
+      .string()
+      .regex(/^[a-z0-9:_-]+$/i)
+      .default("marketra"),
+    RATE_LIMIT_FAIL_CLOSED: z
+      .string()
+      .default("true")
+      .transform((value) => value === "true"),
+    RATE_LIMIT_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().max(10_000).default(3000),
+    RATE_LIMIT_REDIS_SMOKE: z
+      .string()
+      .default("false")
+      .transform((value) => value === "true"),
 
     // Cost tracking
     AI_COST_TRACKING_ENABLED: z
@@ -190,13 +202,20 @@ const serverEnvSchema = z
       });
     }
     if (
-      data.DEFAULT_RATE_LIMIT_PROVIDER === "external" &&
-      (!data.RATE_LIMIT_API_URL || !data.RATE_LIMIT_API_TOKEN)
+      (data.DEFAULT_RATE_LIMIT_PROVIDER === "redis" || data.RATE_LIMIT_REDIS_SMOKE) &&
+      (!data.RATE_LIMIT_REDIS_URL || !data.RATE_LIMIT_REDIS_TOKEN)
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["RATE_LIMIT_API_URL"],
-        message: "External rate-limit provider credentials are required.",
+        path: ["RATE_LIMIT_REDIS_URL"],
+        message: "Redis rate-limit provider credentials are required.",
+      });
+    }
+    if (data.APP_ENV === "production" && data.DEFAULT_RATE_LIMIT_PROVIDER === "memory") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["DEFAULT_RATE_LIMIT_PROVIDER"],
+        message: "Memory rate limiting is not supported in production.",
       });
     }
   });

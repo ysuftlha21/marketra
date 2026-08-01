@@ -1,6 +1,7 @@
 import { cleanTestFixtures } from "../utils/fixture-cleanup";
 import { buildE2eOutreachState, ensureE2eOutreachWorkspace } from "../utils/e2e-outreach-builder";
 import { createClient } from "@supabase/supabase-js";
+import { boundedE2eFetch } from "../utils/bounded-fetch";
 
 export default async function globalSetup() {
   console.log("--- E2E Global Setup: Starting fixture cleanup ---");
@@ -19,7 +20,9 @@ export default async function globalSetup() {
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      global: { fetch: boundedE2eFetch },
+    });
 
     if (result.desktopUserId) {
       const workspaceId = await ensureE2eOutreachWorkspace(

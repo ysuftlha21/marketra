@@ -24,7 +24,7 @@ foreign key. Project deletion retains the usage event and nulls only `project_id
 ## Provider activation
 
 Mock is the local/test default. OpenAI requires its provider selection and API key. SMTP requires
-host, port, user, password, and timeout. Production rate limiting requires an external endpoint and
+host, port, user, password, and timeout. Production rate limiting requires a Redis REST endpoint and
 token. Billing remains unavailable until an operator selects an account and verifies its adapter.
 
 Never put server secrets in `NEXT_PUBLIC_*` and never print environment values.

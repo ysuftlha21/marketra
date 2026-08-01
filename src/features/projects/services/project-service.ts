@@ -26,6 +26,7 @@ import {
   checkActiveProjectsAllowance,
 } from "@/features/workspaces/services/workspace-usage-service";
 import { resolveWorkspacePlan } from "@/features/workspaces/services/workspace-plan-service";
+import { enforceRateLimit } from "@/lib/security/rate-limit-service";
 
 export type ProjectServiceErrorCode =
   | "unauthenticated"
@@ -84,6 +85,12 @@ export async function createProjectService(data: CreateProjectInput): Promise<Pr
       safeProjectError("plan_limit_reached", (err as Error).message),
     );
   }
+
+  await enforceRateLimit({
+    operation: "project_creation",
+    userId: ctx.user.id,
+    workspaceId,
+  });
 
   let project;
   try {

@@ -214,3 +214,10 @@ Never edit a shipped decision silently. Override an older one with a new entry a
 **Decision:** Add an independently gated, provider-neutral company/buyer/email workflow. Persist buyer contacts, provider operation usage, and outreach draft handoffs in RLS-protected workspace tables. Keep every Hunter selector and the UI gate disabled by default.
 
 **Rationale:** Explicit reveal confirmation, separate usage accounting, idempotent handoff, provenance, and fail-closed authorization are required before live provider activation. The workflow creates drafts only and never sends cold email.
+
+# 2026-07-31 — Durable distributed rate limiting
+
+- Vercel production rate limiting uses a provider-neutral Redis REST adapter with an atomic
+  fixed-window Lua operation. Mock remains deterministic for tests and memory is explicitly
+  local-only and rejected in production. Sensitive scopes are hashed, policies are centralized,
+  and costly/security-sensitive actions fail closed without Redis-to-memory fallback.

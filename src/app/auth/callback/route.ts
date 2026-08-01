@@ -4,6 +4,9 @@ import type { Database } from "@/lib/db/database.types";
 import { sanitizeAuthCallbackRedirect } from "@/lib/security/redirect";
 import { loadAuthContext } from "@/lib/auth/session";
 import { z } from "zod";
+import { enforceRateLimit, rateLimitHeaders } from "@/lib/security/rate-limit-service";
+import { RateLimitExceededError } from "@/lib/providers/rate-limit/rate-limit.provider";
+import { getPrivacySafeClientIpScope } from "@/lib/security/client-ip";
 
 const emailOtpTypeSchema = z.enum([
   "signup",
@@ -26,6 +29,22 @@ export async function GET(request: NextRequest) {
   const otpType = emailOtpTypeSchema.safeParse(request.nextUrl.searchParams.get("type"));
   const next = sanitizeAuthCallbackRedirect(request.nextUrl.searchParams.get("next"), "/dashboard");
   const errorRedirect = new URL("/sign-in?error=callback", request.nextUrl.origin);
+
+  try {
+    await enforceRateLimit({
+      operation: "auth_callback",
+      userId: `anonymous:${getPrivacySafeClientIpScope(request.headers)}`,
+    });
+  } catch (error) {
+    const response = NextResponse.redirect(
+      new URL("/sign-in?error=rate_limited", request.nextUrl.origin),
+    );
+    if (error instanceof RateLimitExceededError) {
+      for (const [name, value] of Object.entries(rateLimitHeaders(error.result)))
+        response.headers.set(name, value);
+    }
+    return response;
+  }
 
   if (!code && (!tokenHash || !otpType.success)) {
     return NextResponse.redirect(errorRedirect);
