@@ -106,6 +106,19 @@ export async function startDiscoveryAction(formData: FormData) {
   }
 }
 
+export interface DiscoveryFormActionState {
+  ok?: boolean;
+  error?: string;
+  errorReference?: string;
+}
+
+export async function startDiscoveryFormAction(
+  _previous: DiscoveryFormActionState | null,
+  formData: FormData,
+): Promise<DiscoveryFormActionState> {
+  return startDiscoveryAction(formData);
+}
+
 export async function retryDiscoveryAction(formData: FormData) {
   const ctx = await getAuthContext();
   if (!ctx?.activeWorkspace) return { error: "Sign in." };

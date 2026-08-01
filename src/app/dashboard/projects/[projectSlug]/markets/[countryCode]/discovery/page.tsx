@@ -39,6 +39,8 @@ import { parseServerEnv } from "@/lib/env/env";
 import { getHunterReadiness } from "@/lib/providers/hunter/hunter-readiness";
 import { getProjectIcpReadiness } from "@/features/icp/services/icp-readiness-service";
 import { DiscoverySubmitButton } from "@/features/companies/components/discovery-submit-button";
+import { AdaptCountryIcpForm } from "@/features/icp/components/adapt-country-icp-form";
+import { DiscoveryFiltersForm } from "@/features/companies/components/discovery-filters-form";
 
 interface PageProps {
   params: Promise<{ projectSlug: string; countryCode: string }>;
@@ -200,6 +202,28 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
         />
       )}
 
+      {icpReadiness.state === "needs_country_adaptation" && (
+        <Card className="border-primary/30 bg-primary/[0.03]">
+          <CardHeader>
+            <CardTitle className="text-base">Create a country ICP from your existing ICP</CardTitle>
+            <CardDescription>
+              Your approved {icpReadiness.sourceProfile.country_code} ICP can provide the reusable
+              company, industry, technology, buyer-role and value-proposition context. Marketra will
+              create a separate {cat?.name ?? tc.country_name} version without changing the original
+              or calling Hunter or OpenAI.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AdaptCountryIcpForm
+              projectSlug={projectSlug}
+              countryId={tc.id}
+              countryCode={tc.country_code}
+              countryName={cat?.name ?? tc.country_name}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {icpReadiness.state === "incomplete" && (
         <EmptyState
           icon={Info}
@@ -257,117 +281,50 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
             </div>
           </CardHeader>
           <CardContent>
-            <form
-              aria-label="Company discovery filters"
-              action={async (fd: FormData) => {
-                "use server";
-                const m = await import("@/features/companies/api/company-actions");
-                await m.startDiscoveryAction(fd);
-              }}
-              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-            >
-              <input type="hidden" name="projectSlug" value={projectSlug} />
-              <input type="hidden" name="countryId" value={tc.id} />
-              <label className="space-y-1 text-xs text-muted-foreground">
-                Country / market
-                <input
-                  value={`${tc.country_name} (${tc.country_code})`}
-                  readOnly
-                  className="block h-10 w-full rounded-md border border-border bg-muted/30 px-3 text-sm text-foreground"
-                />
-              </label>
-              <label className="space-y-1 text-xs text-muted-foreground">
-                Industry
-                <input
-                  name="industry"
-                  maxLength={100}
-                  defaultValue={defaultIndustry}
-                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-                />
-              </label>
-              <label className="space-y-1 text-xs text-muted-foreground">
-                Minimum employees
-                <input
-                  name="employeeMin"
-                  type="number"
-                  min="0"
-                  defaultValue={defaultEmployeeMin}
-                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-                />
-              </label>
-              <label className="space-y-1 text-xs text-muted-foreground">
-                Maximum employees
-                <input
-                  name="employeeMax"
-                  type="number"
-                  min="0"
-                  defaultValue={defaultEmployeeMax}
-                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-                />
-              </label>
-              <label className="space-y-1 text-xs text-muted-foreground">
-                Result limit
-                <select
-                  name="maxResults"
-                  defaultValue="25"
-                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-                >
-                  <option>10</option>
-                  <option>25</option>
-                  <option>50</option>
-                  <option>100</option>
-                </select>
-              </label>
-              <label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
-                Keywords, comma separated
-                <input
-                  name="keywords"
-                  maxLength={300}
-                  defaultValue={defaultKeywords}
-                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-                />
-              </label>
-              <label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
-                Technologies, comma separated
-                <input
-                  name="technologies"
-                  maxLength={300}
-                  defaultValue={defaultTechnologies}
-                  className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
-                />
-              </label>
-              <div className="flex items-end gap-3 sm:col-span-2 lg:col-span-4">
-                <DiscoverySubmitButton
-                  disabled={Boolean(
-                    latestRun && isActiveStatus(latestRun.status as DiscoveryRunStatus),
-                  )}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {env.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter"
-                    ? hunterReadiness.message
-                    : "Deterministic demo results; never labeled as live."}
-                </p>
-              </div>
-            </form>
+            <DiscoveryFiltersForm
+              projectSlug={projectSlug}
+              countryId={tc.id}
+              countryName={tc.country_name}
+              countryCode={tc.country_code}
+              industry={defaultIndustry}
+              employeeMin={defaultEmployeeMin}
+              employeeMax={defaultEmployeeMax}
+              keywords={defaultKeywords}
+              technologies={defaultTechnologies}
+              disabled={Boolean(
+                latestRun && isActiveStatus(latestRun.status as DiscoveryRunStatus),
+              )}
+              providerMessage={
+                env.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter"
+                  ? hunterReadiness.message
+                  : "Deterministic demo results; never labeled as live."
+              }
+            />
           </CardContent>
         </Card>
       )}
 
-      <Card className="border-border/60">
-        <CardHeader>
-          <CardTitle className="text-base">Add a company manually</CardTitle>
-          <CardDescription>
-            Add a verified company without a paid discovery provider. No enrichment is invented.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <details className="group rounded-lg border border-border/60 bg-surface">
+        <summary className="cursor-pointer list-none px-6 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Manual company entry · fallback</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Use this only when automated discovery is unavailable or you already know the
+                company.
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
+          </div>
+        </summary>
+        <div className="border-t border-border/60 px-6 py-5">
           <ManualCompanyForm
             projectSlug={projectSlug}
             targetCountryId={tc.id}
             countryCode={tc.country_code}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </details>
 
       {/* Status summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

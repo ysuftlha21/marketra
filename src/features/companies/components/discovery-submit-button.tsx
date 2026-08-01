@@ -5,7 +5,7 @@ import { Play, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function DiscoverySubmitButton({
-  label = "Run discovery",
+  label = "Discover companies",
   disabled = false,
 }: {
   label?: string;

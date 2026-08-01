@@ -10,6 +10,13 @@ const PLAN_LIMITS: Record<string, Record<DiscoveryUsageOperation, number>> = {
   agency: { company_search: 5000, buyer_search: 10000, email_find: 7500, email_verify: 7500 },
 };
 
+export class ProviderUsageError extends Error {
+  constructor(readonly code: "unavailable" | "limit_reached") {
+    super(code);
+    this.name = "ProviderUsageError";
+  }
+}
+
 function periodStart(): string {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
@@ -30,9 +37,9 @@ export async function assertProviderAllowance(
     .eq("workspace_id" as never, workspaceId)
     .eq("operation_type" as never, operation)
     .gte("created_at" as never, periodStart());
-  if (error) throw new Error("Provider usage protection is temporarily unavailable.");
+  if (error) throw new ProviderUsageError("unavailable");
   const used = count ?? 0;
-  if (used >= limit) throw new Error("Provider usage limit reached for this billing period.");
+  if (used >= limit) throw new ProviderUsageError("limit_reached");
   return { used, limit, remaining: Math.max(0, limit - used) };
 }
 

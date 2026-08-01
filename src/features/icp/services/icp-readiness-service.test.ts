@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   country: vi.fn(),
   approved: vi.fn(),
   latest: vi.fn(),
+  projectApproved: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({ getAuthContext: mocks.auth }));
@@ -20,6 +21,7 @@ vi.mock("@/features/markets/repository/market-repository", () => ({
 vi.mock("../repository/icp-repository", () => ({
   getLatestApprovedIcpProfile: mocks.approved,
   getLatestIcpProfile: mocks.latest,
+  getLatestApprovedProjectIcpProfile: mocks.projectApproved,
 }));
 
 const profile = {
@@ -40,6 +42,7 @@ describe("project ICP readiness", () => {
     mocks.country.mockResolvedValue({ id: "country-1" });
     mocks.approved.mockResolvedValue(null);
     mocks.latest.mockResolvedValue(null);
+    mocks.projectApproved.mockResolvedValue(null);
   });
 
   it("recognizes an approved ICP and never trusts a client workspace id", async () => {
@@ -74,6 +77,15 @@ describe("project ICP readiness", () => {
     await expect(getProjectIcpReadiness("marketra", "US")).resolves.toEqual({
       state: "inaccessible",
     });
+  });
+
+  it("offers a country adaptation only from an approved ICP in the same project", async () => {
+    mocks.projectApproved.mockResolvedValue({ ...profile, country_code: "DE" });
+    await expect(getProjectIcpReadiness("marketra", "US")).resolves.toMatchObject({
+      state: "needs_country_adaptation",
+      sourceProfile: { country_code: "DE" },
+    });
+    expect(mocks.projectApproved).toHaveBeenCalledWith("ws-1", "project-1", "country-1");
   });
 
   it("reports exact incomplete sections", () => {

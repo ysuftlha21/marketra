@@ -12,6 +12,11 @@ import {
   archiveIcp,
   IcpServiceError,
 } from "../services/icp-management-service";
+import {
+  adaptApprovedProjectIcpToCountry,
+  CountryIcpAdaptationError,
+} from "../services/country-icp-adaptation-service";
+import { getTargetCountry } from "@/features/markets/repository/market-repository";
 
 export async function generateIcpAction(formData: FormData) {
   const ctx = await getAuthContext();
@@ -35,6 +40,63 @@ export async function generateIcpAction(formData: FormData) {
   } catch (err) {
     if (err instanceof IcpGenError) return { error: safeIcpError(err.code) };
     return { error: "Generation failed." };
+  }
+}
+
+export interface AdaptCountryIcpActionState {
+  ok?: boolean;
+  error?: string;
+}
+
+export async function adaptCountryIcpAction(
+  _previous: AdaptCountryIcpActionState | null,
+  formData: FormData,
+): Promise<AdaptCountryIcpActionState> {
+  const ctx = await getAuthContext();
+  if (!ctx?.activeWorkspace) return { error: "Sign in to adapt an ICP." };
+  if (ctx.activeWorkspace.role === "member") {
+    return { error: "Ask a workspace owner or admin to adapt and approve this ICP." };
+  }
+  const projectSlug = String(formData.get("projectSlug") ?? "");
+  const targetCountryId = String(formData.get("countryId") ?? "");
+  const countryCode = String(formData.get("countryCode") ?? "").toUpperCase();
+  if (!projectSlug || !targetCountryId || !countryCode) return { error: "Missing fields." };
+
+  const workspaceId = ctx.activeWorkspace.workspace.id;
+  const [project, targetCountry] = await Promise.all([
+    getProjectService(projectSlug),
+    getTargetCountry(workspaceId, targetCountryId),
+  ]);
+  if (!project) return { error: "Project not found." };
+  if (
+    !targetCountry ||
+    targetCountry.project_id !== project.id ||
+    targetCountry.country_code !== countryCode
+  ) {
+    return { error: "Target market was not found." };
+  }
+
+  try {
+    await adaptApprovedProjectIcpToCountry({
+      workspaceId,
+      projectId: project.id,
+      targetCountryId,
+      targetCountryCode: countryCode,
+      userId: ctx.user.id,
+    });
+    revalidatePath(`/dashboard/projects/${projectSlug}/markets/${countryCode}/discovery`);
+    revalidatePath(`/dashboard/projects/${projectSlug}/markets/${countryCode}/icp`);
+    revalidatePath("/dashboard", "layout");
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof CountryIcpAdaptationError) {
+      if (error.code === "market_analysis_missing") {
+        return { error: "Complete market analysis before adapting this ICP." };
+      }
+      if (error.code === "source_missing")
+        return { error: "No approved project ICP is available." };
+    }
+    return { error: "The country ICP could not be created." };
   }
 }
 

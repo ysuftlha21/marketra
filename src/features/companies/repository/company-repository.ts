@@ -242,14 +242,17 @@ export async function findCompanyByNormalizedName(
 
 export async function upsertCompany(data: Record<string, unknown>): Promise<CompanyRow> {
   const supabase = await client();
-  const r = await companiesQuery(supabase)
-    .upsert(data, {
-      onConflict: "workspace_id,normalized_domain" as never,
-      ignoreDuplicates: false,
-    })
-    .select(COMPANY_COLS)
-    .single();
-  if (r.error || !r.data) throw new Error(`Failed to upsert company: ${r.error?.message}`);
+  const r = await companiesQuery(supabase).insert(data).select(COMPANY_COLS).single();
+  if (r.error?.code === "23505") {
+    const workspaceId = typeof data.workspace_id === "string" ? data.workspace_id : null;
+    const normalizedDomain =
+      typeof data.normalized_domain === "string" ? data.normalized_domain : null;
+    if (workspaceId && normalizedDomain) {
+      const existing = await findCompanyByNormalizedDomain(workspaceId, normalizedDomain);
+      if (existing) return existing;
+    }
+  }
+  if (r.error || !r.data) throw new Error("Company persistence failed.");
   return r.data as unknown as CompanyRow;
 }
 

@@ -12,7 +12,11 @@ import {
 } from "../repository/company-repository";
 import { getProjectService } from "@/features/projects/services/project-service";
 import { getTargetCountry } from "@/features/markets/repository/market-repository";
-import { getLatestIcpProfile, type IcpProfileRow } from "@/features/icp/repository/icp-repository";
+import {
+  getLatestApprovedIcpProfile,
+  getLatestIcpProfile,
+  type IcpProfileRow,
+} from "@/features/icp/repository/icp-repository";
 import { normalizeDomain } from "../domain/company-normalization";
 import { calculateFitScore } from "../domain/company-scoring";
 import type { ScoringInput } from "../domain/company-scoring";
@@ -20,7 +24,11 @@ import type { DiscoveryCompanyCandidate } from "@/lib/providers/company-discover
 import { parseServerEnv } from "@/lib/env/env";
 import { enforceRateLimit } from "@/lib/security/rate-limit-service";
 import { HunterProviderError } from "@/lib/providers/hunter/hunter-client";
-import { assertProviderAllowance, recordProviderOperation } from "./provider-usage-service";
+import {
+  assertProviderAllowance,
+  ProviderUsageError,
+  recordProviderOperation,
+} from "./provider-usage-service";
 import { randomUUID } from "node:crypto";
 
 export type DiscoveryErrorCode =
@@ -50,6 +58,13 @@ export class DiscoveryError extends Error {
     super(m);
     this.name = "DiscoveryError";
     this.code = c;
+  }
+}
+
+class DiscoveryPersistenceError extends Error {
+  constructor(readonly stage: "company_lookup" | "company_insert" | "project_link") {
+    super(stage);
+    this.name = "DiscoveryPersistenceError";
   }
 }
 
@@ -138,10 +153,15 @@ export async function startDiscovery(
   const tc = await getTargetCountry(wsId, targetCountryId);
   if (!tc) throw new DiscoveryError("country_not_found", safeDiscoveryError("country_not_found"));
 
-  const icp = await getLatestIcpProfile(wsId, targetCountryId);
-  if (!icp) throw new DiscoveryError("icp_not_found", safeDiscoveryError("icp_not_found"));
-  if (icp.status !== "approved")
+  const approvedIcp = await getLatestApprovedIcpProfile(wsId, targetCountryId);
+  const latestIcp = approvedIcp ? null : await getLatestIcpProfile(wsId, targetCountryId);
+  if (!approvedIcp && !latestIcp)
+    throw new DiscoveryError("icp_not_found", safeDiscoveryError("icp_not_found"));
+  if (!approvedIcp)
     throw new DiscoveryError("icp_not_approved", safeDiscoveryError("icp_not_approved"));
+  const icp = approvedIcp;
+  const targetProject = project;
+  const targetCountry = tc;
 
   const active = await findActiveDiscoveryRun(wsId, targetCountryId);
   if (active) throw new DiscoveryError("already_running", safeDiscoveryError("already_running"));
@@ -189,8 +209,13 @@ export async function startDiscovery(
 
   let providerResult;
   const operationId = randomUUID();
+  const recordsPaidProviderUsage = provider.id !== "mock";
+  let safeFailureStage: "allowance" | "provider" | "usage_record" = recordsPaidProviderUsage
+    ? "allowance"
+    : "provider";
   try {
-    await assertProviderAllowance(wsId, "company_search");
+    if (recordsPaidProviderUsage) await assertProviderAllowance(wsId, "company_search");
+    safeFailureStage = "provider";
     providerResult = await provider.discoverCompaniesV1({
       correlationId: `disc_${run.id}`,
       targetCountryCode: tc.country_code,
@@ -209,15 +234,18 @@ export async function startDiscovery(
       maxResults,
       offset: ((options.page ?? 1) - 1) * maxResults,
     });
-    await recordProviderOperation({
-      workspaceId: wsId,
-      projectId: project.id,
-      operation: "company_search",
-      providerId: provider.id,
-      operationId,
-      idempotencyKey: `${run.id}:company_search`,
-      success: true,
-    });
+    if (recordsPaidProviderUsage) {
+      safeFailureStage = "usage_record";
+      await recordProviderOperation({
+        workspaceId: wsId,
+        projectId: project.id,
+        operation: "company_search",
+        providerId: provider.id,
+        operationId,
+        idempotencyKey: `${run.id}:company_search`,
+        success: true,
+      });
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown";
     const code: DiscoveryErrorCode =
@@ -231,19 +259,32 @@ export async function startDiscovery(
               : err.category === "invalid_response"
                 ? "invalid_provider_response"
                 : "provider_unavailable"
-        : msg.includes("timeout")
-          ? "provider_timeout"
-          : "provider_unavailable";
-    await recordProviderOperation({
-      workspaceId: wsId,
-      projectId: project.id,
-      operation: "company_search",
-      providerId: provider.id,
+        : err instanceof ProviderUsageError
+          ? err.code === "limit_reached"
+            ? "provider_plan_denied"
+            : "provider_unavailable"
+          : msg.includes("timeout")
+            ? "provider_timeout"
+            : "provider_unavailable";
+    console.error("company_discovery_provider_failed", {
+      operation: "company_discovery",
       operationId,
-      idempotencyKey: `${run.id}:company_search`,
-      success: false,
-      errorCode: code,
-    }).catch(() => undefined);
+      providerId: provider.id,
+      safeFailureStage,
+      safeErrorCode: code,
+    });
+    if (recordsPaidProviderUsage) {
+      await recordProviderOperation({
+        workspaceId: wsId,
+        projectId: project.id,
+        operation: "company_search",
+        providerId: provider.id,
+        operationId,
+        idempotencyKey: `${run.id}:company_search`,
+        success: false,
+        errorCode: code,
+      }).catch(() => undefined);
+    }
     await updateDiscoveryRun(wsId, run.id, {
       status: "failed",
       error_code: code,
@@ -257,77 +298,115 @@ export async function startDiscovery(
   const candidates = output.candidates;
   let savedCount = 0;
   let qualifiedCount = 0;
+  let persistenceStage: "company_lookup" | "company_insert" | "project_link" = "company_lookup";
 
-  for (const candidate of candidates) {
-    savedCount++;
+  async function persistCandidate(
+    candidate: DiscoveryCompanyCandidate,
+    providerRank: number,
+  ): Promise<boolean> {
+    let stage: DiscoveryPersistenceError["stage"] = "company_lookup";
+    try {
+      const nd = normalizeDomain(candidate.primaryDomain ?? candidate.websiteUrl ?? "");
+      let companyId: string;
+      const existing = nd ? await findCompanyByNormalizedDomain(wsId, nd) : null;
+      if (existing) {
+        companyId = existing.id;
+      } else {
+        stage = "company_insert";
+        const created = await upsertCompany({
+          workspace_id: wsId,
+          canonical_name: candidate.name,
+          normalized_name: candidate.normalizedName,
+          primary_domain: candidate.primaryDomain ?? null,
+          normalized_domain: nd,
+          website_url: candidate.websiteUrl ?? null,
+          country_code: candidate.countryCode,
+          headquarters_city: candidate.headquartersCity ?? null,
+          industry: candidate.industry,
+          industry_tags: candidate.industryTags ?? [],
+          employee_count_min: candidate.employeeCountMin ?? null,
+          employee_count_max: candidate.employeeCountMax ?? null,
+          employee_count_estimate: candidate.employeeCountEstimate ?? null,
+          annual_revenue_min: candidate.annualRevenueMin ?? null,
+          annual_revenue_max: candidate.annualRevenueMax ?? null,
+          annual_revenue_currency: candidate.annualRevenueCurrency ?? "USD",
+          company_type: candidate.companyType ?? null,
+          founded_year: candidate.foundedYear ?? null,
+          technology_signals: candidate.technologySignals ?? [],
+          growth_signals: candidate.growthSignals ?? [],
+          source_provider: provider.id,
+          source_external_id: candidate.sourceExternalId ?? null,
+          source_url: candidate.sourceUrl ?? null,
+          first_seen_at: new Date().toISOString(),
+          last_seen_at: new Date().toISOString(),
+        });
+        companyId = created.id;
+      }
 
-    const nd = normalizeDomain(candidate.primaryDomain ?? candidate.websiteUrl ?? "");
-    let companyId: string;
-    const existing = nd ? await findCompanyByNormalizedDomain(wsId, nd) : null;
-    if (existing) {
-      companyId = existing.id;
-    } else {
-      const created = await upsertCompany({
+      stage = "project_link";
+      const exists = await projectCompanyExists(wsId, targetProject.id, targetCountryId, companyId);
+      if (exists) return false;
+      const score = calculateFitScore(
+        buildScoringInput(candidate, icp, targetCountry.country_code),
+      );
+      await createProjectCompany({
         workspace_id: wsId,
-        canonical_name: candidate.name,
-        normalized_name: candidate.normalizedName,
-        primary_domain: candidate.primaryDomain ?? null,
-        normalized_domain: nd,
-        website_url: candidate.websiteUrl ?? null,
-        country_code: candidate.countryCode,
-        headquarters_city: candidate.headquartersCity ?? null,
-        industry: candidate.industry,
-        industry_tags: candidate.industryTags ?? [],
-        employee_count_min: candidate.employeeCountMin ?? null,
-        employee_count_max: candidate.employeeCountMax ?? null,
-        employee_count_estimate: candidate.employeeCountEstimate ?? null,
-        annual_revenue_min: candidate.annualRevenueMin ?? null,
-        annual_revenue_max: candidate.annualRevenueMax ?? null,
-        annual_revenue_currency: candidate.annualRevenueCurrency ?? "USD",
-        company_type: candidate.companyType ?? null,
-        founded_year: candidate.foundedYear ?? null,
-        technology_signals: candidate.technologySignals ?? [],
-        growth_signals: candidate.growthSignals ?? [],
-        source_provider: provider.id,
-        source_external_id: candidate.sourceExternalId ?? null,
-        source_url: candidate.sourceUrl ?? null,
-        first_seen_at: new Date().toISOString(),
-        last_seen_at: new Date().toISOString(),
+        project_id: targetProject.id,
+        target_country_id: targetCountryId,
+        company_id: companyId,
+        discovery_run_id: run.id,
+        icp_profile_id: icp.id,
+        status: "discovered",
+        fit_score: score.fitScore,
+        fit_grade: score.fitGrade,
+        qualification_reasons: score.qualificationReasons,
+        disqualification_reasons: score.disqualificationReasons,
+        matched_signals: score.matchedSignals,
+        missing_signals: score.missingSignals,
+        confidence_score: score.confidenceScore,
+        scoring_snapshot: score.scoringSnapshot,
+        provider_rank: providerRank,
+        reviewer_notes: null,
+        reviewed_by: null,
+        reviewed_at: null,
+        archived_at: null,
       });
-      companyId = created.id;
+      return score.fitScore >= 30;
+    } catch {
+      throw new DiscoveryPersistenceError(stage);
     }
+  }
 
-    const exists = await projectCompanyExists(wsId, project.id, targetCountryId, companyId);
-    if (exists) continue;
-
-    const score = calculateFitScore(buildScoringInput(candidate, icp, tc.country_code));
-
-    if (score.fitScore >= 30) {
-      qualifiedCount++;
+  try {
+    const batchSize = 5;
+    for (let index = 0; index < candidates.length; index += batchSize) {
+      const batch = candidates.slice(index, index + batchSize);
+      const results = await Promise.all(
+        batch.map((candidate, offset) => persistCandidate(candidate, index + offset + 1)),
+      );
+      savedCount += batch.length;
+      qualifiedCount += results.filter(Boolean).length;
     }
-
-    await createProjectCompany({
-      workspace_id: wsId,
-      project_id: project.id,
-      target_country_id: targetCountryId,
-      company_id: companyId,
-      discovery_run_id: run.id,
-      icp_profile_id: icp.id,
-      status: "discovered",
-      fit_score: score.fitScore,
-      fit_grade: score.fitGrade,
-      qualification_reasons: score.qualificationReasons,
-      disqualification_reasons: score.disqualificationReasons,
-      matched_signals: score.matchedSignals,
-      missing_signals: score.missingSignals,
-      confidence_score: score.confidenceScore,
-      scoring_snapshot: score.scoringSnapshot,
-      provider_rank: savedCount,
-      reviewer_notes: null,
-      reviewed_by: null,
-      reviewed_at: null,
-      archived_at: null,
+  } catch (error) {
+    if (error instanceof DiscoveryPersistenceError) persistenceStage = error.stage;
+    console.error("company_discovery_persistence_failed", {
+      operation: "company_discovery",
+      operationId,
+      providerId: provider.id,
+      safeFailureStage: persistenceStage,
+      safeErrorCode: "persistence_failure",
     });
+    await updateDiscoveryRun(wsId, run.id, {
+      status: "failed",
+      error_code: "persistence_failure",
+      safe_error_message: safeDiscoveryError("persistence_failure"),
+      failed_at: new Date().toISOString(),
+    }).catch(() => undefined);
+    throw new DiscoveryError(
+      "persistence_failure",
+      safeDiscoveryError("persistence_failure"),
+      operationId,
+    );
   }
 
   const resultSummary = {

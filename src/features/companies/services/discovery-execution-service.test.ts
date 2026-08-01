@@ -132,6 +132,7 @@ const mockCompany = {
 const mockGetProjectService = vi.fn();
 const mockGetTargetCountry = vi.fn();
 const mockGetLatestIcpProfile = vi.fn();
+const mockGetLatestApprovedIcpProfile = vi.fn();
 const mockFindActiveDiscoveryRun = vi.fn();
 const mockCreateDiscoveryRun = vi.fn();
 const mockUpdateDiscoveryRun = vi.fn();
@@ -151,6 +152,7 @@ vi.mock("@/features/markets/repository/market-repository", () => ({
 
 vi.mock("@/features/icp/repository/icp-repository", () => ({
   getLatestIcpProfile: (...args: unknown[]) => mockGetLatestIcpProfile(...args),
+  getLatestApprovedIcpProfile: (...args: unknown[]) => mockGetLatestApprovedIcpProfile(...args),
 }));
 
 vi.mock("../repository/company-repository", () => ({
@@ -171,6 +173,11 @@ vi.mock("@/lib/env/env", () => ({
 }));
 
 vi.mock("./provider-usage-service", () => ({
+  ProviderUsageError: class ProviderUsageError extends Error {
+    constructor(readonly code: "unavailable" | "limit_reached") {
+      super(code);
+    }
+  },
   assertProviderAllowance: vi.fn().mockResolvedValue({ used: 0, limit: 10, remaining: 10 }),
   recordProviderOperation: vi.fn().mockResolvedValue(undefined),
 }));
@@ -180,6 +187,7 @@ beforeEach(() => {
   mockGetProjectService.mockResolvedValue(mockProject);
   mockGetTargetCountry.mockResolvedValue(mockTargetCountry);
   mockGetLatestIcpProfile.mockResolvedValue(mockIcp);
+  mockGetLatestApprovedIcpProfile.mockResolvedValue(mockIcp);
   mockFindActiveDiscoveryRun.mockResolvedValue(null);
   mockCreateDiscoveryRun.mockResolvedValue(mockCreatedRun);
   mockUpdateDiscoveryRun.mockResolvedValue(undefined);
@@ -194,14 +202,17 @@ beforeEach(() => {
 describe("startDiscovery", () => {
   it("returns runId on success", async () => {
     const { startDiscovery } = await import("./discovery-execution-service");
+    const usage = await import("./provider-usage-service");
     const result = await startDiscovery(wsId, "my-saas", tcId, userId);
     expect(result.runId).toBe(runId);
     expect(mockGetProjectService).toHaveBeenCalledWith("my-saas");
     expect(mockGetTargetCountry).toHaveBeenCalledWith(wsId, tcId);
-    expect(mockGetLatestIcpProfile).toHaveBeenCalledWith(wsId, tcId);
+    expect(mockGetLatestApprovedIcpProfile).toHaveBeenCalledWith(wsId, tcId);
     expect(mockFindActiveDiscoveryRun).toHaveBeenCalledWith(wsId, tcId);
     expect(mockCreateDiscoveryRun).toHaveBeenCalled();
     expect(mockUpdateDiscoveryRun).toHaveBeenCalled();
+    expect(usage.assertProviderAllowance).not.toHaveBeenCalled();
+    expect(usage.recordProviderOperation).not.toHaveBeenCalled();
   });
 
   it("throws project_not_found when project does not exist", async () => {
@@ -221,6 +232,7 @@ describe("startDiscovery", () => {
   });
 
   it("throws icp_not_found when no ICP exists", async () => {
+    mockGetLatestApprovedIcpProfile.mockResolvedValue(null);
     mockGetLatestIcpProfile.mockResolvedValue(null);
     const { startDiscovery } = await import("./discovery-execution-service");
     await expect(startDiscovery(wsId, "my-saas", tcId, userId)).rejects.toMatchObject({
@@ -229,6 +241,7 @@ describe("startDiscovery", () => {
   });
 
   it("throws icp_not_approved when ICP is not approved", async () => {
+    mockGetLatestApprovedIcpProfile.mockResolvedValue(null);
     mockGetLatestIcpProfile.mockResolvedValue({ ...mockIcp, status: "draft" });
     const { startDiscovery } = await import("./discovery-execution-service");
     await expect(startDiscovery(wsId, "my-saas", tcId, userId)).rejects.toMatchObject({

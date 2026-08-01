@@ -143,6 +143,29 @@ export async function getLatestApprovedIcpProfile(
   return (r.data as unknown as IcpProfileRow) ?? null;
 }
 
+/** Latest approved country ICP that can act as this project's canonical reusable baseline. */
+export async function getLatestApprovedProjectIcpProfile(
+  wsId: string,
+  projectId: string,
+  excludeTargetCountryId?: string,
+): Promise<IcpProfileRow | null> {
+  const supabase = await client();
+  let query = icpProfilesQuery(supabase)
+    .select(ICP_PROFILE_COLS)
+    .eq("workspace_id", wsId)
+    .eq("project_id", projectId)
+    .eq("status", "approved")
+    .order("approved_at" as never, { ascending: false } as never)
+    .order("version" as never, { ascending: false } as never)
+    .limit(1);
+  if (excludeTargetCountryId) {
+    query = query.neq("project_target_country_id", excludeTargetCountryId);
+  }
+  const r = await query.maybeSingle();
+  if (r.error) throw r.error;
+  return (r.data as unknown as IcpProfileRow) ?? null;
+}
+
 export async function getIcpProfile(wsId: string, icpId: string): Promise<IcpProfileRow | null> {
   const supabase = await client();
   const r = await icpProfilesQuery(supabase)

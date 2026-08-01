@@ -264,3 +264,15 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   remains authoritative. Invalid or cross-workspace slugs never expose project data.
 - Compatibility: existing project, analysis, market, and ICP rows are read in place. No migration or
   backfill is required.
+
+### 2026-08-01 — Deterministic country ICP adaptation
+
+- Decision: an approved country ICP may act as the reusable project baseline when another selected
+  market has no ICP. A workspace owner/admin can create a distinct approved target-country version
+  using deterministic field copying and explicit source metadata.
+- Reason: the schema intentionally stores country-owned ICPs, but requiring users to recreate the
+  same reusable company context blocked automated Company Discovery.
+- Safety: adaptation requires a successful target-market analysis, never changes the source, never
+  treats a foreign-country row as the target row, and invokes no paid provider. Discovery continues
+  to require an approved ICP that belongs to the exact target-country record.
+- Compatibility: existing ICP history is preserved; no migration or backfill is required.

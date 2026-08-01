@@ -3,12 +3,19 @@ import { getProjectBySlug } from "@/features/projects/repository/project-reposit
 import { getTargetCountryByCode } from "@/features/markets/repository/market-repository";
 import {
   getLatestApprovedIcpProfile,
+  getLatestApprovedProjectIcpProfile,
   getLatestIcpProfile,
   type IcpProfileRow,
 } from "../repository/icp-repository";
 
 export type ProjectIcpReadiness =
   | { state: "missing"; projectId: string; targetCountryId: string }
+  | {
+      state: "needs_country_adaptation";
+      projectId: string;
+      targetCountryId: string;
+      sourceProfile: IcpProfileRow;
+    }
   | {
       state: "incomplete";
       projectId: string;
@@ -62,6 +69,19 @@ export async function getProjectIcpReadiness(
 
     const latest = await getLatestIcpProfile(workspaceId, targetCountry.id);
     if (!latest) {
+      const sourceProfile = await getLatestApprovedProjectIcpProfile(
+        workspaceId,
+        project.id,
+        targetCountry.id,
+      );
+      if (sourceProfile) {
+        return {
+          state: "needs_country_adaptation",
+          projectId: project.id,
+          targetCountryId: targetCountry.id,
+          sourceProfile,
+        };
+      }
       return { state: "missing", projectId: project.id, targetCountryId: targetCountry.id };
     }
     return {
