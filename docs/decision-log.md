@@ -236,3 +236,11 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   protected by a separate timing-safe Bearer token. It accepts no Redis command/key input, deletes
   its unique smoke key in `finally`, rate-limits executions, returns safe booleans only, and is
   indistinguishable from a missing route in Production and Development.
+
+# 2026-08-01 — GPT-5.6 model-family compatibility
+
+- OpenAI model IDs and capabilities are centralized in a typed registry. GPT-5.6 Luna, Terra, Sol,
+  and the Sol alias use Responses API strict structured output with explicit compatible reasoning;
+  `gpt-4o-mini` remains on the legacy Chat Completions path. Luna with low reasoning and an
+  800-token output cap is the production product-analysis recommendation. Model prices are not
+  inferred: cost remains unknown until authoritative versioned pricing metadata is added.

@@ -15,11 +15,12 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: ["./tests/utils/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}", "tests/unit/**/*.test.{ts,tsx}"],
-    exclude: ["tests/integration/**/*.test.{ts,tsx}"],
-    coverage: {
-      reporter: ["text", "html"],
-    },
+    setupFiles: ["./tests/utils/setup.ts", "./tests/utils/integration-setup.ts"],
+    include: ["tests/integration/**/*.test.{ts,tsx}"],
+    fileParallelism: false,
+    maxWorkers: 1,
+    testTimeout: 20_000,
+    hookTimeout: 30_000,
+    teardownTimeout: 30_000,
   },
 });

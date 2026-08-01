@@ -52,6 +52,22 @@ after verification. The endpoint is unavailable outside Vercel Preview.
 
 ## Provider and Auth smoke tests
 
+Recommended controlled OpenAI activation values for product analysis:
+
+```text
+DEFAULT_AI_PROVIDER=openai
+OPENAI_MODEL=gpt-5.6-luna
+OPENAI_REASONING_EFFORT=low
+OPENAI_MAX_OUTPUT_TOKENS=800
+OPENAI_TIMEOUT_MS=30000
+OPENAI_MAX_RETRIES=2
+AI_COST_TRACKING_ENABLED=true
+```
+
+GPT-5.6 uses the Responses API. Keep `OPENAI_API_KEY` server-only and run the opt-in smoke before
+activation. The model registry retains `gpt-4o-mini` for rollback; unknown GPT-5.6 monetary cost is
+not estimated until versioned pricing metadata is added.
+
 ```pwsh
 npm run test:smoke:openai
 npm run test:smoke:smtp

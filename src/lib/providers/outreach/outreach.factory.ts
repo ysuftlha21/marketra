@@ -20,6 +20,7 @@ export function createOutreachProvider(providerId: string): OutreachProvider {
     return new OpenAiOutreachProvider({
       apiKey: env.OPENAI_API_KEY,
       model: env.OPENAI_MODEL,
+      reasoningEffort: env.OPENAI_REASONING_EFFORT,
       timeoutMs: env.OPENAI_TIMEOUT_MS,
       maxRetries: env.OPENAI_MAX_RETRIES,
       maxOutputTokens: env.OPENAI_MAX_OUTPUT_TOKENS,

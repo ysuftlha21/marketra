@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 import { authenticateTestClient } from "../utils/test-auth";
+import { measureIntegrationOperation } from "../utils/integration-timing";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -23,22 +24,24 @@ async function signUp(
   email: string,
   password: string,
 ): Promise<{ id: string; client: SupabaseClient<Database> }> {
-  const admin = svc();
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-  if (error) throw error;
-  _cleanupIds.push(data.user!.id);
-  await admin.from("profiles").insert({ id: data.user!.id, email }).maybeSingle();
-  await admin.from("user_preferences").insert({ user_id: data.user!.id }).maybeSingle();
+  return measureIntegrationOperation("fixture_user", "project_permissions_user", async () => {
+    const admin = svc();
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+    if (error) throw error;
+    _cleanupIds.push(data.user!.id);
+    await admin.from("profiles").insert({ id: data.user!.id, email }).maybeSingle();
+    await admin.from("user_preferences").insert({ user_id: data.user!.id }).maybeSingle();
 
-  const client = createClient<Database>(URL, ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    const client = createClient<Database>(URL, ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    await authenticateTestClient(client, email, password);
+    return { id: data.user!.id, client };
   });
-  await authenticateTestClient(client, email, password);
-  return { id: data.user!.id, client };
 }
 
 describe("Project permissions (Anon-client DB tests)", () => {
@@ -50,32 +53,37 @@ describe("Project permissions (Anon-client DB tests)", () => {
   let wsId: string;
 
   beforeAll(async () => {
-    owner = await signUp(`owner-${uid("u")}@example.com`, PWD);
-    adminUser = await signUp(`admin-${uid("u")}@example.com`, PWD);
-    memberUser = await signUp(`member-${uid("u")}@example.com`, PWD);
-    outsider = await signUp(`outsider-${uid("u")}@example.com`, PWD);
+    await measureIntegrationOperation("suite_setup", "project_permissions", async () => {
+      owner = await signUp(`owner-${uid("u")}@example.com`, PWD);
+      adminUser = await signUp(`admin-${uid("u")}@example.com`, PWD);
+      memberUser = await signUp(`member-${uid("u")}@example.com`, PWD);
+      outsider = await signUp(`outsider-${uid("u")}@example.com`, PWD);
 
-    // Setup Workspace
-    const { data: wsData, error: wsError } = await owner.client.rpc("create_workspace", {
-      p_name: "Test Workspace",
-      p_slug: uid("ws"),
+      // Setup Workspace
+      const { data: wsData, error: wsError } = await owner.client.rpc("create_workspace", {
+        p_name: "Test Workspace",
+        p_slug: uid("ws"),
+      });
+      if (wsError) throw wsError;
+      wsId = wsData as string;
+
+      // Add users to workspace
+      const s = svc();
+      await s.from("workspace_members").insert([
+        { workspace_id: wsId, user_id: adminUser.id, role: "admin" },
+        { workspace_id: wsId, user_id: memberUser.id, role: "member" },
+      ]);
     });
-    if (wsError) throw wsError;
-    wsId = wsData as string;
-
-    // Add users to workspace
-    const s = svc();
-    await s.from("workspace_members").insert([
-      { workspace_id: wsId, user_id: adminUser.id, role: "admin" },
-      { workspace_id: wsId, user_id: memberUser.id, role: "member" },
-    ]);
   });
 
   afterAll(async () => {
-    const s = svc();
-    for (const id of _cleanupIds) {
-      await s.auth.admin.deleteUser(id).catch(() => {});
-    }
+    await measureIntegrationOperation("fixture_cleanup", "project_permissions", async () => {
+      const s = svc();
+      if (wsId) await s.from("workspaces").delete().eq("id", wsId);
+      for (const id of _cleanupIds) {
+        await s.auth.admin.deleteUser(id).catch(() => {});
+      }
+    });
   });
 
   it("owner can create a project", async () => {

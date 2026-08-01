@@ -21,6 +21,9 @@ export interface ProviderRunMeta {
   readonly tokens?: number;
   readonly inputTokens?: number;
   readonly outputTokens?: number;
+  readonly reasoningTokens?: number;
+  readonly cachedInputTokens?: number;
+  readonly cacheWriteInputTokens?: number;
   readonly modelId?: string;
   readonly estimatedCostUsd?: number;
 }

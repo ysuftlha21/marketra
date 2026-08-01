@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  OPENAI_MODEL_IDS,
+  OPENAI_REASONING_EFFORTS,
+  getOpenAiModelDefinition,
+  resolveOpenAiReasoningEffort,
+} from "@/config/openai-models";
 
 const aiProviderSchema = z.enum(["mock", "openai"]);
 const leadProviderSchema = z.enum(["mock", "manual", "csv", "external"]);
@@ -54,10 +60,11 @@ const serverEnvSchema = z
     // AI provider
     DEFAULT_AI_PROVIDER: aiProviderSchema.default("mock"),
     OPENAI_API_KEY: z.string().optional(),
-    OPENAI_MODEL: z.enum(["gpt-4o-mini"]).default("gpt-4o-mini"),
+    OPENAI_MODEL: z.enum(OPENAI_MODEL_IDS).default("gpt-4o-mini"),
+    OPENAI_REASONING_EFFORT: z.enum(OPENAI_REASONING_EFFORTS).optional(),
     OPENAI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
     OPENAI_MAX_RETRIES: z.coerce.number().int().nonnegative().default(3),
-    OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().max(16_384).default(2000),
+    OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().max(16_384).default(800),
     OPENAI_PROMPT_VERSION: z.string().default("v1"),
     OPENAI_PROMPT_VERSION_V2: z.string().default("product-analysis-v2"),
     PRODUCT_ANALYSIS_VERSION: z.string().default("v2"),
@@ -154,6 +161,17 @@ const serverEnvSchema = z
     BUILD_VERSION: z.string().default("development"),
   })
   .superRefine((data, ctx) => {
+    const model = getOpenAiModelDefinition(data.OPENAI_MODEL);
+    if (
+      data.OPENAI_REASONING_EFFORT &&
+      !model.supportedReasoningEfforts.includes(data.OPENAI_REASONING_EFFORT)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["OPENAI_REASONING_EFFORT"],
+        message: "The selected OpenAI model does not support the configured reasoning effort.",
+      });
+    }
     if (
       (data.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter" ||
         data.DEFAULT_BUYER_DISCOVERY_PROVIDER === "hunter" ||
@@ -243,6 +261,10 @@ const serverEnvSchema = z
   .transform(
     ({ RATE_LIMIT_REDIS_KV_REST_API_URL, RATE_LIMIT_REDIS_KV_REST_API_TOKEN, ...data }) => ({
       ...data,
+      OPENAI_REASONING_EFFORT: resolveOpenAiReasoningEffort(
+        data.OPENAI_MODEL,
+        data.OPENAI_REASONING_EFFORT,
+      ),
       RATE_LIMIT_REDIS_URL: data.RATE_LIMIT_REDIS_URL ?? RATE_LIMIT_REDIS_KV_REST_API_URL,
       RATE_LIMIT_REDIS_TOKEN: data.RATE_LIMIT_REDIS_TOKEN ?? RATE_LIMIT_REDIS_KV_REST_API_TOKEN,
     }),

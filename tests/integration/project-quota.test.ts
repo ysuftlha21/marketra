@@ -8,6 +8,7 @@ import {
 } from "@/features/workspaces/services/workspace-usage-service";
 import { getPlan } from "@/config/plans";
 import { authenticateTestClient } from "../utils/test-auth";
+import { measureIntegrationOperation } from "../utils/integration-timing";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -32,47 +33,53 @@ describe("Project Quota and Entitlements", () => {
   let authedClient: SupabaseClient<Database>;
 
   beforeAll(async () => {
-    testUserEmail = `quota-tester-${uid("u")}@example.com`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email: testUserEmail,
-      password: "TestPass123!",
-      email_confirm: true,
-    });
-    if (error) throw error;
-    testUserId = data.user!.id;
-    cleanupUsers.push(testUserId);
+    await measureIntegrationOperation("suite_setup", "project_quota", async () => {
+      testUserEmail = `quota-tester-${uid("u")}@example.com`;
+      const { data, error } = await admin.auth.admin.createUser({
+        email: testUserEmail,
+        password: "TestPass123!",
+        email_confirm: true,
+      });
+      if (error) throw error;
+      testUserId = data.user!.id;
+      cleanupUsers.push(testUserId);
 
-    await admin.from("profiles").insert({ id: testUserId, email: testUserEmail }).maybeSingle();
+      await admin.from("profiles").insert({ id: testUserId, email: testUserEmail }).maybeSingle();
 
-    // Sign in once and reuse client throughout the suite
-    authedClient = createClient<Database>(SUPABASE_URL, ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
+      // Sign in once and reuse client throughout the suite
+      authedClient = createClient<Database>(SUPABASE_URL, ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      await authenticateTestClient(authedClient, testUserEmail, "TestPass123!");
     });
-    await authenticateTestClient(authedClient, testUserEmail, "TestPass123!");
   });
 
   afterAll(async () => {
-    for (const id of cleanupWorkspaces) {
-      try {
-        await admin.from("workspaces").delete().eq("id", id);
-      } catch {
-        /* best-effort cleanup */
+    await measureIntegrationOperation("fixture_cleanup", "project_quota", async () => {
+      for (const id of cleanupWorkspaces) {
+        try {
+          await admin.from("workspaces").delete().eq("id", id);
+        } catch {
+          /* best-effort cleanup */
+        }
       }
-    }
-    for (const id of cleanupUsers) {
-      await admin.auth.admin.deleteUser(id).catch(() => {});
-    }
+      for (const id of cleanupUsers) {
+        await admin.auth.admin.deleteUser(id).catch(() => {});
+      }
+    });
   });
 
   async function createTestWorkspace(): Promise<string> {
-    const { data, error } = await authedClient.rpc("create_workspace", {
-      p_name: "Quota Test WS",
-      p_slug: uid("qws"),
+    return measureIntegrationOperation("fixture_workspace", "project_quota_workspace", async () => {
+      const { data, error } = await authedClient.rpc("create_workspace", {
+        p_name: "Quota Test WS",
+        p_slug: uid("qws"),
+      });
+      if (error) throw new Error(`create_workspace failed: ${error.message}`);
+      const wsId = data as string;
+      cleanupWorkspaces.push(wsId);
+      return wsId;
     });
-    if (error) throw new Error(`create_workspace failed: ${error.message}`);
-    const wsId = data as string;
-    cleanupWorkspaces.push(wsId);
-    return wsId;
   }
 
   // Helper: consume N units against a workspace using the service-role client

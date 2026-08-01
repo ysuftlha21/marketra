@@ -23,6 +23,7 @@ import {
 import { getProjectCompanyOutreachContext } from "@/features/companies/repository/company-repository";
 import { createServiceRoleClient } from "@/lib/db/supabase-service";
 import { getWorkspaceUsageWithClient } from "@/features/workspaces/services/workspace-usage-service";
+import { measureIntegrationOperation } from "../../utils/integration-timing";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "dummy";
@@ -74,21 +75,27 @@ describe("Phase 8.2 action/integration tests", () => {
   let ownerClient: SupabaseClient<Database>;
 
   beforeAll(async () => {
-    ctx = await buildOutreachIntegrationContext("p82act");
+    await measureIntegrationOperation("suite_setup", "outreach_actions", async () => {
+      ctx = await buildOutreachIntegrationContext("p82act");
 
-    ownerClient = createClient<Database>(URL, ANON_KEY, {
-      auth: { storageKey: "p82act-owner", autoRefreshToken: false, persistSession: false },
+      ownerClient = createClient<Database>(URL, ANON_KEY, {
+        auth: { storageKey: "p82act-owner", autoRefreshToken: false, persistSession: false },
+      });
+      await authenticateTestClient(ownerClient, ctx.ownerEmail, "Pass123!");
+
+      // Set globals for mock
+      _mockActiveUser = { id: ctx.ownerUserId, email: ctx.ownerEmail };
+      _mockActiveWorkspace = { workspace: { id: ctx.wsId }, role: "owner" };
+      _mockServerClient = ownerClient;
     });
-    await authenticateTestClient(ownerClient, ctx.ownerEmail, "Pass123!");
-
-    // Set globals for mock
-    _mockActiveUser = { id: ctx.ownerUserId, email: ctx.ownerEmail };
-    _mockActiveWorkspace = { workspace: { id: ctx.wsId }, role: "owner" };
-    _mockServerClient = ownerClient;
   });
 
   afterAll(async () => {
-    if (ctx) await cleanupOutreachIntegrationContext(ctx);
+    if (ctx) {
+      await measureIntegrationOperation("fixture_cleanup", "outreach_actions", () =>
+        cleanupOutreachIntegrationContext(ctx),
+      );
+    }
   });
 
   const formDefaults = {

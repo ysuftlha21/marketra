@@ -68,6 +68,20 @@ npm run test:e2e -- <suite>   # when the feature is testable end to end
 - Repositories: integration tests where local Supabase is available.
 - Components: lightweight behavior tests for the six states; avoid snapshot sprawl.
 
+## 7.1 Supabase integration runtime
+
+- `npm run test:unit` excludes `tests/integration`; pure unit files may run in parallel.
+- `npm run test:integration` uses `vitest.integration.config.ts` with one worker and serial file
+  execution. This bounds concurrent Auth and database traffic against the shared test project.
+- Individual Supabase HTTP requests abort after 15 seconds. Integration tests use a 20-second test
+  timeout and 30-second hook/teardown timeouts so multi-request fixture setup and cleanup remain
+  bounded without weakening assertions.
+- Set `INTEGRATION_TIMING_DIAGNOSTICS=true` only while diagnosing infrastructure latency. Timing
+  records contain allowlisted operation categories and durations only; URLs, identities, payloads,
+  credentials, and provider responses are never logged.
+- Fixtures must delete workspace-owned rows before deleting temporary Auth users. Cleanup remains
+  best-effort only after the test assertions have completed and must never mask an assertion failure.
+
 ## 8. E2E suites
 
 Outreach E2E fixtures use isolated workspaces and the approved test-Supabase guard. The Mock provider

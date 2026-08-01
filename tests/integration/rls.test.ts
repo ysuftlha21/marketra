@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 import { authenticateTestClient } from "../utils/test-auth";
+import { measureIntegrationOperation } from "../utils/integration-timing";
 
 const HAS_SUPABASE = !!(
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -41,11 +42,10 @@ async function createUser(
   if (!data.user) throw new Error("Failed to create test user");
 
   // Explicitly create profile + preferences (the custom trigger may not fire for admin-created users)
-  await admin
-    .from("profiles")
-    .insert({ id: data.user.id, email, display_name: email })
-    .maybeSingle();
-  await admin.from("user_preferences").insert({ user_id: data.user.id }).maybeSingle();
+  await Promise.all([
+    admin.from("profiles").insert({ id: data.user.id, email, display_name: email }).maybeSingle(),
+    admin.from("user_preferences").insert({ user_id: data.user.id }).maybeSingle(),
+  ]);
 
   const client = createClient<Database>(URL, ANON_KEY, {
     auth: { storageKey: `rls-test-${email}`, autoRefreshToken: false, persistSession: false },
@@ -68,16 +68,19 @@ async function addMember(
 ): Promise<void> {
   // Use service client to bypass RLS and add a member.
   // Upsert to handle any leftover data from interrupted test runs.
-  await svc()
-    .from("workspace_members")
-    .upsert(
-      { workspace_id: workspaceId, user_id: userId, role },
-      { onConflict: "workspace_id, user_id" },
-    );
-  await svc()
-    .from("user_preferences")
-    .update({ active_workspace_id: workspaceId })
-    .eq("user_id", userId);
+  const admin = svc();
+  await Promise.all([
+    admin
+      .from("workspace_members")
+      .upsert(
+        { workspace_id: workspaceId, user_id: userId, role },
+        { onConflict: "workspace_id, user_id" },
+      ),
+    admin
+      .from("user_preferences")
+      .update({ active_workspace_id: workspaceId })
+      .eq("user_id", userId),
+  ]);
 }
 
 async function cleanupUser(userId: string): Promise<void> {
@@ -110,32 +113,39 @@ if (!HAS_SUPABASE) {
     let wsBId: string;
 
     beforeAll(async () => {
-      const a = await createUser(emailA, PWD);
-      userAId = a.userId;
-      clientA = a.client;
+      await measureIntegrationOperation("suite_setup", "rls_tenant_isolation", async () => {
+        // Two concurrent principals keep setup bounded without creating an Auth request burst.
+        const [a, b] = await Promise.all([createUser(emailA, PWD), createUser(emailB, PWD)]);
+        userAId = a.userId;
+        clientA = a.client;
+        userBId = b.userId;
+        clientB = b.client;
 
-      const b = await createUser(emailB, PWD);
-      userBId = b.userId;
-      clientB = b.client;
+        const m = await createUser(emailM, PWD);
+        memberUserId = m.userId;
+        clientM = m.client;
 
-      const m = await createUser(emailM, PWD);
-      memberUserId = m.userId;
-      clientM = m.client;
+        [wsAId, wsBId] = await Promise.all([
+          ws(clientA, `WS A ${uid("n")}`, `ws-a-${uid("n")}`),
+          ws(clientB, `WS B ${uid("n")}`, `ws-b-${uid("n")}`),
+        ]);
 
-      wsAId = await ws(clientA, `WS A ${uid("n")}`, `ws-a-${uid("n")}`);
-      wsBId = await ws(clientB, `WS B ${uid("n")}`, `ws-b-${uid("n")}`);
-
-      // Add member user to Workspace A as a regular member (not owner/admin)
-      await addMember(wsAId, memberUserId, "member");
+        // Add member user to Workspace A as a regular member (not owner/admin)
+        await addMember(wsAId, memberUserId, "member");
+      });
     }, 60000);
 
     afterAll(async () => {
-      const admin = svc();
-      await admin.from("workspaces").delete().eq("id", wsAId);
-      await admin.from("workspaces").delete().eq("id", wsBId);
-      await cleanupUser(userAId);
-      await cleanupUser(userBId);
-      await cleanupUser(memberUserId);
+      await measureIntegrationOperation("fixture_cleanup", "rls_tenant_isolation", async () => {
+        const admin = svc();
+        await Promise.all([
+          wsAId ? admin.from("workspaces").delete().eq("id", wsAId) : Promise.resolve(),
+          wsBId ? admin.from("workspaces").delete().eq("id", wsBId) : Promise.resolve(),
+        ]);
+        await Promise.all(
+          [userAId, userBId, memberUserId].filter(Boolean).map((id) => cleanupUser(id)),
+        );
+      });
     }, 30000);
 
     it("1. User A can read their own profile", async () => {

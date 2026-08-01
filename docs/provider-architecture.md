@@ -128,6 +128,9 @@ integrations yet. No API keys required to run the app locally on mocks.
 - OpenAI and SMTP have separate opt-in smoke scripts; deterministic CI never requires credentials.
 - OpenAI output is operation-schema validated, token/cost accounted, timeout/retry bounded, and
   capped by `OPENAI_MAX_OUTPUT_TOKENS`.
+- The centralized OpenAI registry routes GPT-5.6 Luna/Terra/Sol (and the Sol family alias) through
+  the Responses API with model-compatible reasoning and strict structured output. The supported
+  legacy `gpt-4o-mini` path remains on Chat Completions without reasoning parameters.
 - SMTP validates headers and recipients, permits only application-owned transactional categories,
   assigns operation IDs, and never sends prospect Outreach automatically.
 - The Redis rate-limit adapter is vendor-neutral at the feature boundary, timeout bounded, uses an

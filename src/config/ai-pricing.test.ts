@@ -7,6 +7,7 @@ describe("AI pricing metadata", () => {
   });
   it("returns null for unknown models or token counts", () => {
     expect(getAiModelPrice("openai", "unknown")).toBeNull();
+    expect(getAiModelPrice("openai", "gpt-5.6-luna")).toBeNull();
     expect(estimateAiCostUsd("openai", "unknown", 1, 1)).toBeNull();
     expect(estimateAiCostUsd("openai", "gpt-4o-mini", undefined, 1)).toBeNull();
   });

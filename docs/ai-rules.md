@@ -9,7 +9,9 @@
   `lib/providers/ai/`.
 - Services call the `AiProvider` interface. They **never** import an AI SDK, reference a model
   name, or pass vendor params.
-- Model selection is env-driven: `OPENAI_MODEL=gpt-4o-mini` (planned default).
+- Model selection is env-driven through the typed registry in `src/config/openai-models.ts`.
+  Production product-analysis recommendation: `gpt-5.6-luna`, low reasoning, and an 800-token
+  output cap. `gpt-4o-mini` remains a supported legacy route.
 - The factory returns the configured provider (mock by default in foundation).
 
 ## 2. Structured, validated output
@@ -35,7 +37,8 @@
 
 ## 5. Token usage & cost tracking
 
-- Each AI run records: provider, model, prompt version, token counts (prompt/completion/total),
+- Each AI run records: provider, model, prompt version, token counts
+  (input/output/total and cached/reasoning details when returned),
   estimated cost, status, and correlation id — in `ai_runs` (no secret payloads).
 - Feature limits cross-reference this table for usage controls. See `docs/database-rules.md`.
 
@@ -90,14 +93,25 @@ never secretly determined by the model.
 - Errors returned to the client never include raw provider responses, key fragments, or stack
   traces that reveal internal prompts.
 
-## 10. Privacy & safety
+## 10. OpenAI API compatibility
+
+- GPT-5.6 models use the Responses API with strict JSON Schema structured output,
+  `max_output_tokens`, and explicit `reasoning.effort`.
+- The legacy `gpt-4o-mini` route keeps Chat Completions, JSON-object mode, and
+  `max_completion_tokens`; reasoning parameters are never sent to it.
+- Reasoning compatibility is validated centrally. Product prompts request only the final JSON
+  contract and never ask for verbose reasoning output.
+- Pricing is versioned separately in `src/config/ai-pricing.ts`. Unknown GPT-5.6 pricing remains
+  `null` until authoritative pricing metadata is deliberately added.
+
+## 11. Privacy & safety
 
 - Don't send unnecessary personal data to AI providers.
 - Don't log raw personal data in `ai_runs`.
 - Outreach generation works from public company/role context — never from unlawfully scraped
   personal contact data.
 
-## 11. Testing
+## 12. Testing
 
 - Mock AI provider returns deterministic, Zod-valid results.
 - Real provider (when added) runs behind the same interface contract tests.

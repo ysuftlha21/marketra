@@ -65,6 +65,30 @@ describe("parseServerEnv", () => {
 
   it("defaults OPENAI_MODEL to gpt-4o-mini", () => {
     expect(parseServerEnv({}).OPENAI_MODEL).toBe("gpt-4o-mini");
+    expect(parseServerEnv({}).OPENAI_REASONING_EFFORT).toBeUndefined();
+  });
+
+  it.each(["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6"] as const)(
+    "accepts supported GPT-5.6 model %s with low reasoning by default",
+    (model) => {
+      const env = parseServerEnv({ OPENAI_MODEL: model });
+      expect(env.OPENAI_MODEL).toBe(model);
+      expect(env.OPENAI_REASONING_EFFORT).toBe("low");
+    },
+  );
+
+  it("preserves the supported legacy OpenAI model", () => {
+    expect(parseServerEnv({ OPENAI_MODEL: "gpt-4o-mini" }).OPENAI_MODEL).toBe("gpt-4o-mini");
+  });
+
+  it("validates reasoning effort compatibility centrally", () => {
+    expect(
+      parseServerEnv({ OPENAI_MODEL: "gpt-5.6-luna", OPENAI_REASONING_EFFORT: "none" })
+        .OPENAI_REASONING_EFFORT,
+    ).toBe("none");
+    expect(() =>
+      parseServerEnv({ OPENAI_MODEL: "gpt-4o-mini", OPENAI_REASONING_EFFORT: "low" }),
+    ).toThrow(EnvironmentValidationError);
   });
 
   it("defaults OPENAI_PROMPT_VERSION to v1", () => {
