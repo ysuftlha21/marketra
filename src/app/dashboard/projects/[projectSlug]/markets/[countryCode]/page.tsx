@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Play,
   RotateCcw,
   BarChart3,
   Star,
@@ -19,6 +18,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { getTargetCountryService } from "@/features/markets/services/market-service";
 import {
   getLatestMarketAnalysisRun,
+  getLatestSuccessfulMarketAnalysisRun,
   listMarketAnalysisRuns,
 } from "@/features/markets/repository/market-repository";
 import { getCountry } from "@/config/countries";
@@ -34,16 +34,19 @@ import {
   rejectCountryAction,
   restoreCountryAction,
   updateTargetCountryAction,
-  runMarketAnalysisAction,
   retryMarketAnalysisAction,
 } from "@/features/markets/api/market-actions";
+import { RunMarketAnalysisForm } from "@/features/markets/components/run-market-analysis-form";
 import {
   canStartAnalysis,
   canShortlist,
   canReject,
   canRestore,
 } from "@/features/markets/domain/target-country-status";
-import type { CountryMarketAnalysisResult } from "@/features/markets/schema/market-analysis-schemas";
+import {
+  countryMarketAnalysisResultSchema,
+  type CountryMarketAnalysisResult,
+} from "@/features/markets/schema/market-analysis-schemas";
 
 interface PageProps {
   params: Promise<{ projectSlug: string; countryCode: string }>;
@@ -57,9 +60,12 @@ export default async function MarketCountryPage({ params }: PageProps) {
   const { tc, project } = result;
   const wsId = ctx?.activeWorkspace?.workspace.id;
   const latestRun = wsId ? await getLatestMarketAnalysisRun(wsId, tc.id) : null;
+  const latestCompletedRun = wsId ? await getLatestSuccessfulMarketAnalysisRun(wsId, tc.id) : null;
   const history = wsId ? await listMarketAnalysisRuns(wsId, tc.id, 10) : [];
   const cat = getCountry(countryCode);
   const status = tc.status as Parameters<typeof canStartAnalysis>[0];
+  const displayRun = latestCompletedRun ?? (latestRun?.status === "succeeded" ? latestRun : null);
+  const parsedOutput = countryMarketAnalysisResultSchema.safeParse(displayRun?.output);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -75,13 +81,17 @@ export default async function MarketCountryPage({ params }: PageProps) {
         description={`Market analysis for ${project.name}`}
         actions={
           <div className="flex flex-wrap gap-2">
-            <form action={runMarketAnalysisAction}>
-              <input type="hidden" name="projectSlug" value={projectSlug} />
-              <input type="hidden" name="countryId" value={tc.id} />
-              <Button type="submit" disabled={!canStartAnalysis(status)}>
-                <Play className="h-4 w-4" /> Run analysis
-              </Button>
-            </form>
+            {latestRun?.status === "failed" ? (
+              <RunMarketAnalysisForm projectSlug={projectSlug} countryId={tc.id} mode="retry" />
+            ) : latestRun?.status === "pending" || latestRun?.status === "running" ? (
+              <RunMarketAnalysisForm projectSlug={projectSlug} countryId={tc.id} disabled />
+            ) : (
+              <RunMarketAnalysisForm
+                projectSlug={projectSlug}
+                countryId={tc.id}
+                disabled={!canStartAnalysis(status)}
+              />
+            )}
             {canShortlist(status) && (
               <form action={shortlistCountryAction}>
                 <input type="hidden" name="projectSlug" value={projectSlug} />
@@ -199,7 +209,7 @@ export default async function MarketCountryPage({ params }: PageProps) {
               <RotateCcw className="h-5 w-5 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Analysis running…</p>
             </div>
-          ) : latestRun.status === "failed" ? (
+          ) : latestRun.status === "failed" && !latestCompletedRun ? (
             <div className="space-y-3">
               <div className="rounded-lg border border-danger/20 bg-danger/5 p-4">
                 <p className="text-sm font-semibold text-danger">Analysis failed</p>
@@ -215,8 +225,15 @@ export default async function MarketCountryPage({ params }: PageProps) {
                 </Button>
               </form>
             </div>
-          ) : latestRun.output ? (
-            <AnalysisDisplay output={latestRun.output as unknown as CountryMarketAnalysisResult} />
+          ) : parsedOutput.success ? (
+            <AnalysisDisplay output={parsedOutput.data} />
+          ) : displayRun ? (
+            <div className="rounded-lg border border-warning/20 bg-warning/5 p-4">
+              <p className="text-sm font-semibold text-warning">Analysis output unavailable</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                This saved analysis cannot be displayed safely. Retry the analysis to refresh it.
+              </p>
+            </div>
           ) : null}
         </CardContent>
       </Card>

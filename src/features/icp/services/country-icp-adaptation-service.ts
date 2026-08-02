@@ -1,4 +1,4 @@
-import { getLatestMarketAnalysisRun } from "@/features/markets/repository/market-repository";
+import { getLatestSuccessfulMarketAnalysisRun } from "@/features/markets/repository/market-repository";
 import {
   createIcpProfile,
   getLatestApprovedIcpProfile,
@@ -34,7 +34,7 @@ export async function adaptApprovedProjectIcpToCountry(input: {
 
   const [source, marketRun] = await Promise.all([
     getLatestApprovedProjectIcpProfile(input.workspaceId, input.projectId, input.targetCountryId),
-    getLatestMarketAnalysisRun(input.workspaceId, input.targetCountryId),
+    getLatestSuccessfulMarketAnalysisRun(input.workspaceId, input.targetCountryId),
   ]);
   if (!source) {
     const incomplete = await getLatestProjectIcpProfile(

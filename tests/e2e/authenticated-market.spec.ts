@@ -242,11 +242,12 @@ test.describe("Market flows — desktop (authenticated)", () => {
     }
     const slug = url.split("/").pop() ?? "";
     await page.goto(`/dashboard/projects/${slug}/markets`);
-    // Run analysis button or shortlist/reject should be present for analyzed countries
+    // Every selected market exposes an analysis entry point or post-analysis controls.
     await expect(
       page
         .getByRole("button", { name: /shortlist/i })
-        .or(page.getByRole("button", { name: /run analysis/i })),
+        .or(page.getByRole("button", { name: /analyze market/i }))
+        .or(page.getByRole("link", { name: /view analysis/i })),
     ).toBeVisible({ timeout: 5000 });
   });
 });

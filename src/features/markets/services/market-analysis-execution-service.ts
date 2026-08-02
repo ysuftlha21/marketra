@@ -17,6 +17,7 @@ import { canStartAnalysis, type TargetCountryStatus } from "../domain/target-cou
 import { enforceRateLimit } from "@/lib/security/rate-limit-service";
 import { recordProviderUsage } from "@/features/ai-usage/services/ai-usage-service";
 import type { ProviderRunMeta } from "@/lib/providers/provider-types";
+import { AiProviderError } from "@/lib/providers/ai/openai-client";
 
 export interface MarketAnalysisContext {
   workspaceId: string;
@@ -42,7 +43,11 @@ export type MarketAnalysisErrorCode =
 
 export class MarketAnalysisServiceError extends Error {
   readonly code: MarketAnalysisErrorCode;
-  constructor(code: MarketAnalysisErrorCode, message: string) {
+  constructor(
+    code: MarketAnalysisErrorCode,
+    message: string,
+    readonly safeReference?: string,
+  ) {
     super(message);
     this.name = "MarketAnalysisServiceError";
     this.code = code;
@@ -84,6 +89,12 @@ export async function runMarketAnalysis(
       "country_not_found",
       safeMarketAnalysisError("country_not_found"),
     );
+  if (tc.project_id !== ctx.projectId) {
+    throw new MarketAnalysisServiceError(
+      "country_not_found",
+      safeMarketAnalysisError("country_not_found"),
+    );
+  }
   if (!canStartAnalysis(tc.status as TargetCountryStatus)) {
     throw new MarketAnalysisServiceError(
       "analysis_already_running",
@@ -223,6 +234,35 @@ export async function runMarketAnalysis(
       aiInput,
     )) as unknown as typeof providerResult;
   } catch (err) {
+    if (err instanceof AiProviderError) {
+      const reference =
+        err.code === "invalid_api_key"
+          ? "AI-PROVIDER-AUTH"
+          : err.code === "model_not_found" || err.code === "model_access_denied"
+            ? "AI-PROVIDER-MODEL"
+            : err.code === "insufficient_quota"
+              ? "AI-PROVIDER-QUOTA"
+              : err.code === "rate_limited"
+                ? "AI-PROVIDER-RATE"
+                : err.code === "timeout"
+                  ? "AI-PROVIDER-TIMEOUT"
+                  : err.code === "structured_output_invalid"
+                    ? "AI-PROVIDER-OUTPUT"
+                    : "AI-PROVIDER-UNAVAILABLE";
+      const code: MarketAnalysisErrorCode =
+        err.code === "timeout"
+          ? "provider_timeout"
+          : err.code === "structured_output_invalid"
+            ? "invalid_provider_response"
+            : "ai_provider_unavailable";
+      await updateMarketAnalysisRun(ctx.workspaceId, run.id, {
+        status: "failed",
+        error_code: code,
+        safe_error_message: safeMarketAnalysisError(code),
+        completed_at: new Date().toISOString(),
+      }).catch(() => undefined);
+      throw new MarketAnalysisServiceError(code, safeMarketAnalysisError(code), reference);
+    }
     const message =
       err && typeof err === "object" && "message" in err ? String(err.message) : "Unknown error";
     const code: MarketAnalysisErrorCode = message.includes("timeout")

@@ -19,7 +19,7 @@ vi.mock("../repository/icp-repository", () => ({
   createIcpProfile: mocks.create,
 }));
 vi.mock("@/features/markets/repository/market-repository", () => ({
-  getLatestMarketAnalysisRun: mocks.market,
+  getLatestSuccessfulMarketAnalysisRun: mocks.market,
 }));
 
 const source = {

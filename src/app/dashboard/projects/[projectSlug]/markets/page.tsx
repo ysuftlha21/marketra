@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, BarChart3, Star, XCircle, RotateCcw } from "lucide-react";
+import { ArrowLeft, BarChart3, Star, XCircle, RotateCcw, ArrowRight } from "lucide-react";
 import { getAuthContext } from "@/lib/auth/session";
 import { getProjectService } from "@/features/projects/services/project-service";
 import { listProjectTargetCountriesService } from "@/features/markets/services/market-service";
@@ -9,7 +9,9 @@ import { PageHeader } from "@/components/common/page-header";
 import { StatusBadge } from "@/components/common/status-badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils/cn";
+import { RunMarketAnalysisForm } from "@/features/markets/components/run-market-analysis-form";
 import {
   removeTargetCountryAction,
   shortlistCountryAction,
@@ -29,6 +31,7 @@ export default async function MarketsPage({ params }: PageProps) {
   const project = await getProjectService(projectSlug);
   if (!project) notFound();
   const marketList = await listProjectTargetCountriesService(projectSlug);
+  const analyzedCount = marketList.filter((market) => market.has_completed_analysis).length;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -42,11 +45,23 @@ export default async function MarketsPage({ params }: PageProps) {
         title="Target Markets"
         description={`${project.name} — select and analyze target countries.`}
         actions={
-          <Link href={`/dashboard/projects/${projectSlug}/markets/compare`}>
-            <Button variant="outline" size="sm">
+          analyzedCount >= 2 ? (
+            <Link
+              href={`/dashboard/projects/${projectSlug}/markets/compare`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
               <BarChart3 className="h-4 w-4" /> Compare
+            </Link>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled
+              title="Analyze at least two markets before comparing them."
+            >
+              <BarChart3 className="h-4 w-4" /> Compare · {analyzedCount}/2 analyzed
             </Button>
-          </Link>
+          )
         }
       />
 
@@ -85,24 +100,58 @@ function CountryRow({
 }) {
   const cat = getCountry(country.country_code);
   return (
-    <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">
-      <div className="flex items-center gap-3 min-w-0">
-        <Link
-          href={`/dashboard/projects/${projectSlug}/markets/${country.country_code}`}
-          className="truncate text-sm font-medium text-foreground hover:text-primary"
-        >
-          {cat?.name ?? country.country_name}{" "}
-          <span className="text-xs text-muted-foreground">({country.country_code})</span>
-        </Link>
-        <StatusBadge status={country.status} />
-        {country.latest_recommendation && (
-          <span className="hidden sm:inline text-xs text-muted-foreground">
-            <Star className="inline h-3 w-3" /> {country.latest_recommendation} (
-            {country.latest_confidence ?? "?"})
-          </span>
-        )}
+    <div className="flex flex-col gap-4 rounded-md border border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 space-y-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link
+            href={`/dashboard/projects/${projectSlug}/markets/${country.country_code}`}
+            className="truncate text-sm font-medium text-foreground hover:text-primary"
+          >
+            {cat?.name ?? country.country_name}{" "}
+            <span className="text-xs text-muted-foreground">({country.country_code})</span>
+          </Link>
+          <StatusBadge status={country.status} />
+          {country.latest_recommendation && (
+            <span className="hidden sm:inline text-xs text-muted-foreground">
+              <Star className="inline h-3 w-3" /> {country.latest_recommendation} (
+              {country.latest_confidence ?? "?"})
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>Analysis: {analysisStatusLabel(country.latest_analysis_status)}</span>
+          {country.last_analyzed_at && (
+            <span>· {new Date(country.last_analyzed_at).toLocaleDateString()}</span>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-1 ml-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 sm:ml-2 sm:justify-end">
+        {!country.latest_analysis_status && (
+          <RunMarketAnalysisForm projectSlug={projectSlug} countryId={country.id} />
+        )}
+        {(country.latest_analysis_status === "pending" ||
+          country.latest_analysis_status === "running") && (
+          <RunMarketAnalysisForm projectSlug={projectSlug} countryId={country.id} disabled />
+        )}
+        {country.latest_analysis_status === "failed" && (
+          <RunMarketAnalysisForm projectSlug={projectSlug} countryId={country.id} mode="retry" />
+        )}
+        {country.latest_analysis_status === "failed" && country.has_completed_analysis && (
+          <Link
+            href={`/dashboard/projects/${projectSlug}/markets/${country.country_code}`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            View last analysis
+          </Link>
+        )}
+        {country.latest_analysis_status === "succeeded" && (
+          <Link
+            href={`/dashboard/projects/${projectSlug}/markets/${country.country_code}`}
+            className={cn(buttonVariants({ size: "sm" }))}
+          >
+            View analysis <ArrowRight className="h-4 w-4" />
+          </Link>
+        )}
         {country.status === "analyzed" && (
           <form action={shortlistCountryAction}>
             <input type="hidden" name="projectSlug" value={projectSlug} />
@@ -142,4 +191,11 @@ function CountryRow({
       </div>
     </div>
   );
+}
+
+function analysisStatusLabel(status: TargetCountrySummary["latest_analysis_status"]): string {
+  if (status === "succeeded") return "Analysis ready";
+  if (status === "pending" || status === "running") return "Analyzing";
+  if (status === "failed") return "Analysis failed";
+  return "Not analyzed";
 }

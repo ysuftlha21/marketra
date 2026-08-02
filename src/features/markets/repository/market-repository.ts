@@ -64,6 +64,7 @@ export interface TargetCountrySummary {
   latest_recommendation: string | null;
   latest_confidence: string | null;
   last_analyzed_at: string | null;
+  has_completed_analysis: boolean;
 }
 
 // ── Target Countries ──────────────────────────────────────────────
@@ -192,8 +193,10 @@ export async function listProjectTargetCountries(
       completedAt: string | null;
     }
   >();
+  const completedCountryIds = new Set<string>();
   for (const run of latestRuns ?? []) {
     const ptcId = (run as Record<string, unknown>).project_target_country_id as string;
+    if ((run as Record<string, unknown>).status === "succeeded") completedCountryIds.add(ptcId);
     if (!runMap.has(ptcId)) {
       const output = (run as Record<string, unknown>).output as Record<string, unknown> | null;
       runMap.set(ptcId, {
@@ -224,6 +227,7 @@ export async function listProjectTargetCountries(
       latest_recommendation: runInfo?.recommendation ?? null,
       latest_confidence: runInfo?.confidence ?? null,
       last_analyzed_at: runInfo?.completedAt ?? null,
+      has_completed_analysis: completedCountryIds.has(r.id),
     };
   });
 }
@@ -310,6 +314,27 @@ export async function getLatestMarketAnalysisRun(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  return (data as unknown as MarketAnalysisRunRow) ?? null;
+}
+
+/** Latest completed analysis remains canonical even when a newer retry failed. */
+export async function getLatestSuccessfulMarketAnalysisRun(
+  wsId: string,
+  targetCountryId: string,
+): Promise<MarketAnalysisRunRow | null> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("market_analysis_runs")
+    .select(
+      "id, workspace_id, project_id, project_target_country_id, requested_by, provider, model, analysis_version, prompt_version, status, input_snapshot, intelligence_snapshot, output, error_code, safe_error_message, source_metadata, input_tokens, output_tokens, estimated_cost, started_at, completed_at, created_at, updated_at",
+    )
+    .eq("workspace_id", wsId)
+    .eq("project_target_country_id", targetCountryId)
+    .eq("status", "succeeded")
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
   return (data as unknown as MarketAnalysisRunRow) ?? null;
 }
 

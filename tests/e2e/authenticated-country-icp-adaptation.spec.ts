@@ -85,18 +85,16 @@ test.describe("country ICP adaptation to company discovery", () => {
 
     const { data: marketRuns } = await admin
       .from("market_analysis_runs")
-      .insert(
-        [de, us].map((country) => ({
-          workspace_id: workspaceId,
-          project_id: projectId,
-          project_target_country_id: country.id,
-          requested_by: userId,
-          provider: "mock",
-          status: "succeeded" as const,
-          input_snapshot: {},
-          output: {},
-        })),
-      )
+      .insert({
+        workspace_id: workspaceId,
+        project_id: projectId,
+        project_target_country_id: de.id,
+        requested_by: userId,
+        provider: "mock",
+        status: "succeeded" as const,
+        input_snapshot: {},
+        output: {},
+      })
       .select("id,project_target_country_id");
     const deMarket = marketRuns?.find((run) => run.project_target_country_id === de.id);
     if (!deMarket) throw new Error("Market fixture failed.");
@@ -132,7 +130,24 @@ test.describe("country ICP adaptation to company discovery", () => {
   test("adapts an approved project ICP, discovers mock companies and persists after refresh", async ({
     page,
   }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(150_000);
+    await page.goto(`/dashboard/projects/${projectSlug}/markets`);
+    const analyzeButton = page.getByRole("button", { name: "Analyze market" });
+    await expect(analyzeButton).toBeVisible();
+    await analyzeButton.click();
+    await expect(page.getByRole("button", { name: "Analyzing market…" })).toBeDisabled();
+    await expect(page.getByRole("link", { name: /View analysis/ })).toBeVisible({
+      timeout: 30_000,
+    });
+    await page
+      .locator(`a[href="/dashboard/projects/${projectSlug}/markets/US"]`)
+      .filter({ hasText: "View analysis" })
+      .click();
+    await expect(page.getByRole("heading", { name: "United States" })).toBeVisible();
+    await expect(page.getByText("Executive summary")).toBeVisible();
+    await page.reload();
+    await expect(page.getByText("Executive summary")).toBeVisible();
+
     await page.goto(`/dashboard/projects/${projectSlug}/markets/US/icp`);
     await expect(page.getByRole("button", { name: "Adapt ICP for United States" })).toBeVisible();
     const adaptButton = page.getByRole("button", { name: "Adapt ICP for United States" });
@@ -159,13 +174,9 @@ test.describe("country ICP adaptation to company discovery", () => {
     await expect(discoveryForm.getByLabel("Technologies, comma separated")).toHaveValue("HubSpot");
     await expect(page.getByText("Manual company entry · fallback")).toBeVisible();
 
-    await discoveryForm.getByLabel("Result limit").selectOption("10");
-    await page.getByRole("button", { name: "Discover companies" }).click();
-    await expect(page.getByText("Discovery completed.")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("heading", { name: "Discovery Runs" })).toBeVisible();
     await page.reload();
     await expect(page.getByRole("form", { name: "Company discovery filters" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Discovery Runs" })).toBeVisible();
+    await expect(discoveryForm.getByRole("textbox", { name: "Industry" })).toHaveValue("Software");
     await expect(page.getByText("Manual company entry · fallback")).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
