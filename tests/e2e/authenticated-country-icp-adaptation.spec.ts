@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/lib/db/supabase-service";
 const ALLOWED_TEST_PROJECT = "jwgnifnnmhudamthzjzj";
 let projectSlug = "";
 let projectId = "";
+let targetCountryId = "";
 
 test.describe("country ICP adaptation to company discovery", () => {
   test.beforeAll(async () => {
@@ -80,6 +81,7 @@ test.describe("country ICP adaptation to company discovery", () => {
     const de = countries?.find((country) => country.country_code === "DE");
     const us = countries?.find((country) => country.country_code === "US");
     if (!de || !us || !productRun) throw new Error("Country fixture failed.");
+    targetCountryId = us.id;
 
     const { data: marketRuns } = await admin
       .from("market_analysis_runs")
@@ -131,11 +133,24 @@ test.describe("country ICP adaptation to company discovery", () => {
     page,
   }) => {
     test.setTimeout(90_000);
-    await page.goto(`/dashboard/projects/${projectSlug}/markets/US/discovery`);
+    await page.goto(`/dashboard/projects/${projectSlug}/markets/US/icp`);
     await expect(page.getByRole("button", { name: "Adapt ICP for United States" })).toBeVisible();
-    await expect(page.getByRole("form", { name: "Company discovery filters" })).toHaveCount(0);
+    const adaptButton = page.getByRole("button", { name: "Adapt ICP for United States" });
+    await adaptButton.click();
+    await expect(page.getByRole("button", { name: "Creating ICP…" })).toBeDisabled();
+    await expect(page.getByText(/Approved canonical SaaS ICP/)).toBeVisible({ timeout: 30_000 });
+    await page.reload();
+    await expect(page.getByText(/Approved canonical SaaS ICP/)).toBeVisible();
+    await expect(page.getByRole("button", { name: /Adapt ICP/ })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Adapt ICP for United States" }).click();
+    const admin = createServiceRoleClient();
+    const { count } = await admin
+      .from("icp_profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("project_target_country_id", targetCountryId);
+    expect(count).toBe(1);
+
+    await page.goto(`/dashboard/projects/${projectSlug}/markets/US/discovery`);
     await expect(page.getByRole("form", { name: "Company discovery filters" })).toBeVisible({
       timeout: 30_000,
     });

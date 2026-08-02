@@ -240,6 +240,22 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
         />
       )}
 
+      {icpReadiness.state === "source_incomplete" && (
+        <EmptyState
+          icon={Info}
+          title="Complete source ICP"
+          description={`Finish the required source sections: ${icpReadiness.incompleteSections.join(", ")}.`}
+          action={
+            <Link
+              href={`/dashboard/projects/${projectSlug}/markets/${icpReadiness.sourceProfile.country_code}/icp`}
+              className={buttonVariants()}
+            >
+              Complete source ICP
+            </Link>
+          }
+        />
+      )}
+
       {icpReadiness.state === "inaccessible" && (
         <EmptyState
           icon={Info}

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Play, RotateCcw, CheckCircle, XCircle, Target } from "lucide-react";
+import { ArrowLeft, RotateCcw, CheckCircle, XCircle, Target } from "lucide-react";
 import { getAuthContext } from "@/lib/auth/session";
 import { getTargetCountryService } from "@/features/markets/services/market-service";
 import { getLatestIcpProfile, listIcpProfiles } from "@/features/icp/repository/icp-repository";
@@ -9,9 +9,12 @@ import { PageHeader } from "@/components/common/page-header";
 import { StatusBadge } from "@/components/common/status-badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { IcpEditForm } from "@/features/icp/components/icp-edit-form";
+import { getProjectIcpReadiness } from "@/features/icp/services/icp-readiness-service";
+import { AdaptCountryIcpForm } from "@/features/icp/components/adapt-country-icp-form";
+import { GenerateCountryIcpForm } from "@/features/icp/components/generate-country-icp-form";
 
 interface PageProps {
   params: Promise<{ projectSlug: string; countryCode: string }>;
@@ -26,6 +29,7 @@ export default async function IcpPage({ params }: PageProps) {
   const wsId = ctx?.activeWorkspace?.workspace.id;
   const latestIcp = wsId ? await getLatestIcpProfile(wsId, tc.id) : null;
   const history = wsId ? await listIcpProfiles(wsId, tc.id) : [];
+  const readiness = await getProjectIcpReadiness(projectSlug, countryCode);
   const cat = getCountry(countryCode);
 
   return (
@@ -42,19 +46,29 @@ export default async function IcpPage({ params }: PageProps) {
         description={`Country-specific Ideal Customer Profile for ${project.name}`}
         actions={
           <div className="flex flex-wrap gap-2">
-            <form
-              action={async (fd: FormData) => {
-                "use server";
-                const m = await import("@/features/icp/api/icp-actions");
-                await m.generateIcpAction(fd);
-              }}
-            >
-              <input type="hidden" name="projectSlug" value={projectSlug} />
-              <input type="hidden" name="countryId" value={tc.id} />
-              <Button type="submit">
-                <Play className="h-4 w-4" /> Generate ICP
-              </Button>
-            </form>
+            {!latestIcp && readiness.state === "needs_country_adaptation" && (
+              <AdaptCountryIcpForm
+                projectSlug={projectSlug}
+                countryId={tc.id}
+                countryCode={tc.country_code}
+                countryName={cat?.name ?? tc.country_name}
+              />
+            )}
+            {!latestIcp && readiness.state === "missing" && (
+              <GenerateCountryIcpForm
+                projectSlug={projectSlug}
+                countryId={tc.id}
+                countryCode={tc.country_code}
+              />
+            )}
+            {!latestIcp && readiness.state === "source_incomplete" && (
+              <Link
+                href={`/dashboard/projects/${projectSlug}/markets/${readiness.sourceProfile.country_code}/icp`}
+                className={buttonVariants()}
+              >
+                Complete source ICP
+              </Link>
+            )}
             {latestIcp?.status === "draft" && (
               <form
                 action={async (fd: FormData) => {
@@ -109,8 +123,24 @@ export default async function IcpPage({ params }: PageProps) {
       {!latestIcp ? (
         <EmptyState
           icon={Target}
-          title="No ICP yet"
-          description="Generate a country-specific ICP to define your ideal customer for this market."
+          title={
+            readiness.state === "needs_country_adaptation"
+              ? "Reuse your approved ICP"
+              : readiness.state === "source_incomplete"
+                ? "Complete the source ICP"
+                : readiness.state === "inaccessible"
+                  ? "ICP unavailable"
+                  : "No ICP yet"
+          }
+          description={
+            readiness.state === "needs_country_adaptation"
+              ? `Adapt the approved ${readiness.sourceProfile.country_code} ICP for ${cat?.name ?? tc.country_name} without calling AI or Hunter.`
+              : readiness.state === "source_incomplete"
+                ? `Finish the required source sections: ${readiness.incompleteSections.join(", ")}.`
+                : readiness.state === "inaccessible"
+                  ? "We could not verify ICP access for this project."
+                  : "No approved project ICP is available to adapt. Generate a new country ICP with the explicitly labeled AI action above."
+          }
         />
       ) : (
         <div className="space-y-4">

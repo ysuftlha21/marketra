@@ -5,6 +5,7 @@ import type { IcpProfileRow } from "../repository/icp-repository";
 const mocks = vi.hoisted(() => ({
   existing: vi.fn(),
   source: vi.fn(),
+  latestSource: vi.fn(),
   market: vi.fn(),
   nextVersion: vi.fn(),
   create: vi.fn(),
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../repository/icp-repository", () => ({
   getLatestApprovedIcpProfile: mocks.existing,
   getLatestApprovedProjectIcpProfile: mocks.source,
+  getLatestProjectIcpProfile: mocks.latestSource,
   getNextVersion: mocks.nextVersion,
   createIcpProfile: mocks.create,
 }));
@@ -61,6 +63,7 @@ describe("country ICP adaptation", () => {
     vi.resetAllMocks();
     mocks.existing.mockResolvedValue(null);
     mocks.source.mockResolvedValue(source);
+    mocks.latestSource.mockResolvedValue(null);
     mocks.market.mockResolvedValue({ id: "market-us", status: "succeeded" });
     mocks.nextVersion.mockResolvedValue(1);
     mocks.create.mockImplementation(async (_ws: string, data: Record<string, unknown>) => ({
@@ -79,6 +82,7 @@ describe("country ICP adaptation", () => {
         project_target_country_id: "country-us",
         market_analysis_run_id: "market-us",
         status: "approved",
+        current_generation_run_id: null,
         buyer_roles: source.buyer_roles,
         technology_context: source.technology_context,
       }),
@@ -110,5 +114,13 @@ describe("country ICP adaptation", () => {
       code: "market_analysis_missing",
     });
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes an incomplete source from a missing source", async () => {
+    mocks.source.mockResolvedValue(null);
+    mocks.latestSource.mockResolvedValue({ ...source, status: "draft" });
+    await expect(adaptApprovedProjectIcpToCountry(input)).rejects.toMatchObject({
+      code: "source_incomplete",
+    });
   });
 });

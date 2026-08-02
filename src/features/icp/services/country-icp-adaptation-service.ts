@@ -3,12 +3,13 @@ import {
   createIcpProfile,
   getLatestApprovedIcpProfile,
   getLatestApprovedProjectIcpProfile,
+  getLatestProjectIcpProfile,
   getNextVersion,
   type IcpProfileRow,
 } from "../repository/icp-repository";
 
 export type CountryIcpAdaptationErrorCode =
-  "source_missing" | "market_analysis_missing" | "persistence_failed";
+  "source_missing" | "source_incomplete" | "market_analysis_missing" | "persistence_failed";
 
 export class CountryIcpAdaptationError extends Error {
   constructor(readonly code: CountryIcpAdaptationErrorCode) {
@@ -35,7 +36,14 @@ export async function adaptApprovedProjectIcpToCountry(input: {
     getLatestApprovedProjectIcpProfile(input.workspaceId, input.projectId, input.targetCountryId),
     getLatestMarketAnalysisRun(input.workspaceId, input.targetCountryId),
   ]);
-  if (!source) throw new CountryIcpAdaptationError("source_missing");
+  if (!source) {
+    const incomplete = await getLatestProjectIcpProfile(
+      input.workspaceId,
+      input.projectId,
+      input.targetCountryId,
+    );
+    throw new CountryIcpAdaptationError(incomplete ? "source_incomplete" : "source_missing");
+  }
   if (!marketRun || marketRun.status !== "succeeded") {
     throw new CountryIcpAdaptationError("market_analysis_missing");
   }

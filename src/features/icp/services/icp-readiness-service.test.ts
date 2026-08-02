@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   approved: vi.fn(),
   latest: vi.fn(),
   projectApproved: vi.fn(),
+  projectLatest: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({ getAuthContext: mocks.auth }));
@@ -22,6 +23,7 @@ vi.mock("../repository/icp-repository", () => ({
   getLatestApprovedIcpProfile: mocks.approved,
   getLatestIcpProfile: mocks.latest,
   getLatestApprovedProjectIcpProfile: mocks.projectApproved,
+  getLatestProjectIcpProfile: mocks.projectLatest,
 }));
 
 const profile = {
@@ -43,6 +45,7 @@ describe("project ICP readiness", () => {
     mocks.approved.mockResolvedValue(null);
     mocks.latest.mockResolvedValue(null);
     mocks.projectApproved.mockResolvedValue(null);
+    mocks.projectLatest.mockResolvedValue(null);
   });
 
   it("recognizes an approved ICP and never trusts a client workspace id", async () => {
@@ -86,6 +89,15 @@ describe("project ICP readiness", () => {
       sourceProfile: { country_code: "DE" },
     });
     expect(mocks.projectApproved).toHaveBeenCalledWith("ws-1", "project-1", "country-1");
+  });
+
+  it("reports an incomplete reusable source instead of silently invoking generation", async () => {
+    mocks.projectLatest.mockResolvedValue({ ...profile, status: "draft", country_code: "DE" });
+    await expect(getProjectIcpReadiness("marketra", "US")).resolves.toMatchObject({
+      state: "source_incomplete",
+      sourceProfile: { country_code: "DE" },
+      incompleteSections: ["Approval"],
+    });
   });
 
   it("reports exact incomplete sections", () => {

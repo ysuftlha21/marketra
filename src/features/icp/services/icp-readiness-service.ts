@@ -4,6 +4,7 @@ import { getTargetCountryByCode } from "@/features/markets/repository/market-rep
 import {
   getLatestApprovedIcpProfile,
   getLatestApprovedProjectIcpProfile,
+  getLatestProjectIcpProfile,
   getLatestIcpProfile,
   type IcpProfileRow,
 } from "../repository/icp-repository";
@@ -15,6 +16,13 @@ export type ProjectIcpReadiness =
       projectId: string;
       targetCountryId: string;
       sourceProfile: IcpProfileRow;
+    }
+  | {
+      state: "source_incomplete";
+      projectId: string;
+      targetCountryId: string;
+      sourceProfile: IcpProfileRow;
+      incompleteSections: string[];
     }
   | {
       state: "incomplete";
@@ -80,6 +88,20 @@ export async function getProjectIcpReadiness(
           projectId: project.id,
           targetCountryId: targetCountry.id,
           sourceProfile,
+        };
+      }
+      const incompleteSource = await getLatestProjectIcpProfile(
+        workspaceId,
+        project.id,
+        targetCountry.id,
+      );
+      if (incompleteSource) {
+        return {
+          state: "source_incomplete",
+          projectId: project.id,
+          targetCountryId: targetCountry.id,
+          sourceProfile: incompleteSource,
+          incompleteSections: getIncompleteIcpSections(incompleteSource),
         };
       }
       return { state: "missing", projectId: project.id, targetCountryId: targetCountry.id };

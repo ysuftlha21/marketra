@@ -1,35 +1,34 @@
 "use client";
 
 import { useActionState } from "react";
-import { adaptCountryIcpAction } from "../api/icp-actions";
 import { Button } from "@/components/ui/button";
+import { Play } from "lucide-react";
+import { generateCountryIcpFormAction } from "../api/icp-actions";
 
-export function AdaptCountryIcpForm(props: {
+export function GenerateCountryIcpForm(props: {
   projectSlug: string;
   countryId: string;
   countryCode: string;
-  countryName: string;
 }) {
-  const [state, action, pending] = useActionState(adaptCountryIcpAction, null);
+  const [state, action, pending] = useActionState(generateCountryIcpFormAction, null);
   return (
     <form action={action} className="space-y-2" aria-busy={pending}>
       <input type="hidden" name="projectSlug" value={props.projectSlug} />
       <input type="hidden" name="countryId" value={props.countryId} />
       <input type="hidden" name="countryCode" value={props.countryCode} />
       <Button type="submit" disabled={pending} aria-disabled={pending}>
-        {pending ? "Creating ICP…" : `Adapt ICP for ${props.countryName}`}
+        <Play className="h-4 w-4" />
+        {pending ? "Creating ICP…" : "Generate ICP with AI"}
       </Button>
       <p
         role="status"
         aria-live="polite"
         className={
-          state && !["success", "already_exists"].includes(state.status)
-            ? "text-sm text-destructive"
-            : "text-sm text-success"
+          state?.status === "success" ? "text-sm text-success" : "text-sm text-destructive"
         }
       >
         {state
-          ? `${state.message}${state.status === "persistence_failed" ? ` Reference: ICP-CREATE-${state.operationId}` : ""}`
+          ? `${state.message}${state.status === "provider_failed" ? ` Reference: ICP-CREATE-${state.operationId}` : ""}`
           : null}
       </p>
     </form>
