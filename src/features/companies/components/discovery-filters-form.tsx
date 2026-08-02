@@ -67,9 +67,10 @@ export function DiscoveryFiltersForm(props: {
         Result limit
         <select
           name="maxResults"
-          defaultValue="25"
+          defaultValue="5"
           className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
         >
+          <option>5</option>
           <option>10</option>
           <option>25</option>
           <option>50</option>
@@ -103,6 +104,7 @@ export function DiscoveryFiltersForm(props: {
           <span className="text-sm text-destructive">
             {state.error}
             {state.errorReference ? ` Reference: ${state.errorReference}` : ""}
+            {state.operationId ? ` Operation: ${state.operationId}` : ""}
           </span>
         ) : state?.ok ? (
           <span className="text-sm text-success">Discovery completed.</span>

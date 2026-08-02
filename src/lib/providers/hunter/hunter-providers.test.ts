@@ -35,6 +35,26 @@ describe("Hunter provider adapters", () => {
       "other.com",
     ]);
     expect(result.data.candidates[0]?.countryCode).toBe("DE");
+    expect(client.request).toHaveBeenCalledWith(
+      "company_discovery",
+      "/discover",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.objectContaining({
+          headquarters_location: { include: [{ country: "DE" }] },
+          industry: { include: ["Software Development"] },
+        }),
+      }),
+    );
+  });
+
+  it("normalizes malformed provider output to a controlled error", async () => {
+    const client = {
+      request: vi.fn().mockResolvedValue({ data: "not-an-array" }),
+    } as unknown as HunterClient;
+    await expect(
+      new HunterCompanyDiscoveryProvider(client).discoverCompaniesV1(input),
+    ).rejects.toMatchObject({ category: "invalid_response" });
   });
 
   it("caches company enrichment by normalized domain", async () => {

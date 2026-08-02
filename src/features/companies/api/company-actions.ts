@@ -8,6 +8,7 @@ import {
   retryDiscovery,
   DiscoveryError,
   safeDiscoveryError,
+  discoveryErrorReference,
 } from "../services/discovery-execution-service";
 import {
   getDiscoveryRun,
@@ -100,7 +101,8 @@ export async function startDiscoveryAction(formData: FormData) {
     if (err instanceof DiscoveryError)
       return {
         error: safeDiscoveryError(err.code),
-        errorReference: err.operationId ? `DISCOVERY-${err.operationId}` : undefined,
+        errorReference: discoveryErrorReference(err.code),
+        operationId: err.operationId,
       };
     return { error: "Discovery failed." };
   }
@@ -110,6 +112,7 @@ export interface DiscoveryFormActionState {
   ok?: boolean;
   error?: string;
   errorReference?: string;
+  operationId?: string;
 }
 
 export async function startDiscoveryFormAction(

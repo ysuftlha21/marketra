@@ -27,10 +27,13 @@ function safeFailure(error: unknown, operationId: string): BuyerWorkflowResult<n
   if (error instanceof HunterProviderError) {
     const messages = {
       authentication: "Hunter is not configured for this workspace.",
-      authorization: "The Hunter plan does not allow this operation.",
+      permission_denied: "This Hunter account cannot perform this operation.",
+      plan_restricted: "The Hunter plan does not allow this operation.",
       rate_limit: "Hunter rate limit reached. Please wait before trying again.",
       not_found: "No matching provider data was found.",
       invalid_request: "The provider could not process these filters.",
+      timeout: "The provider did not respond in time.",
+      connectivity: "The provider could not be reached.",
       provider_unavailable: "The discovery provider is temporarily unavailable.",
       invalid_response: "The provider returned an unexpected response.",
     };

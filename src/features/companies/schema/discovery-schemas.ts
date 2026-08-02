@@ -6,7 +6,7 @@ export const startDiscoverySchema = z
   .object({
     projectSlug: z.string().min(1),
     targetCountryId: z.string().uuid(),
-    maxResults: z.coerce.number().int().positive().max(200).optional().default(50),
+    maxResults: z.coerce.number().int().positive().max(200).optional().default(5),
     industry: z.string().trim().max(100).optional(),
     employeeMin: z.coerce.number().int().nonnegative().optional(),
     employeeMax: z.coerce.number().int().nonnegative().optional(),

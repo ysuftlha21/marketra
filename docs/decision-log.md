@@ -276,3 +276,15 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   treats a foreign-country row as the target row, and invokes no paid provider. Discovery continues
   to require an approved ICP that belongs to the exact target-country record.
 - Compatibility: existing ICP history is preserved; no migration or backfill is required.
+
+### 2026-08-02 — Hunter Discover contract hardening
+
+- Decision: normalize ICP filters into Hunter's documented Discover taxonomy, omit unverified
+  technology prose and Premium-only first-page pagination fields, and default live searches to five
+  results. Preserve `HUNTER_BASE_URL` as canonical while accepting `HUNTER_API_BASE_URL` only as a
+  server-side compatibility fallback.
+- Reason: Hunter returned a valid HTTP 400 that the application collapsed into a generic provider
+  outage. Strict request mapping and a controlled error taxonomy make configuration, plan,
+  authentication, request, transport, response, and persistence failures operationally distinct.
+- Safety: Hunter remains provider-selected and entitlement/rate-limit gated, never silently falls
+  back to mock, and its operator readiness check has no public endpoint or persistence side effects.

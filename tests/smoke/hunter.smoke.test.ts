@@ -1,19 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { parseServerEnv } from "@/lib/env/env";
-import { createHunterClient } from "@/lib/providers/hunter/hunter-config";
+import { checkHunterReadiness } from "@/lib/providers/hunter/hunter-readiness";
 
 const enabled = process.env.HUNTER_SMOKE === "true";
 describe.skipIf(!enabled)("Hunter opt-in smoke", () => {
   it("performs one read-only Discover request without database writes", async () => {
-    const env = parseServerEnv();
-    const response = await createHunterClient(env).request<unknown>(
-      "hunter_smoke_discover",
-      "/discover",
-      {
-        method: "POST",
-        body: { query: process.env.HUNTER_SMOKE_QUERY ?? "SaaS companies in Germany" },
-      },
+    const result = await checkHunterReadiness({ verifyDiscovery: true });
+    console.info(
+      JSON.stringify({
+        success: result.discoveryAccessible,
+        provider: "hunter",
+        operation: "company_discovery_readiness",
+        category: result.category ?? "ok",
+        resultCount: result.resultCount ?? 0,
+        httpStatusCategory: result.discoveryAccessible ? "2xx" : "controlled_error",
+        operationId: result.operationId,
+        persistenceAttempted: false,
+        usageRecorded: false,
+      }),
     );
-    expect(response).toBeTruthy();
+    expect(result).toMatchObject({
+      configured: true,
+      authenticated: true,
+      discoveryAccessible: true,
+    });
   }, 30000);
 });

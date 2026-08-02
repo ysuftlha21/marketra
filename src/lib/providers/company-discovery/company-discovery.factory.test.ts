@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { createCompanyDiscoveryProvider } from "./company-discovery.factory";
 import { MockCompanyDiscoveryProvider } from "./mock-company-discovery.provider";
+import { HunterCompanyDiscoveryProvider } from "../hunter/hunter-company-discovery.provider";
+import { HunterClient } from "../hunter/hunter-client";
 import type { CompanyDiscoveryInputV1 } from "./company-discovery.provider";
 
 describe("createCompanyDiscoveryProvider", () => {
@@ -13,6 +15,25 @@ describe("createCompanyDiscoveryProvider", () => {
   it("throws for 'external' (not implemented in Phase 1)", () => {
     expect(() => createCompanyDiscoveryProvider("external")).toThrow(
       /External CompanyDiscoveryProvider is not implemented/,
+    );
+  });
+
+  it("creates the Hunter adapter only when an explicit client is supplied", () => {
+    const client = new HunterClient({
+      apiKey: "test-only-key",
+      baseUrl: "https://api.hunter.io/v2",
+      maxRetries: 0,
+      timeoutMs: 1_000,
+    });
+
+    expect(createCompanyDiscoveryProvider("hunter", { hunterClient: client })).toBeInstanceOf(
+      HunterCompanyDiscoveryProvider,
+    );
+  });
+
+  it("never silently falls back to mock when Hunter is not configured", () => {
+    expect(() => createCompanyDiscoveryProvider("hunter")).toThrow(
+      "Hunter company discovery is not configured.",
     );
   });
 });

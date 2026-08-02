@@ -141,6 +141,15 @@ const mockFindCompanyByNormalizedDomain = vi.fn();
 const mockUpsertCompany = vi.fn();
 const mockProjectCompanyExists = vi.fn();
 const mockCreateProjectCompany = vi.fn();
+const mockEnforceRateLimit = vi.fn();
+const mockEnv = {
+  DEFAULT_COMPANY_DISCOVERY_PROVIDER: "mock" as "mock" | "hunter",
+  HUNTER_DISCOVERY_UI_ENABLED: false,
+  HUNTER_API_KEY: "test-only-key",
+  HUNTER_BASE_URL: "https://api.hunter.io/v2",
+  HUNTER_TIMEOUT_MS: 15000,
+  HUNTER_MAX_RETRIES: 0,
+};
 
 vi.mock("@/features/projects/services/project-service", () => ({
   getProjectService: (...args: unknown[]) => mockGetProjectService(...args),
@@ -167,9 +176,11 @@ vi.mock("../repository/company-repository", () => ({
 }));
 
 vi.mock("@/lib/env/env", () => ({
-  parseServerEnv: () => ({
-    DEFAULT_COMPANY_DISCOVERY_PROVIDER: "mock",
-  }),
+  parseServerEnv: () => mockEnv,
+}));
+
+vi.mock("@/lib/security/rate-limit-service", () => ({
+  enforceRateLimit: (...args: unknown[]) => mockEnforceRateLimit(...args),
 }));
 
 vi.mock("./provider-usage-service", () => ({
@@ -195,6 +206,9 @@ beforeEach(() => {
   mockUpsertCompany.mockResolvedValue(mockCompany);
   mockProjectCompanyExists.mockResolvedValue(false);
   mockCreateProjectCompany.mockResolvedValue({ id: "pc-001", workspace_id: wsId });
+  mockEnforceRateLimit.mockResolvedValue({ allowed: true });
+  mockEnv.DEFAULT_COMPANY_DISCOVERY_PROVIDER = "mock";
+  mockEnv.HUNTER_DISCOVERY_UI_ENABLED = false;
 });
 
 // ── Tests ──────────────────────────────────────────────────────
@@ -229,6 +243,15 @@ describe("startDiscovery", () => {
     await expect(startDiscovery(wsId, "my-saas", tcId, userId)).rejects.toMatchObject({
       code: "country_not_found",
     });
+  });
+
+  it("rejects a target country belonging to another project", async () => {
+    mockGetTargetCountry.mockResolvedValue({ ...mockTargetCountry, project_id: "other-project" });
+    const { startDiscovery } = await import("./discovery-execution-service");
+    await expect(startDiscovery(wsId, "my-saas", tcId, userId)).rejects.toMatchObject({
+      code: "country_not_found",
+    });
+    expect(mockCreateDiscoveryRun).not.toHaveBeenCalled();
   });
 
   it("throws icp_not_found when no ICP exists", async () => {
@@ -272,15 +295,60 @@ describe("startDiscovery", () => {
       .mockRejectedValue(new Error("timeout"));
 
     await expect(startDiscovery(wsId, "my-saas", tcId, userId)).rejects.toMatchObject({
-      code: "provider_timeout",
+      code: "provider_internal_error",
     });
 
     const calls = mockUpdateDiscoveryRun.mock.calls as [string, string, Record<string, unknown>][];
     const failCall = calls.find((call) => call[2]?.status === "failed");
     expect(failCall).toBeDefined();
-    expect(failCall?.[2]?.error_code).toBe("provider_timeout");
+    expect(failCall?.[2]?.error_code).toBe("provider_internal_error");
 
     mockProvider.MockCompanyDiscoveryProvider.prototype.discoverCompaniesV1 = origDiscover;
+  });
+
+  it("preserves Hunter invalid-request diagnostics and required operation order", async () => {
+    mockEnv.DEFAULT_COMPANY_DISCOVERY_PROVIDER = "hunter";
+    mockEnv.HUNTER_DISCOVERY_UI_ENABLED = true;
+    const hunter = await import("@/lib/providers/hunter/hunter-company-discovery.provider");
+    const client = await import("@/lib/providers/hunter/hunter-client");
+    const usage = await import("./provider-usage-service");
+    const original = hunter.HunterCompanyDiscoveryProvider.prototype.discoverCompaniesV1;
+    hunter.HunterCompanyDiscoveryProvider.prototype.discoverCompaniesV1 = vi
+      .fn()
+      .mockRejectedValue(new client.HunterProviderError("invalid_request", 400));
+    try {
+      const { startDiscovery } = await import("./discovery-execution-service");
+      await expect(startDiscovery(wsId, "my-saas", tcId, userId)).rejects.toMatchObject({
+        code: "hunter_invalid_request",
+      });
+      expect(usage.assertProviderAllowance).toHaveBeenCalledTimes(1);
+      expect(mockEnforceRateLimit).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(usage.assertProviderAllowance).mock.invocationCallOrder[0]).toBeLessThan(
+        mockEnforceRateLimit.mock.invocationCallOrder[0]!,
+      );
+      expect(usage.recordProviderOperation).toHaveBeenCalledTimes(1);
+      expect(usage.recordProviderOperation).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, errorCode: "hunter_invalid_request" }),
+      );
+    } finally {
+      hunter.HunterCompanyDiscoveryProvider.prototype.discoverCompaniesV1 = original;
+    }
+  });
+
+  it("does not record Hunter usage when entitlement fails before the provider call", async () => {
+    mockEnv.DEFAULT_COMPANY_DISCOVERY_PROVIDER = "hunter";
+    mockEnv.HUNTER_DISCOVERY_UI_ENABLED = true;
+    const usage = await import("./provider-usage-service");
+    vi.mocked(usage.assertProviderAllowance).mockRejectedValueOnce(
+      new usage.ProviderUsageError("limit_reached"),
+    );
+    const { startDiscovery } = await import("./discovery-execution-service");
+    await expect(startDiscovery(wsId, "my-saas", tcId, userId)).rejects.toMatchObject({
+      code: "entitlement_denied",
+    });
+    expect(mockEnforceRateLimit).not.toHaveBeenCalled();
+    expect(usage.recordProviderOperation).not.toHaveBeenCalled();
+    expect(mockCreateDiscoveryRun).not.toHaveBeenCalled();
   });
 
   it("persists companies and project entries for each candidate", async () => {
@@ -332,7 +400,7 @@ describe("retryDiscovery", () => {
     expect(mockGetTargetCountry).toHaveBeenCalledWith(wsId, tcId);
   });
 
-  it("defaults maxResults to 50 when not in snapshot", async () => {
+  it("defaults maxResults to 5 when not in snapshot", async () => {
     mockGetDiscoveryRun.mockResolvedValue({
       ...mockCreatedRun,
       input_snapshot: { project: {}, country: { code: "DE" } },
@@ -354,11 +422,21 @@ describe("safeDiscoveryError", () => {
       "icp_not_found",
       "icp_not_approved",
       "already_running",
-      "provider_unavailable",
-      "provider_timeout",
-      "invalid_provider_response",
-      "configuration_missing",
-      "persistence_failure",
+      "hunter_configuration_missing",
+      "hunter_authentication_failed",
+      "hunter_permission_denied",
+      "hunter_plan_restricted",
+      "hunter_rate_limited",
+      "hunter_timeout",
+      "hunter_connectivity_failed",
+      "hunter_invalid_request",
+      "hunter_response_invalid",
+      "hunter_no_results",
+      "discovery_persistence_failed",
+      "durable_rate_limit_failed",
+      "discovery_rate_limited",
+      "entitlement_denied",
+      "provider_internal_error",
     ] as const;
     for (const code of codes) {
       expect(safeDiscoveryError(code)).toBeTruthy();

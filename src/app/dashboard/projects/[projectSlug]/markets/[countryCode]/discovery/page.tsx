@@ -121,8 +121,11 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
   const defaultEmployeeMax = employeeMatches?.[2]?.replaceAll(",", "") ?? "";
   const defaultKeywords = approvedIcp?.qualification_signals.slice(0, 6).join(", ") ?? "";
   const defaultTechnologies =
-    approvedIcp?.technology_context && typeof approvedIcp.technology_context.summary === "string"
-      ? approvedIcp.technology_context.summary
+    approvedIcp?.technology_context && Array.isArray(approvedIcp.technology_context.technologies)
+      ? approvedIcp.technology_context.technologies
+          .filter((value): value is string => typeof value === "string")
+          .slice(0, 6)
+          .join(", ")
       : "";
 
   // URL-driven filters

@@ -49,6 +49,41 @@ describe("parseServerEnv", () => {
     expect(() => parseServerEnv({ HUNTER_SMOKE: "true" })).toThrow(EnvironmentValidationError);
   });
 
+  it("normalizes canonical and legacy Hunter base URL names centrally", () => {
+    expect(
+      parseServerEnv({ HUNTER_BASE_URL: "https://canonical.example/v2" }).HUNTER_BASE_URL,
+    ).toBe("https://canonical.example/v2");
+    expect(
+      parseServerEnv({ HUNTER_API_BASE_URL: "https://legacy.example/v2" }).HUNTER_BASE_URL,
+    ).toBe("https://legacy.example/v2");
+    expect(
+      parseServerEnv({
+        HUNTER_BASE_URL: "https://canonical.example/v2",
+        HUNTER_API_BASE_URL: "https://legacy.example/v2",
+      }).HUNTER_BASE_URL,
+    ).toBe("https://canonical.example/v2");
+  });
+
+  it("rejects an invalid Hunter base URL without leaking credentials", () => {
+    const secret = "hunter-secret-value";
+    expect(() =>
+      parseServerEnv({
+        DEFAULT_COMPANY_DISCOVERY_PROVIDER: "hunter",
+        HUNTER_API_KEY: secret,
+        HUNTER_BASE_URL: "not-a-url",
+      }),
+    ).toThrow(EnvironmentValidationError);
+    try {
+      parseServerEnv({
+        DEFAULT_COMPANY_DISCOVERY_PROVIDER: "hunter",
+        HUNTER_API_KEY: secret,
+        HUNTER_BASE_URL: "not-a-url",
+      });
+    } catch (error) {
+      expect(JSON.stringify(error)).not.toContain(secret);
+    }
+  });
+
   it("defaults NODE_ENV to development", () => {
     expect(parseServerEnv({}).NODE_ENV).toBe("development");
   });

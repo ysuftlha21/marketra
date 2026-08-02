@@ -44,18 +44,20 @@ describe("HunterClient", () => {
     );
   });
 
-  it("treats Hunter's HTTP 403 rate limit as retryable", async () => {
+  it("does not retry Hunter permission failures", async () => {
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(new Response("{}", { status: 403 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: [] }), { status: 200 }));
-    await new HunterClient({
-      apiKey: "secret",
-      fetch: fetcher,
-      sleep: async () => undefined,
-      maxRetries: 1,
-    }).request("discover", "/discover");
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    await expect(
+      new HunterClient({
+        apiKey: "secret",
+        fetch: fetcher,
+        sleep: async () => undefined,
+        maxRetries: 1,
+      }).request("discover", "/discover"),
+    ).rejects.toMatchObject({ category: "permission_denied" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
   it("maps a safe 403 plan code without exposing the raw response", async () => {
@@ -71,7 +73,7 @@ describe("HunterClient", () => {
       maxRetries: 0,
     });
     await expect(client.request("discover", "/discover")).rejects.toMatchObject({
-      category: "authorization",
+      category: "plan_restricted",
       providerCode: "no_discover_access",
     });
   });
@@ -97,5 +99,29 @@ describe("HunterClient", () => {
     await expect(client.request("discover", "/discover")).rejects.toBeInstanceOf(
       HunterProviderError,
     );
+  });
+
+  it("maps timeouts and connectivity failures safely", async () => {
+    const timeout = new HunterClient({
+      apiKey: "secret",
+      fetch: async () => {
+        throw new DOMException("private detail", "AbortError");
+      },
+      maxRetries: 0,
+    });
+    await expect(timeout.request("discover", "/discover")).rejects.toMatchObject({
+      category: "timeout",
+    });
+
+    const connectivity = new HunterClient({
+      apiKey: "secret",
+      fetch: async () => {
+        throw new TypeError("private host detail");
+      },
+      maxRetries: 0,
+    });
+    await expect(connectivity.request("discover", "/discover")).rejects.toMatchObject({
+      category: "connectivity",
+    });
   });
 });

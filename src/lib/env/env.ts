@@ -79,7 +79,8 @@ const serverEnvSchema = z
     DEFAULT_BUYER_DISCOVERY_PROVIDER: buyerDiscoveryProviderSchema.default("mock"),
     DEFAULT_EMAIL_ENRICHMENT_PROVIDER: emailEnrichmentProviderSchema.default("mock"),
     HUNTER_API_KEY: z.string().min(1).optional(),
-    HUNTER_BASE_URL: z.string().url().default("https://api.hunter.io/v2"),
+    HUNTER_BASE_URL: optionalUrlSchema,
+    HUNTER_API_BASE_URL: optionalUrlSchema,
     HUNTER_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
     HUNTER_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
     HUNTER_SMOKE: z
@@ -259,8 +260,14 @@ const serverEnvSchema = z
     }
   })
   .transform(
-    ({ RATE_LIMIT_REDIS_KV_REST_API_URL, RATE_LIMIT_REDIS_KV_REST_API_TOKEN, ...data }) => ({
+    ({
+      HUNTER_API_BASE_URL,
+      RATE_LIMIT_REDIS_KV_REST_API_URL,
+      RATE_LIMIT_REDIS_KV_REST_API_TOKEN,
+      ...data
+    }) => ({
       ...data,
+      HUNTER_BASE_URL: data.HUNTER_BASE_URL ?? HUNTER_API_BASE_URL ?? "https://api.hunter.io/v2",
       OPENAI_REASONING_EFFORT: resolveOpenAiReasoningEffort(
         data.OPENAI_MODEL,
         data.OPENAI_REASONING_EFFORT,

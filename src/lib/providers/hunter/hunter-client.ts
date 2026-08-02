@@ -5,10 +5,13 @@ const MAX_RESPONSE_BYTES = 1_000_000;
 
 export type HunterErrorCategory =
   | "authentication"
-  | "authorization"
+  | "permission_denied"
+  | "plan_restricted"
   | "rate_limit"
   | "not_found"
   | "invalid_request"
+  | "timeout"
+  | "connectivity"
   | "provider_unavailable"
   | "invalid_response";
 
@@ -88,19 +91,17 @@ export class HunterClient {
           signal: controller.signal,
           cache: "no-store",
         });
-        const retryable =
-          response.status === 403 || response.status === 429 || response.status >= 500;
         if (!response.ok) {
+          const safeProviderCode = await this.safeProviderCode(response);
+          const category = this.categoryForStatus(response.status, safeProviderCode);
+          const retryable = category === "rate_limit" || response.status >= 500;
           if (retryable && attempt < this.maxRetries) {
             await this.sleep(this.retryDelay(response.headers.get("retry-after"), attempt));
             continue;
           }
-          const safeProviderCode = await this.safeProviderCode(response);
           const retryAfterSeconds = this.retryAfterSeconds(response.headers.get("retry-after"));
           throw new HunterProviderError(
-            response.status === 403 && safeProviderCode?.startsWith("no_")
-              ? "authorization"
-              : this.categoryForStatus(response.status),
+            category,
             response.status,
             operationId,
             safeProviderCode,
@@ -141,7 +142,11 @@ export class HunterClient {
         return data;
       } catch (error) {
         lastError = error;
-        const timeoutError = error instanceof DOMException && error.name === "AbortError";
+        const timeoutError =
+          error !== null &&
+          typeof error === "object" &&
+          "name" in error &&
+          error.name === "AbortError";
         if (timeoutError && attempt < this.maxRetries) {
           await this.sleep(this.retryDelay(null, attempt));
           continue;
@@ -149,7 +154,15 @@ export class HunterClient {
         const safeError =
           error instanceof HunterProviderError
             ? error
-            : new HunterProviderError("provider_unavailable", undefined, operationId);
+            : new HunterProviderError(
+                timeoutError
+                  ? "timeout"
+                  : error instanceof TypeError
+                    ? "connectivity"
+                    : "provider_unavailable",
+                undefined,
+                operationId,
+              );
         logOperation({
           operationId,
           operation,
@@ -182,10 +195,11 @@ export class HunterClient {
     return Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds) : undefined;
   }
 
-  private categoryForStatus(status: number): HunterErrorCategory {
+  private categoryForStatus(status: number, providerCode?: string): HunterErrorCategory {
     if (status === 401) return "authentication";
-    if (status === 403 || status === 429) return "rate_limit";
-    if (status === 451) return "authorization";
+    if (status === 403 && providerCode === "no_discover_access") return "plan_restricted";
+    if (status === 403 || status === 451) return "permission_denied";
+    if (status === 429) return "rate_limit";
     if (status === 404) return "not_found";
     if (status >= 400 && status < 500) return "invalid_request";
     return "provider_unavailable";

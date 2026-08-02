@@ -8,6 +8,8 @@ import type {
   DiscoveryCompanyCandidate,
 } from "../company-discovery/company-discovery.provider";
 import type { HunterClient } from "./hunter-client";
+import { HunterProviderError } from "./hunter-client";
+import { buildHunterDiscoverBody } from "./hunter-discovery-request";
 
 const discoverCompanySchema = z
   .object({
@@ -61,24 +63,18 @@ export class HunterCompanyDiscoveryProvider implements CompanyDiscoveryProvider 
 
   async discoverCompaniesV1(input: CompanyDiscoveryInputV1) {
     const startedAt = Date.now();
-    const body: Record<string, unknown> = {
-      headquarters_location: { include: [{ country: input.targetCountryCode }] },
-      ...(input.industries.length ? { industry: { include: input.industries } } : {}),
-      ...(input.keywords?.length ? { keywords: { include: input.keywords, match: "any" } } : {}),
-      ...(input.technologySignals.length
-        ? { technology: { include: input.technologySignals, match: "any" } }
-        : {}),
-    };
+    const body = buildHunterDiscoverBody(input);
     if ((input.offset ?? 0) > 0) {
       body.offset = input.offset;
       body.limit = Math.min(input.maxResults, 100);
     }
-    const response = discoverResponseSchema.parse(
-      await this.client.request<unknown>("company_discovery", "/discover", {
-        method: "POST",
-        body,
-      }),
-    );
+    const providerResponse = await this.client.request<unknown>("company_discovery", "/discover", {
+      method: "POST",
+      body,
+    });
+    const parsed = discoverResponseSchema.safeParse(providerResponse);
+    if (!parsed.success) throw new HunterProviderError("invalid_response");
+    const response = parsed.data;
     const raw = response.data;
     const seen = new Set<string>();
     const candidates: DiscoveryCompanyCandidate[] = [];

@@ -30,6 +30,10 @@ import {
   recordProviderOperation,
 } from "./provider-usage-service";
 import { randomUUID } from "node:crypto";
+import {
+  RateLimitExceededError,
+  RateLimitProviderUnavailableError,
+} from "@/lib/providers/rate-limit/rate-limit.provider";
 
 export type DiscoveryErrorCode =
   | "unauthenticated"
@@ -39,14 +43,21 @@ export type DiscoveryErrorCode =
   | "icp_not_found"
   | "icp_not_approved"
   | "already_running"
-  | "provider_unavailable"
-  | "provider_timeout"
-  | "invalid_provider_response"
-  | "configuration_missing"
-  | "provider_authentication"
-  | "provider_plan_denied"
-  | "provider_rate_limited"
-  | "persistence_failure";
+  | "hunter_configuration_missing"
+  | "hunter_authentication_failed"
+  | "hunter_permission_denied"
+  | "hunter_plan_restricted"
+  | "hunter_rate_limited"
+  | "hunter_timeout"
+  | "hunter_connectivity_failed"
+  | "hunter_invalid_request"
+  | "hunter_response_invalid"
+  | "hunter_no_results"
+  | "discovery_persistence_failed"
+  | "durable_rate_limit_failed"
+  | "discovery_rate_limited"
+  | "entitlement_denied"
+  | "provider_internal_error";
 
 export class DiscoveryError extends Error {
   readonly code: DiscoveryErrorCode;
@@ -77,16 +88,51 @@ export function safeDiscoveryError(code: DiscoveryErrorCode): string {
     icp_not_found: "Generate an ICP first.",
     icp_not_approved: "Approve the ICP before discovering companies.",
     already_running: "A discovery is already running for this country.",
-    provider_unavailable: "Discovery provider unavailable.",
-    provider_timeout: "Discovery timed out.",
-    invalid_provider_response: "Unexpected response.",
-    configuration_missing: "Configuration missing.",
-    provider_authentication: "Hunter is not configured for this operation.",
-    provider_plan_denied: "The Hunter plan does not allow this operation.",
-    provider_rate_limited: "Hunter rate limit reached. Please wait before trying again.",
-    persistence_failure: "Save failed.",
+    hunter_configuration_missing: "Hunter is not configured for this operation.",
+    hunter_authentication_failed: "Hunter authentication failed.",
+    hunter_permission_denied: "This Hunter account cannot perform company discovery.",
+    hunter_plan_restricted: "This Hunter account does not allow this discovery operation.",
+    hunter_rate_limited: "The discovery request was rate-limited. Please wait and try again.",
+    hunter_timeout: "Hunter did not respond in time. Please try again.",
+    hunter_connectivity_failed: "Hunter could not be reached. Please try again shortly.",
+    hunter_invalid_request: "The selected filters are not supported.",
+    hunter_response_invalid: "Hunter returned an unsupported response.",
+    hunter_no_results: "Hunter found no companies for these filters.",
+    discovery_persistence_failed: "Companies were found but could not be saved.",
+    durable_rate_limit_failed: "Discovery is temporarily unavailable. Please try again shortly.",
+    discovery_rate_limited: "Too many discovery attempts. Please wait before trying again.",
+    entitlement_denied: "Your current plan has reached its company discovery limit.",
+    provider_internal_error: "The discovery provider encountered a temporary error.",
   };
   return m[code];
+}
+
+export function discoveryErrorReference(code: DiscoveryErrorCode): string {
+  const references: Record<DiscoveryErrorCode, string> = {
+    unauthenticated: "DISCOVERY-AUTHORIZATION",
+    unauthorized: "DISCOVERY-AUTHORIZATION",
+    project_not_found: "DISCOVERY-CONTEXT",
+    country_not_found: "DISCOVERY-CONTEXT",
+    icp_not_found: "DISCOVERY-ICP",
+    icp_not_approved: "DISCOVERY-ICP",
+    already_running: "DISCOVERY-RUNNING",
+    hunter_configuration_missing: "DISCOVERY-CONFIG",
+    hunter_authentication_failed: "DISCOVERY-AUTH",
+    hunter_permission_denied: "DISCOVERY-PERMISSION",
+    hunter_plan_restricted: "DISCOVERY-PLAN",
+    hunter_rate_limited: "DISCOVERY-RATE",
+    hunter_timeout: "DISCOVERY-TIMEOUT",
+    hunter_connectivity_failed: "DISCOVERY-CONNECTIVITY",
+    hunter_invalid_request: "DISCOVERY-REQUEST",
+    hunter_response_invalid: "DISCOVERY-OUTPUT",
+    hunter_no_results: "DISCOVERY-NO-RESULTS",
+    discovery_persistence_failed: "DISCOVERY-PERSIST",
+    durable_rate_limit_failed: "DISCOVERY-LIMIT",
+    discovery_rate_limited: "DISCOVERY-LIMIT",
+    entitlement_denied: "DISCOVERY-ENTITLEMENT",
+    provider_internal_error: "DISCOVERY-PROVIDER",
+  };
+  return references[code];
 }
 
 function buildScoringInput(
@@ -121,6 +167,41 @@ function buildScoringInput(
   };
 }
 
+function icpIndustryNames(icp: IcpProfileRow): string[] {
+  const segments = icp.industry_segments as Record<string, unknown>;
+  return [segments.primary, segments.secondary]
+    .flatMap((value) => (Array.isArray(value) ? value : []))
+    .map((value) =>
+      typeof value === "string"
+        ? value
+        : value && typeof value === "object" && "name" in value
+          ? String(value.name)
+          : "",
+    )
+    .filter(Boolean);
+}
+
+function mapDiscoveryProviderError(
+  error: unknown,
+  stage: "provider" | "usage_record",
+): DiscoveryErrorCode {
+  if (stage === "usage_record") return "provider_internal_error";
+  if (!(error instanceof HunterProviderError)) return "provider_internal_error";
+  const categories: Record<HunterProviderError["category"], DiscoveryErrorCode> = {
+    authentication: "hunter_authentication_failed",
+    permission_denied: "hunter_permission_denied",
+    plan_restricted: "hunter_plan_restricted",
+    rate_limit: "hunter_rate_limited",
+    not_found: "hunter_invalid_request",
+    invalid_request: "hunter_invalid_request",
+    timeout: "hunter_timeout",
+    connectivity: "hunter_connectivity_failed",
+    provider_unavailable: "provider_internal_error",
+    invalid_response: "hunter_response_invalid",
+  };
+  return categories[error.category];
+}
+
 export async function startDiscovery(
   wsId: string,
   projectSlug: string,
@@ -138,20 +219,17 @@ export async function startDiscovery(
         page?: number;
       } = {},
 ): Promise<{ runId: string }> {
-  await enforceRateLimit({ operation: "company_discovery", workspaceId: wsId, userId, limit: 10 });
-  const env = parseServerEnv();
+  const operationId = randomUUID();
   const options = typeof optionsOrMax === "number" ? { maxResults: optionsOrMax } : optionsOrMax;
-  const maxResults = options.maxResults ?? 50;
-  if (env.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter" && !env.HUNTER_DISCOVERY_UI_ENABLED) {
-    throw new DiscoveryError("configuration_missing", "Hunter UI activation is disabled.");
-  }
+  const maxResults = options.maxResults ?? 5;
 
   const project = await getProjectService(projectSlug);
   if (!project)
     throw new DiscoveryError("project_not_found", safeDiscoveryError("project_not_found"));
 
   const tc = await getTargetCountry(wsId, targetCountryId);
-  if (!tc) throw new DiscoveryError("country_not_found", safeDiscoveryError("country_not_found"));
+  if (!tc || tc.project_id !== project.id)
+    throw new DiscoveryError("country_not_found", safeDiscoveryError("country_not_found"));
 
   const approvedIcp = await getLatestApprovedIcpProfile(wsId, targetCountryId);
   const latestIcp = approvedIcp ? null : await getLatestIcpProfile(wsId, targetCountryId);
@@ -165,6 +243,44 @@ export async function startDiscovery(
 
   const active = await findActiveDiscoveryRun(wsId, targetCountryId);
   if (active) throw new DiscoveryError("already_running", safeDiscoveryError("already_running"));
+
+  const env = parseServerEnv();
+  if (env.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter" && !env.HUNTER_DISCOVERY_UI_ENABLED) {
+    throw new DiscoveryError(
+      "hunter_configuration_missing",
+      safeDiscoveryError("hunter_configuration_missing"),
+      operationId,
+    );
+  }
+  const recordsPaidProviderUsage = env.DEFAULT_COMPANY_DISCOVERY_PROVIDER !== "mock";
+  if (recordsPaidProviderUsage) {
+    try {
+      await assertProviderAllowance(wsId, "company_search");
+    } catch (error) {
+      const code: DiscoveryErrorCode =
+        error instanceof ProviderUsageError && error.code === "limit_reached"
+          ? "entitlement_denied"
+          : "provider_internal_error";
+      throw new DiscoveryError(code, safeDiscoveryError(code), operationId);
+    }
+  }
+  try {
+    await enforceRateLimit({
+      operation: "company_discovery",
+      workspaceId: wsId,
+      projectId: project.id,
+      userId,
+      limit: 10,
+    });
+  } catch (error) {
+    const code: DiscoveryErrorCode =
+      error instanceof RateLimitExceededError
+        ? "discovery_rate_limited"
+        : error instanceof RateLimitProviderUnavailableError
+          ? "durable_rate_limit_failed"
+          : "durable_rate_limit_failed";
+    throw new DiscoveryError(code, safeDiscoveryError(code), operationId);
+  }
 
   const inputSnapshot = {
     project: {
@@ -185,10 +301,19 @@ export async function startDiscovery(
     disqualificationSignals: icp.disqualification_signals,
   };
 
-  const provider = createCompanyDiscoveryProvider(env.DEFAULT_COMPANY_DISCOVERY_PROVIDER, {
-    hunterClient:
-      env.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter" ? createHunterClient(env) : undefined,
-  });
+  let provider: ReturnType<typeof createCompanyDiscoveryProvider>;
+  try {
+    provider = createCompanyDiscoveryProvider(env.DEFAULT_COMPANY_DISCOVERY_PROVIDER, {
+      hunterClient:
+        env.DEFAULT_COMPANY_DISCOVERY_PROVIDER === "hunter" ? createHunterClient(env) : undefined,
+    });
+  } catch {
+    throw new DiscoveryError(
+      "hunter_configuration_missing",
+      safeDiscoveryError("hunter_configuration_missing"),
+      operationId,
+    );
+  }
   const run = await createDiscoveryRun(wsId, {
     workspace_id: wsId,
     project_id: project.id,
@@ -208,20 +333,14 @@ export async function startDiscovery(
   });
 
   let providerResult;
-  const operationId = randomUUID();
-  const recordsPaidProviderUsage = provider.id !== "mock";
-  let safeFailureStage: "allowance" | "provider" | "usage_record" = recordsPaidProviderUsage
-    ? "allowance"
-    : "provider";
+  let providerCallStarted = false;
+  let safeFailureStage: "provider" | "usage_record" = "provider";
   try {
-    if (recordsPaidProviderUsage) await assertProviderAllowance(wsId, "company_search");
-    safeFailureStage = "provider";
+    providerCallStarted = true;
     providerResult = await provider.discoverCompaniesV1({
       correlationId: `disc_${run.id}`,
       targetCountryCode: tc.country_code,
-      industries: options.industry
-        ? [options.industry]
-        : (((criteriaSnapshot.industries as Record<string, unknown>).primary as string[]) ?? []),
+      industries: options.industry ? [options.industry] : icpIndustryNames(icp),
       companySizeMinEmployees: options.employeeMin,
       companySizeMaxEmployees: options.employeeMax,
       companyTypes: [],
@@ -247,25 +366,7 @@ export async function startDiscovery(
       });
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown";
-    const code: DiscoveryErrorCode =
-      err instanceof HunterProviderError
-        ? err.category === "authentication"
-          ? "provider_authentication"
-          : err.category === "authorization"
-            ? "provider_plan_denied"
-            : err.category === "rate_limit"
-              ? "provider_rate_limited"
-              : err.category === "invalid_response"
-                ? "invalid_provider_response"
-                : "provider_unavailable"
-        : err instanceof ProviderUsageError
-          ? err.code === "limit_reached"
-            ? "provider_plan_denied"
-            : "provider_unavailable"
-          : msg.includes("timeout")
-            ? "provider_timeout"
-            : "provider_unavailable";
+    const code = mapDiscoveryProviderError(err, safeFailureStage);
     console.error("company_discovery_provider_failed", {
       operation: "company_discovery",
       operationId,
@@ -273,7 +374,7 @@ export async function startDiscovery(
       safeFailureStage,
       safeErrorCode: code,
     });
-    if (recordsPaidProviderUsage) {
+    if (recordsPaidProviderUsage && providerCallStarted) {
       await recordProviderOperation({
         workspaceId: wsId,
         projectId: project.id,
@@ -394,17 +495,17 @@ export async function startDiscovery(
       operationId,
       providerId: provider.id,
       safeFailureStage: persistenceStage,
-      safeErrorCode: "persistence_failure",
+      safeErrorCode: "discovery_persistence_failed",
     });
     await updateDiscoveryRun(wsId, run.id, {
       status: "failed",
-      error_code: "persistence_failure",
-      safe_error_message: safeDiscoveryError("persistence_failure"),
+      error_code: "discovery_persistence_failed",
+      safe_error_message: safeDiscoveryError("discovery_persistence_failed"),
       failed_at: new Date().toISOString(),
     }).catch(() => undefined);
     throw new DiscoveryError(
-      "persistence_failure",
-      safeDiscoveryError("persistence_failure"),
+      "discovery_persistence_failed",
+      safeDiscoveryError("discovery_persistence_failed"),
       operationId,
     );
   }
@@ -434,6 +535,6 @@ export async function retryDiscovery(
   if (!prevRun)
     throw new DiscoveryError("country_not_found", safeDiscoveryError("country_not_found"));
   return startDiscovery(wsId, projectSlug, prevRun.target_country_id, userId, {
-    maxResults: (prevRun.input_snapshot.maxResults as number) ?? 50,
+    maxResults: (prevRun.input_snapshot.maxResults as number) ?? 5,
   });
 }
