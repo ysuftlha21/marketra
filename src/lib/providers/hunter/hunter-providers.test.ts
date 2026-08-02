@@ -57,6 +57,17 @@ describe("Hunter provider adapters", () => {
     ).rejects.toMatchObject({ category: "invalid_response" });
   });
 
+  it("keeps valid companies from a partial Discover response", async () => {
+    const client = {
+      request: vi.fn().mockResolvedValue({
+        data: [null, "invalid", { domain: "valid.example", organization: "Valid" }],
+      }),
+    } as unknown as HunterClient;
+    const result = await new HunterCompanyDiscoveryProvider(client).discoverCompaniesV1(input);
+    expect(result.data.candidates).toHaveLength(1);
+    expect(result.data.candidates[0]?.normalizedDomain).toBe("valid.example");
+  });
+
   it("caches company enrichment by normalized domain", async () => {
     const client = {
       request: vi.fn().mockResolvedValue({ data: { name: "Example", domain: "example.com" } }),

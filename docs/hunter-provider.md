@@ -13,6 +13,9 @@ The end-to-end UI remains in demo mode unless an operator both selects Hunter an
   `HUNTER_API_BASE_URL` name remains a compatibility fallback; the canonical name wins when both
   exist.
 - `HUNTER_TIMEOUT_MS` defaults to 15000 and `HUNTER_MAX_RETRIES` to 2.
+- Each retry receives a fresh abort signal. Timeout, connectivity failures, 429, and 5xx responses
+  are retryable; ordinary 400, 401, and 403 responses are not. Per-attempt timeouts remain bounded
+  by `HUNTER_TIMEOUT_MS`, and the complete Hunter operation is capped at 55 seconds by default.
 - The three `DEFAULT_*_PROVIDER` selectors activate company, buyer, and email enrichment independently.
 - `HUNTER_DISCOVERY_UI_ENABLED=false` is the production-safe default and independently gates live company discovery UI calls.
 
@@ -48,8 +51,10 @@ Execution order is authorization, workspace/project/country validation, approved
 entitlement, durable rate limit, provider request, usage recording, normalization, and
 workspace-scoped persistence. A selected Hunter provider never falls back to mock. Controlled
 errors distinguish configuration, authentication, permission/plan, rate limit, timeout,
-connectivity, invalid request, invalid response, and persistence failures without returning raw
-provider data.
+connectivity, provider 5xx, invalid request, invalid response, usage recording, and persistence
+failures without returning raw provider data. A successful Hunter response is not mislabeled as a
+provider outage if the subsequent usage event cannot be written; that condition uses
+`DISCOVERY-USAGE` and fails closed before persistence.
 
 Company and verification results use bounded in-process TTL caches to avoid duplicate calls. A multi-instance production rollout should use a shared encrypted cache if cross-instance consistency is required. Provider errors become safe categories; raw bodies are not logged or returned.
 

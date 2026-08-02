@@ -12,6 +12,7 @@ export type HunterErrorCategory =
   | "invalid_request"
   | "timeout"
   | "connectivity"
+  | "server_error"
   | "provider_unavailable"
   | "invalid_response";
 
@@ -22,6 +23,7 @@ export class HunterProviderError extends Error {
     readonly operationId: string = randomUUID(),
     readonly providerCode?: string,
     readonly retryAfterSeconds?: number,
+    readonly attemptCount: number = 1,
   ) {
     super(`Hunter operation failed (${category}).`);
     this.name = "HunterProviderError";
@@ -39,6 +41,7 @@ export type HunterClientOptions = {
   baseUrl?: string;
   timeoutMs?: number;
   maxRetries?: number;
+  totalTimeoutMs?: number;
   fetch?: typeof fetch;
   sleep?: (milliseconds: number) => Promise<void>;
   random?: () => number;
@@ -55,6 +58,7 @@ export class HunterClient {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
+  private readonly totalTimeoutMs: number;
   private readonly fetcher: typeof fetch;
   private readonly sleep: (milliseconds: number) => Promise<void>;
   private readonly random: () => number;
@@ -63,6 +67,8 @@ export class HunterClient {
     this.baseUrl = (options.baseUrl ?? "https://api.hunter.io/v2").replace(/\/$/, "");
     this.timeoutMs = options.timeoutMs ?? 15000;
     this.maxRetries = options.maxRetries ?? 2;
+    this.totalTimeoutMs =
+      options.totalTimeoutMs ?? Math.min((this.maxRetries + 1) * this.timeoutMs + 10_000, 55_000);
     this.fetcher = options.fetch ?? fetch;
     this.sleep =
       options.sleep ??
@@ -76,8 +82,22 @@ export class HunterClient {
     let lastError: unknown;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      const remainingTotalMs = this.totalTimeoutMs - (Date.now() - startedAt);
+      if (remainingTotalMs <= 0) {
+        throw new HunterProviderError(
+          "timeout",
+          undefined,
+          operationId,
+          undefined,
+          undefined,
+          attempt,
+        );
+      }
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+      const timeout = setTimeout(
+        () => controller.abort(),
+        Math.max(1, Math.min(this.timeoutMs, remainingTotalMs)),
+      );
       try {
         const url = new URL(`${this.baseUrl}${path}`);
         url.searchParams.set("api_key", this.options.apiKey);
@@ -106,6 +126,7 @@ export class HunterClient {
             operationId,
             safeProviderCode,
             retryAfterSeconds,
+            attempt + 1,
           );
         }
         const declaredLength = Number(response.headers.get("content-length"));
@@ -172,8 +193,30 @@ export class HunterClient {
           success: false,
           controlledErrorCode: safeError.category,
           httpStatus: safeError.status,
+          providerCalls: attempt + 1,
           environment: process.env.APP_ENV ?? process.env.NODE_ENV ?? "development",
         });
+        const retryableTransport =
+          safeError.category === "timeout" || safeError.category === "connectivity";
+        if (retryableTransport && attempt < this.maxRetries) {
+          const remainingAfterAttempt = this.totalTimeoutMs - (Date.now() - startedAt);
+          if (remainingAfterAttempt > 0) {
+            await this.sleep(
+              Math.min(this.retryDelay(null, attempt), Math.max(0, remainingAfterAttempt)),
+            );
+            continue;
+          }
+        }
+        if (safeError.attemptCount !== attempt + 1) {
+          throw new HunterProviderError(
+            safeError.category,
+            safeError.status,
+            safeError.operationId,
+            safeError.providerCode,
+            safeError.retryAfterSeconds,
+            attempt + 1,
+          );
+        }
         throw safeError;
       } finally {
         clearTimeout(timeout);
@@ -202,6 +245,7 @@ export class HunterClient {
     if (status === 429) return "rate_limit";
     if (status === 404) return "not_found";
     if (status >= 400 && status < 500) return "invalid_request";
+    if (status >= 500) return "server_error";
     return "provider_unavailable";
   }
 

@@ -351,6 +351,35 @@ describe("startDiscovery", () => {
     expect(mockCreateDiscoveryRun).not.toHaveBeenCalled();
   });
 
+  it("reports usage-record failure precisely without duplicate usage or persistence", async () => {
+    mockEnv.DEFAULT_COMPANY_DISCOVERY_PROVIDER = "hunter";
+    mockEnv.HUNTER_DISCOVERY_UI_ENABLED = true;
+    const hunter = await import("@/lib/providers/hunter/hunter-company-discovery.provider");
+    const mockProvider =
+      await import("@/lib/providers/company-discovery/mock-company-discovery.provider");
+    const usage = await import("./provider-usage-service");
+    const original = hunter.HunterCompanyDiscoveryProvider.prototype.discoverCompaniesV1;
+    hunter.HunterCompanyDiscoveryProvider.prototype.discoverCompaniesV1 = vi.fn((input) =>
+      new mockProvider.MockCompanyDiscoveryProvider().discoverCompaniesV1(input),
+    );
+    vi.mocked(usage.recordProviderOperation).mockRejectedValueOnce(
+      new usage.ProviderUsageError("record_failed"),
+    );
+    try {
+      const { discoveryErrorReference, startDiscovery } =
+        await import("./discovery-execution-service");
+      await expect(startDiscovery(wsId, "my-saas", tcId, userId)).rejects.toMatchObject({
+        code: "provider_usage_failed",
+      });
+      expect(discoveryErrorReference("provider_usage_failed")).toBe("DISCOVERY-USAGE");
+      expect(usage.recordProviderOperation).toHaveBeenCalledTimes(1);
+      expect(mockUpsertCompany).not.toHaveBeenCalled();
+      expect(mockCreateProjectCompany).not.toHaveBeenCalled();
+    } finally {
+      hunter.HunterCompanyDiscoveryProvider.prototype.discoverCompaniesV1 = original;
+    }
+  });
+
   it("persists companies and project entries for each candidate", async () => {
     const { startDiscovery } = await import("./discovery-execution-service");
     await startDiscovery(wsId, "my-saas", tcId, userId, 5);
@@ -429,6 +458,7 @@ describe("safeDiscoveryError", () => {
       "hunter_rate_limited",
       "hunter_timeout",
       "hunter_connectivity_failed",
+      "hunter_server_error",
       "hunter_invalid_request",
       "hunter_response_invalid",
       "hunter_no_results",
@@ -436,6 +466,7 @@ describe("safeDiscoveryError", () => {
       "durable_rate_limit_failed",
       "discovery_rate_limited",
       "entitlement_denied",
+      "provider_usage_failed",
       "provider_internal_error",
     ] as const;
     for (const code of codes) {

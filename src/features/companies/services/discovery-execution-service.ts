@@ -50,6 +50,7 @@ export type DiscoveryErrorCode =
   | "hunter_rate_limited"
   | "hunter_timeout"
   | "hunter_connectivity_failed"
+  | "hunter_server_error"
   | "hunter_invalid_request"
   | "hunter_response_invalid"
   | "hunter_no_results"
@@ -57,6 +58,7 @@ export type DiscoveryErrorCode =
   | "durable_rate_limit_failed"
   | "discovery_rate_limited"
   | "entitlement_denied"
+  | "provider_usage_failed"
   | "provider_internal_error";
 
 export class DiscoveryError extends Error {
@@ -95,6 +97,7 @@ export function safeDiscoveryError(code: DiscoveryErrorCode): string {
     hunter_rate_limited: "The discovery request was rate-limited. Please wait and try again.",
     hunter_timeout: "Hunter did not respond in time. Please try again.",
     hunter_connectivity_failed: "Hunter could not be reached. Please try again shortly.",
+    hunter_server_error: "Hunter is temporarily unavailable. Try again shortly.",
     hunter_invalid_request: "The selected filters are not supported.",
     hunter_response_invalid: "Hunter returned an unsupported response.",
     hunter_no_results: "Hunter found no companies for these filters.",
@@ -102,6 +105,7 @@ export function safeDiscoveryError(code: DiscoveryErrorCode): string {
     durable_rate_limit_failed: "Discovery is temporarily unavailable. Please try again shortly.",
     discovery_rate_limited: "Too many discovery attempts. Please wait before trying again.",
     entitlement_denied: "Your current plan has reached its company discovery limit.",
+    provider_usage_failed: "Provider usage could not be recorded. No results were saved.",
     provider_internal_error: "The discovery provider encountered a temporary error.",
   };
   return m[code];
@@ -123,6 +127,7 @@ export function discoveryErrorReference(code: DiscoveryErrorCode): string {
     hunter_rate_limited: "DISCOVERY-RATE",
     hunter_timeout: "DISCOVERY-TIMEOUT",
     hunter_connectivity_failed: "DISCOVERY-CONNECTIVITY",
+    hunter_server_error: "DISCOVERY-SERVER",
     hunter_invalid_request: "DISCOVERY-REQUEST",
     hunter_response_invalid: "DISCOVERY-OUTPUT",
     hunter_no_results: "DISCOVERY-NO-RESULTS",
@@ -130,6 +135,7 @@ export function discoveryErrorReference(code: DiscoveryErrorCode): string {
     durable_rate_limit_failed: "DISCOVERY-LIMIT",
     discovery_rate_limited: "DISCOVERY-LIMIT",
     entitlement_denied: "DISCOVERY-ENTITLEMENT",
+    provider_usage_failed: "DISCOVERY-USAGE",
     provider_internal_error: "DISCOVERY-PROVIDER",
   };
   return references[code];
@@ -185,7 +191,7 @@ function mapDiscoveryProviderError(
   error: unknown,
   stage: "provider" | "usage_record",
 ): DiscoveryErrorCode {
-  if (stage === "usage_record") return "provider_internal_error";
+  if (stage === "usage_record") return "provider_usage_failed";
   if (!(error instanceof HunterProviderError)) return "provider_internal_error";
   const categories: Record<HunterProviderError["category"], DiscoveryErrorCode> = {
     authentication: "hunter_authentication_failed",
@@ -196,6 +202,7 @@ function mapDiscoveryProviderError(
     invalid_request: "hunter_invalid_request",
     timeout: "hunter_timeout",
     connectivity: "hunter_connectivity_failed",
+    server_error: "hunter_server_error",
     provider_unavailable: "provider_internal_error",
     invalid_response: "hunter_response_invalid",
   };
@@ -374,7 +381,7 @@ export async function startDiscovery(
       safeFailureStage,
       safeErrorCode: code,
     });
-    if (recordsPaidProviderUsage && providerCallStarted) {
+    if (recordsPaidProviderUsage && providerCallStarted && safeFailureStage === "provider") {
       await recordProviderOperation({
         workspaceId: wsId,
         projectId: project.id,

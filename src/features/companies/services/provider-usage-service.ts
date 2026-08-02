@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/lib/db/supabase-service";
 import { resolveWorkspacePlan } from "@/features/workspaces/services/workspace-plan-service";
+import { logOperation } from "@/lib/observability/logger";
 
 export type DiscoveryUsageOperation =
   "company_search" | "buyer_search" | "email_find" | "email_verify";
@@ -11,7 +12,7 @@ const PLAN_LIMITS: Record<string, Record<DiscoveryUsageOperation, number>> = {
 };
 
 export class ProviderUsageError extends Error {
-  constructor(readonly code: "unavailable" | "limit_reached") {
+  constructor(readonly code: "unavailable" | "limit_reached" | "record_failed") {
     super(code);
     this.name = "ProviderUsageError";
   }
@@ -53,6 +54,7 @@ export async function recordProviderOperation(input: {
   success: boolean;
   errorCode?: string;
 }) {
+  const startedAt = Date.now();
   const client = createServiceRoleClient();
   const { error } = await client.from("provider_usage_events" as never).insert({
     workspace_id: input.workspaceId,
@@ -65,5 +67,26 @@ export async function recordProviderOperation(input: {
     success: input.success,
     controlled_error_code: input.errorCode ?? null,
   } as never);
-  if (error && error.code !== "23505") throw new Error("Provider usage could not be recorded.");
+  if (!error || error.code === "23505") return;
+  const controlledErrorCode =
+    error.code === "23503"
+      ? "provider_usage_context_invalid"
+      : error.code === "42501"
+        ? "provider_usage_permission_denied"
+        : error.code === "42P01" || error.code === "PGRST205"
+          ? "provider_usage_schema_unavailable"
+          : /^PGRST|^5/.test(error.code ?? "")
+            ? "provider_usage_service_unavailable"
+            : "provider_usage_record_failed";
+  logOperation({
+    operationId: input.operationId,
+    operation: input.operation,
+    operationType: "provider_usage_record",
+    providerId: input.providerId,
+    durationMs: Date.now() - startedAt,
+    success: false,
+    controlledErrorCode,
+    environment: process.env.APP_ENV ?? process.env.NODE_ENV ?? "development",
+  });
+  throw new ProviderUsageError("record_failed");
 }

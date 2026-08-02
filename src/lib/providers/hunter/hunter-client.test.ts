@@ -31,6 +31,97 @@ describe("HunterClient", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
+  it("retries a timeout with a fresh abort signal", async () => {
+    const signals: AbortSignal[] = [];
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      signals.push(init?.signal as AbortSignal);
+      if (signals.length === 1) throw new DOMException("private timeout", "AbortError");
+      return new Response(JSON.stringify({ data: [] }), { status: 200 });
+    });
+    await new HunterClient({
+      apiKey: "secret",
+      fetch: fetcher,
+      sleep: async () => undefined,
+      maxRetries: 1,
+    }).request("discover", "/discover");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(signals[0]).not.toBe(signals[1]);
+    expect(signals[1]?.aborted).toBe(false);
+  });
+
+  it("reports timeout after all configured attempts", async () => {
+    const fetcher = vi.fn(async () => {
+      throw new DOMException("private timeout", "AbortError");
+    });
+    await expect(
+      new HunterClient({
+        apiKey: "secret",
+        fetch: fetcher,
+        sleep: async () => undefined,
+        maxRetries: 1,
+      }).request("discover", "/discover"),
+    ).rejects.toMatchObject({ category: "timeout", attemptCount: 2 });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries eligible server errors and classifies exhausted 503 responses", async () => {
+    const succeeds = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("proxy", { status: 500 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [] }), { status: 200 }));
+    await new HunterClient({
+      apiKey: "secret",
+      fetch: succeeds,
+      sleep: async () => undefined,
+      maxRetries: 1,
+    }).request("discover", "/discover");
+    expect(succeeds).toHaveBeenCalledTimes(2);
+
+    const unavailable = vi.fn(
+      async () => new Response("<html>private proxy</html>", { status: 503 }),
+    );
+    await expect(
+      new HunterClient({
+        apiKey: "secret",
+        fetch: unavailable,
+        sleep: async () => undefined,
+        maxRetries: 2,
+      }).request("discover", "/discover"),
+    ).rejects.toMatchObject({ category: "server_error", status: 503, attemptCount: 3 });
+    expect(unavailable).toHaveBeenCalledTimes(3);
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("private proxy");
+  });
+
+  it("retries network failures without leaking provider details", async () => {
+    const fetcher = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("private provider host"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [] }), { status: 200 }));
+    await new HunterClient({
+      apiKey: "secret",
+      fetch: fetcher,
+      sleep: async () => undefined,
+      maxRetries: 1,
+    }).request("discover", "/discover");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
+      "private provider host",
+    );
+  });
+
+  it("bounds the whole operation independently from the per-attempt timeout", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ data: [] }), { status: 200 }));
+    await expect(
+      new HunterClient({
+        apiKey: "secret",
+        fetch: fetcher,
+        maxRetries: 2,
+        totalTimeoutMs: 0,
+      }).request("discover", "/discover"),
+    ).rejects.toMatchObject({ category: "timeout", attemptCount: 0 });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("emits provider-neutral usage metadata for future credit metering", async () => {
     const onUsage = vi.fn();
     const client = new HunterClient({

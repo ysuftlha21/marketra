@@ -34,6 +34,7 @@ function safeFailure(error: unknown, operationId: string): BuyerWorkflowResult<n
       invalid_request: "The provider could not process these filters.",
       timeout: "The provider did not respond in time.",
       connectivity: "The provider could not be reached.",
+      server_error: "The provider is temporarily unavailable.",
       provider_unavailable: "The discovery provider is temporarily unavailable.",
       invalid_response: "The provider returned an unexpected response.",
     };

@@ -26,7 +26,7 @@ const discoverCompanySchema = z
   .passthrough();
 const discoverResponseSchema = z
   .object({
-    data: z.array(discoverCompanySchema),
+    data: z.array(z.unknown()),
     meta: z.object({ results: z.number().int().nonnegative().optional() }).passthrough().optional(),
   })
   .passthrough();
@@ -75,7 +75,10 @@ export class HunterCompanyDiscoveryProvider implements CompanyDiscoveryProvider 
     const parsed = discoverResponseSchema.safeParse(providerResponse);
     if (!parsed.success) throw new HunterProviderError("invalid_response");
     const response = parsed.data;
-    const raw = response.data;
+    const raw = response.data.flatMap((candidate) => {
+      const parsedCandidate = discoverCompanySchema.safeParse(candidate);
+      return parsedCandidate.success ? [parsedCandidate.data] : [];
+    });
     const seen = new Set<string>();
     const candidates: DiscoveryCompanyCandidate[] = [];
     for (const [index, company] of raw.entries()) {

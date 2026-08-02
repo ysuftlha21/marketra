@@ -48,6 +48,7 @@ function readinessCategory(category: HunterErrorCategory): HunterReadinessCatego
     invalid_request: "invalid_response",
     timeout: "timeout",
     connectivity: "connectivity_failed",
+    server_error: "provider_unavailable",
     invalid_response: "invalid_response",
     provider_unavailable: "provider_unavailable",
   };

@@ -288,3 +288,14 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   authentication, request, transport, response, and persistence failures operationally distinct.
 - Safety: Hunter remains provider-selected and entitlement/rate-limit gated, never silently falls
   back to mock, and its operator readiness check has no public endpoint or persistence side effects.
+
+### 2026-08-02 — Hunter retry and usage-stage diagnostics
+
+- Decision: distinguish Hunter timeout, connectivity, rate-limit, and 5xx failures, retry only
+  eligible transport/server failures with fresh abort signals, and cap the whole operation at 55
+  seconds. Treat provider usage-record failure as `DISCOVERY-USAGE`, not a Hunter outage.
+- Reason: a production Hunter request completed successfully, but the following usage-event insert
+  failed and was previously reported as a temporary provider error. Stage-specific diagnostics are
+  required to avoid unnecessary provider retries and duplicate accounting.
+- Safety: usage recording remains fail-closed, a failed usage write is attempted once, and no
+  company persistence begins until the event has been recorded or already exists idempotently.
