@@ -4,22 +4,33 @@ import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
-import { listProjectsService } from "@/features/projects/services/project-service";
+import { listProjectPortfolio } from "@/features/projects/services/project-portfolio-service";
 import { StatusBadge } from "@/components/common/status-badge";
 import type { ProjectStatus } from "@/features/projects/domain/project-status";
+import { resolveAuthenticatedProjectContext } from "@/features/projects/services/project-context-service";
+import { switchProjectAction } from "@/features/projects/api/project-actions";
+import { Badge } from "@/components/ui/badge";
 
 export const metadata = { title: "Projects" };
 
-async function getProjects() {
+async function getProjects(includeArchived: boolean) {
   try {
-    return await listProjectsService();
+    return await listProjectPortfolio(includeArchived);
   } catch {
     return [];
   }
 }
 
-export default async function ProjectsPage() {
-  const projects = await getProjects();
+interface PageProps {
+  searchParams: Promise<{ archived?: string }>;
+}
+
+export default async function ProjectsPage({ searchParams }: PageProps) {
+  const includeArchived = (await searchParams).archived === "1";
+  const [projects, context] = await Promise.all([
+    getProjects(includeArchived),
+    resolveAuthenticatedProjectContext(),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -27,12 +38,20 @@ export default async function ProjectsPage() {
         title="Your SaaS projects"
         description="Each project represents a SaaS product you are bringing to market."
         actions={
-          <Link
-            href="/dashboard/projects/new"
-            className={cn(buttonVariants({ variant: "default" }))}
-          >
-            <Plus className="h-4 w-4" aria-hidden /> New project
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href={includeArchived ? "/dashboard/projects" : "/dashboard/projects?archived=1"}
+              className={cn(buttonVariants({ variant: "outline" }))}
+            >
+              {includeArchived ? "Active projects" : "Include archived"}
+            </Link>
+            <Link
+              href="/dashboard/projects/new"
+              className={cn(buttonVariants({ variant: "default" }))}
+            >
+              <Plus className="h-4 w-4" aria-hidden /> New project
+            </Link>
+          </div>
         }
       />
 
@@ -76,8 +95,24 @@ export default async function ProjectsPage() {
                         <FolderKanban className="h-4 w-4" />
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
+                          {context.project?.id === p.id && <Badge tone="success">Active</Badge>}
+                        </div>
                         <p className="truncate text-xs text-muted-foreground">{p.slug}</p>
+                        <div className="mt-2 flex flex-wrap gap-1 text-xs text-muted-foreground">
+                          <span>{p.activity.targetMarkets.length} target markets</span>
+                          <span>· {p.activity.analyzedMarketCount} analyzed</span>
+                          <span>· {p.activity.approvedIcpCount} ICPs</span>
+                          <span>· {p.activity.companyCount} companies</span>
+                          <span>· {p.activity.buyerCount} buyers</span>
+                          <span>· {p.activity.outreachDraftCount} drafts</span>
+                        </div>
+                        {p.activity.targetMarkets.length > 0 && (
+                          <p className="mt-1 truncate text-xs text-muted-foreground">
+                            {p.activity.targetMarkets.map((market) => market.code).join(", ")}
+                          </p>
+                        )}
                       </div>
                     </Link>
                   </td>
@@ -100,12 +135,30 @@ export default async function ProjectsPage() {
                     {new Date(p.updated_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 sm:px-6">
-                    <Link
-                      href={`/dashboard/projects/${p.slug}`}
-                      className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                    >
-                      <span>View</span>
-                    </Link>
+                    <div className="flex justify-end gap-1">
+                      {context.project?.id !== p.id && p.status === "active" && (
+                        <form
+                          action={async (formData) => {
+                            "use server";
+                            await switchProjectAction(formData);
+                          }}
+                        >
+                          <input type="hidden" name="projectSlug" value={p.slug} />
+                          <button
+                            type="submit"
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                          >
+                            Set active
+                          </button>
+                        </form>
+                      )}
+                      <Link
+                        href={`/dashboard/projects/${p.slug}`}
+                        className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                      >
+                        <span>View</span>
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -59,9 +59,12 @@ export async function createProjectAction(formData: FormData) {
     targetCustomerSummary: formData.get("targetCustomerSummary") || undefined,
     businessModel: formData.get("businessModel") || undefined,
     pricingSummary: formData.get("pricingSummary") || undefined,
-    currentMarkets: formData.get("currentMarkets")
-      ? JSON.parse(formData.get("currentMarkets") as string)
-      : [],
+    currentMarkets: parseCountryList(formData.get("currentMarkets"), []),
+    targetExpansionMarkets: parseCountryList(formData.get("targetExpansionMarkets"), []),
+    additionalContext: {
+      priorityRegions: String(formData.get("priorityRegions") ?? "").trim() || undefined,
+      countryDataCoverage: String(formData.get("countryDataCoverage") ?? "").trim() || undefined,
+    },
     preferredLanguage: formData.get("preferredLanguage") || "en",
   });
 
@@ -82,6 +85,8 @@ export async function createProjectAction(formData: FormData) {
   }
   await setActiveProjectCookie(project.slug);
   revalidatePath("/dashboard/projects");
+  revalidatePath("/dashboard/markets");
+  revalidatePath("/dashboard", "layout");
   return project;
 }
 
@@ -96,9 +101,13 @@ export async function updateProjectAction(formData: FormData) {
     targetCustomerSummary: formData.get("targetCustomerSummary") || undefined,
     businessModel: formData.get("businessModel") || undefined,
     pricingSummary: formData.get("pricingSummary") || undefined,
-    currentMarkets: formData.get("currentMarkets")
-      ? JSON.parse(formData.get("currentMarkets") as string)
-      : undefined,
+    currentMarkets: parseCountryList(formData.get("currentMarkets"), undefined),
+    targetExpansionMarkets: parseCountryList(formData.get("targetExpansionMarkets"), undefined),
+    additionalContext: {
+      ...((await getProjectService(slug))?.additional_context ?? {}),
+      priorityRegions: String(formData.get("priorityRegions") ?? "").trim() || undefined,
+      countryDataCoverage: String(formData.get("countryDataCoverage") ?? "").trim() || undefined,
+    },
     preferredLanguage: formData.get("preferredLanguage") || undefined,
     status: formData.get("status") || undefined,
   });
@@ -117,6 +126,18 @@ export async function updateProjectAction(formData: FormData) {
   }
   revalidatePath("/dashboard/projects");
   revalidatePath(`/dashboard/projects/${slug}`);
+  revalidatePath(`/dashboard/projects/${slug}/markets`);
+  revalidatePath("/dashboard/markets");
+  revalidatePath("/dashboard", "layout");
+}
+
+function parseCountryList(value: FormDataEntryValue | null, missing: unknown): unknown {
+  if (typeof value !== "string" || !value) return missing;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
 }
 
 export async function archiveProjectAction(slug: string) {

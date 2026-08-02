@@ -19,6 +19,8 @@ const mockUpdateProject = vi.fn();
 const mockDeleteProject = vi.fn();
 const mockGetProjectBySlug = vi.fn();
 const mockGetExistingSlugs = vi.fn().mockResolvedValue([]);
+const mockAddTargetCountries = vi.fn();
+const mockGetTargetCountryByCode = vi.fn().mockResolvedValue(null);
 
 vi.mock("@/lib/auth/session", () => ({
   getAuthContext: () => mockGetAuthContext(),
@@ -53,10 +55,17 @@ vi.mock("../repository/project-repository", () => ({
   listAnalysisRuns: vi.fn(),
 }));
 
+vi.mock("@/features/markets/repository/market-repository", () => ({
+  addTargetCountries: (...args: unknown[]) => mockAddTargetCountries(...args),
+  getTargetCountryByCode: (...args: unknown[]) => mockGetTargetCountryByCode(...args),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetAuthContext.mockResolvedValue(mockAuthCtx);
   mockGetExistingSlugs.mockResolvedValue([]);
+  mockGetTargetCountryByCode.mockResolvedValue(null);
+  mockAddTargetCountries.mockResolvedValue(undefined);
 });
 
 describe("createProjectService", () => {
@@ -98,6 +107,22 @@ describe("createProjectService", () => {
     });
     expect(result).toBeDefined();
     expect(mockCreateProject).toHaveBeenCalledOnce();
+  });
+
+  it("creates normalized target-market rows without treating operating markets as targets", async () => {
+    mockCreateProject.mockResolvedValue({ id: "proj-1", workspace_id: wsId, slug });
+    const { createProjectService } = await import("./project-service");
+    await createProjectService({
+      name: "Test",
+      productDescription: "desc",
+      preferredLanguage: "en",
+      currentMarkets: ["TR"],
+      targetExpansionMarkets: ["US", "US"],
+    });
+    expect(mockGetTargetCountryByCode).toHaveBeenCalledTimes(1);
+    expect(mockAddTargetCountries).toHaveBeenCalledWith(wsId, "proj-1", userId, [
+      expect.objectContaining({ code: "US", name: "United States" }),
+    ]);
   });
 });
 

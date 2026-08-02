@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+const countryCodesSchema = z
+  .array(
+    z
+      .string()
+      .length(2, "Country code must be exactly 2 characters")
+      .regex(/^[A-Z]{2}$/, "Must be a valid ISO 3166 alpha-2 country code")
+      .transform((s) => s.toUpperCase()),
+  )
+  .max(50, "Maximum 50 markets allowed")
+  .transform((values) => Array.from(new Set(values)));
+
 export const additionalContextSchema = z.object({
   priorityRegions: z.string().optional(),
   countryDataCoverage: z.string().optional(),
@@ -82,17 +93,9 @@ export const createProjectSchema = z.object({
     .string()
     .max(1000, "Pricing summary must be at most 1000 characters")
     .optional(),
-  currentMarkets: z
-    .array(
-      z
-        .string()
-        .length(2, "Country code must be exactly 2 characters")
-        .regex(/^[A-Z]{2}$/, "Must be a valid ISO 3166 alpha-2 country code")
-        .transform((s) => s.toUpperCase()),
-    )
-    .max(50, "Maximum 50 markets allowed")
-    .optional()
-    .default([]),
+  currentMarkets: countryCodesSchema.optional().default([]),
+  targetExpansionMarkets: countryCodesSchema.optional(),
+  additionalContext: additionalContextSchema.optional(),
   preferredLanguage: z.string().length(2).default("en"),
 });
 

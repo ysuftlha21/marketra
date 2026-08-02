@@ -9,12 +9,14 @@ import { ChevronsLeft } from "lucide-react";
 
 const primaryNavigation = [
   { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
+  { label: "Projects", href: "/dashboard/projects", icon: "FolderKanban" },
   { label: "Markets", href: "/dashboard/markets", icon: "Globe" },
   { label: "Company Discovery", href: "/dashboard/companies", icon: "Building2" },
   { label: "Buyer Discovery", href: "/dashboard/buyers", icon: "Users" },
   { label: "ICP Builder", href: "/dashboard/icp", icon: "PenLine" },
   { label: "AI Outreach", href: "/dashboard/outreach", icon: "Mail" },
-  { label: "Campaigns", href: "/dashboard/crm", icon: "Megaphone", legacyLabel: "CRM" },
+  { label: "Campaigns", href: "/dashboard/campaigns", icon: "Megaphone" },
+  { label: "CRM", href: "/dashboard/crm", icon: "KanbanSquare" },
   { label: "Analytics", href: "/dashboard/analytics", icon: "ChartNoAxesCombined" },
 ] as const;
 
@@ -41,7 +43,10 @@ export function SidebarNav({ onNavigate, onCollapse, collapsed = false }: Sideba
           className={cn("space-y-1", groupIndex === 1 && "mt-5 border-t border-white/[.035] pt-5")}
         >
           {group.map((item, itemIndex) => {
-            const active = itemIndex === 0 && groupIndex === 0 && pathname === "/dashboard";
+            const active =
+              itemIndex === 0 && groupIndex === 0
+                ? pathname === "/dashboard"
+                : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.label}
@@ -58,12 +63,7 @@ export function SidebarNav({ onNavigate, onCollapse, collapsed = false }: Sideba
                 )}
               >
                 <DashboardIcon name={item.icon} className="h-[17px] w-[17px] shrink-0" />
-                {!collapsed && (
-                  <span className="truncate">
-                    {item.label}
-                    {"legacyLabel" in item && <span className="sr-only"> {item.legacyLabel}</span>}
-                  </span>
-                )}
+                {!collapsed && <span className="truncate">{item.label}</span>}
               </Link>
             );
           })}

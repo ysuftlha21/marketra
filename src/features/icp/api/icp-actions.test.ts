@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { adaptCountryIcpAction } from "./icp-actions";
+import { adaptCountryIcpAction, generateCountryIcpFormAction } from "./icp-actions";
 import { CountryIcpAdaptationError } from "../services/country-icp-adaptation-service";
 import type { CountryIcpAdaptationErrorCode } from "../services/country-icp-adaptation-service";
 
@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   country: vi.fn(),
   adapt: vi.fn(),
   revalidate: vi.fn(),
+  generate: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({ getAuthContext: mocks.auth }));
@@ -31,10 +32,64 @@ vi.mock("../services/country-icp-adaptation-service", () => {
   };
 });
 vi.mock("../services/icp-generation-service", () => ({
-  generateIcp: vi.fn(),
-  IcpGenError: class extends Error {},
-  safeIcpError: vi.fn(),
+  generateIcp: mocks.generate,
+  IcpGenError: class extends Error {
+    constructor(
+      readonly code: string,
+      message: string,
+      readonly operationId: string,
+      readonly safeReference: string,
+    ) {
+      super(message);
+    }
+  },
 }));
+
+describe("generate country ICP action", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.auth.mockResolvedValue({
+      user: { id: "user-1" },
+      activeWorkspace: { workspace: { id: "ws-1" }, role: "admin" },
+    });
+    mocks.project.mockResolvedValue({ id: "project-1" });
+    mocks.generate.mockResolvedValue({ runId: "run-1", profile: { id: "icp-1" } });
+  });
+
+  it("uses the canonical service and revalidates the complete country flow", async () => {
+    await expect(generateCountryIcpFormAction(null, form())).resolves.toMatchObject({
+      status: "success",
+    });
+    expect(mocks.generate).toHaveBeenCalledWith(
+      "ws-1",
+      "project-1",
+      "country-us",
+      "marketra",
+      "user-1",
+    );
+    expect(mocks.revalidate).toHaveBeenCalledWith("/dashboard/projects/marketra/markets/US");
+    expect(mocks.revalidate).toHaveBeenCalledWith(
+      "/dashboard/projects/marketra/markets/US/discovery",
+    );
+  });
+
+  it("preserves the safe provider category and operation ID", async () => {
+    const { IcpGenError } = await import("../services/icp-generation-service");
+    mocks.generate.mockRejectedValue(
+      new IcpGenError(
+        "provider_auth" as never,
+        "OpenAI authentication failed.",
+        "provider-operation",
+        "AI-PROVIDER-AUTH",
+      ),
+    );
+    await expect(generateCountryIcpFormAction(null, form())).resolves.toMatchObject({
+      status: "provider_failed",
+      reference: "AI-PROVIDER-AUTH",
+      operationId: "provider-operation",
+    });
+  });
+});
 vi.mock("../services/icp-management-service", () => ({
   updateIcpDraft: vi.fn(),
   approveIcp: vi.fn(),

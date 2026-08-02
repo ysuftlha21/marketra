@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getAuthContext } from "@/lib/auth/session";
 import { getProjectService } from "@/features/projects/services/project-service";
-import { generateIcp, IcpGenError, safeIcpError } from "../services/icp-generation-service";
+import { generateIcp, IcpGenError } from "../services/icp-generation-service";
 import {
   updateIcpDraft,
   approveIcp,
@@ -21,13 +21,40 @@ import { randomUUID } from "node:crypto";
 
 export async function generateIcpAction(formData: FormData) {
   const ctx = await getAuthContext();
-  if (!ctx?.activeWorkspace) return { error: "Sign in." };
+  if (!ctx?.activeWorkspace) {
+    const operationId = randomUUID();
+    return {
+      ok: false as const,
+      code: "unauthenticated" as const,
+      error: "Sign in to generate an ICP.",
+      reference: "ICP-PERMISSION",
+      operationId,
+    };
+  }
   const projectSlug = formData.get("projectSlug") as string;
   const countryId = formData.get("countryId") as string;
   const countryCode = String(formData.get("countryCode") ?? "").toUpperCase();
-  if (!projectSlug || !countryId) return { error: "Missing fields." };
+  if (!projectSlug || !countryId) {
+    const operationId = randomUUID();
+    return {
+      ok: false as const,
+      code: "country_not_found" as const,
+      error: "Required fields are missing.",
+      reference: "ICP-PERMISSION",
+      operationId,
+    };
+  }
   const project = await getProjectService(projectSlug);
-  if (!project) return { error: "Project not found." };
+  if (!project) {
+    const operationId = randomUUID();
+    return {
+      ok: false as const,
+      code: "project_not_found" as const,
+      error: "Project is unavailable.",
+      reference: "ICP-PERMISSION",
+      operationId,
+    };
+  }
   try {
     const { runId } = await generateIcp(
       ctx.activeWorkspace.workspace.id,
@@ -40,39 +67,77 @@ export async function generateIcpAction(formData: FormData) {
     if (countryCode) {
       revalidatePath(`/dashboard/projects/${projectSlug}/markets/${countryCode}/icp`);
       revalidatePath(`/dashboard/projects/${projectSlug}/markets/${countryCode}/discovery`);
+      revalidatePath(`/dashboard/projects/${projectSlug}/markets/${countryCode}`);
     }
     revalidatePath("/dashboard/icp");
     revalidatePath("/dashboard", "layout");
-    return { ok: true, runId };
+    return { ok: true as const, runId };
   } catch (err) {
-    if (err instanceof IcpGenError) return { error: safeIcpError(err.code) };
-    return { error: "Generation failed." };
+    if (err instanceof IcpGenError)
+      return {
+        ok: false as const,
+        code: err.code,
+        error: err.message,
+        reference: err.safeReference,
+        operationId: err.operationId,
+      };
+    const operationId = randomUUID();
+    console.error("country_icp_generation_failed", {
+      operation: "country_icp_generation",
+      operationId,
+      safeErrorCode: "ICP-PERSIST",
+    });
+    return {
+      ok: false as const,
+      code: "persistence_failure" as const,
+      error: "The ICP could not be saved.",
+      reference: "ICP-PERSIST",
+      operationId,
+    };
   }
 }
 
 export interface GenerateCountryIcpActionState {
-  status: "success" | "validation_failed" | "provider_failed" | "inaccessible";
+  status:
+    | "success"
+    | "validation_failed"
+    | "provider_failed"
+    | "rate_limited"
+    | "persistence_failed"
+    | "inaccessible";
   message: string;
   operationId: string;
+  reference?: string;
 }
 
 export async function generateCountryIcpFormAction(
   _previous: GenerateCountryIcpActionState | null,
   formData: FormData,
 ): Promise<GenerateCountryIcpActionState> {
-  const operationId = randomUUID();
   const result = await generateIcpAction(formData);
-  if ("ok" in result && result.ok) {
-    return { status: "success", message: "Country ICP generated.", operationId };
+  if (result.ok) {
+    return { status: "success", message: "Country ICP generated.", operationId: result.runId };
   }
-  const message = ("error" in result && result.error) || "ICP generation failed.";
+  const operationId = result.operationId ?? randomUUID();
   return {
     status:
-      message === "Project not found." || message === "Sign in."
+      result.code === "project_not_found" ||
+      result.code === "country_not_found" ||
+      result.code === "unauthenticated" ||
+      result.code === "unauthorized"
         ? "inaccessible"
-        : "provider_failed",
-    message,
+        : result.code === "provider_rate_limit"
+          ? "rate_limited"
+          : result.code === "persistence_failure"
+            ? "persistence_failed"
+            : result.code === "market_analysis_missing" ||
+                result.code === "product_analysis_missing" ||
+                result.code === "already_running"
+              ? "validation_failed"
+              : "provider_failed",
+    message: result.error,
     operationId,
+    reference: result.reference,
   };
 }
 

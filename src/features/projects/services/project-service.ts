@@ -20,6 +20,11 @@ import { slugifyProjectName } from "../domain/slug";
 import { canDeleteProject, canEditProject } from "../domain/project-status";
 import type { ProjectStatus } from "../domain/project-status";
 import type { CreateProjectInput, UpdateProjectInput } from "../schema/project-schemas";
+import { getCountry } from "@/config/countries";
+import {
+  addTargetCountries,
+  getTargetCountryByCode,
+} from "@/features/markets/repository/market-repository";
 
 import {
   checkProjectCreationAllowance,
@@ -93,6 +98,8 @@ export async function createProjectService(data: CreateProjectInput): Promise<Pr
     workspaceId,
   });
 
+  validateTargetCountries(data.targetExpansionMarkets ?? []);
+
   let project;
   try {
     project = await createProject(workspaceId, ctx.user.id, {
@@ -105,9 +112,25 @@ export async function createProjectService(data: CreateProjectInput): Promise<Pr
       pricingSummary: data.pricingSummary,
       currentMarkets: data.currentMarkets ?? [],
       preferredLanguage: data.preferredLanguage ?? "en",
+      additionalContext: data.additionalContext,
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof ProjectServiceError) throw error;
     throw new ProjectServiceError("persistence_failure", safeProjectError("persistence_failure"));
+  }
+
+  try {
+    await addMissingTargetCountries(
+      workspaceId,
+      project.id,
+      ctx.user.id,
+      data.targetExpansionMarkets ?? [],
+    );
+  } catch {
+    throw new ProjectServiceError(
+      "persistence_failure",
+      "Project was created, but target markets could not be saved. Open the project and try again.",
+    );
   }
 
   // Consume usage event post-creation. We use project id as idempotency key.
@@ -116,10 +139,11 @@ export async function createProjectService(data: CreateProjectInput): Promise<Pr
   } catch (err) {
     // If usage event fails to record, we shouldn't fail the creation but log it (or we could fail it, but the project is already created).
     // Given the MVP nature, we log it. In a real system, use a transaction.
-    console.error(
-      `Failed to record project creation usage for workspace ${workspaceId}, project ${project.id}:`,
-      err,
-    );
+    console.error("project_creation_usage_record_failed", {
+      operation: "project_creation_usage",
+      safeErrorCode: "USAGE-RECORD",
+      errorType: err instanceof Error ? err.name : "unknown",
+    });
   }
 
   return project;
@@ -151,15 +175,53 @@ export async function updateProjectService(
   if (data.businessModel !== undefined) updateData.business_model = data.businessModel || null;
   if (data.pricingSummary !== undefined) updateData.pricing_summary = data.pricingSummary || null;
   if (data.currentMarkets !== undefined) updateData.current_markets = data.currentMarkets;
+  if (data.additionalContext !== undefined) updateData.additional_context = data.additionalContext;
   if (data.preferredLanguage !== undefined) updateData.preferred_language = data.preferredLanguage;
   if (data.status !== undefined) updateData.status = data.status;
   if (data.additional_context !== undefined)
     updateData.additional_context = data.additional_context;
 
   try {
-    return await updateProject(ctx.activeWorkspace.workspace.id, existing.id, updateData);
-  } catch {
+    const updated = await updateProject(ctx.activeWorkspace.workspace.id, existing.id, updateData);
+    if (data.targetExpansionMarkets !== undefined) {
+      await addMissingTargetCountries(
+        ctx.activeWorkspace.workspace.id,
+        existing.id,
+        ctx.user.id,
+        data.targetExpansionMarkets,
+      );
+    }
+    return updated;
+  } catch (error) {
+    if (error instanceof ProjectServiceError) throw error;
     throw new ProjectServiceError("persistence_failure", safeProjectError("persistence_failure"));
+  }
+}
+
+async function addMissingTargetCountries(
+  workspaceId: string,
+  projectId: string,
+  userId: string,
+  countryCodes: string[],
+) {
+  const normalized = Array.from(new Set(countryCodes.map((code) => code.toUpperCase())));
+  const candidates = [];
+  for (const code of normalized) {
+    const country = getCountry(code);
+    if (!country) {
+      throw new ProjectServiceError("invalid_input", `Unsupported target country: ${code}.`);
+    }
+    const existing = await getTargetCountryByCode(workspaceId, projectId, code);
+    if (!existing) candidates.push({ code, name: country.name, region: country.region });
+  }
+  await addTargetCountries(workspaceId, projectId, userId, candidates);
+}
+
+function validateTargetCountries(countryCodes: string[]) {
+  for (const code of countryCodes) {
+    if (!getCountry(code)) {
+      throw new ProjectServiceError("invalid_input", `Unsupported target country: ${code}.`);
+    }
   }
 }
 

@@ -25,6 +25,18 @@ function renderShell(collapsed = false) {
 }
 
 describe("AppShell sidebar", () => {
+  it("exposes distinct Projects, Campaigns and CRM routes", () => {
+    renderShell();
+    expect(screen.getByRole("link", { name: "Projects" })).toHaveAttribute(
+      "href",
+      "/dashboard/projects",
+    );
+    expect(screen.getByRole("link", { name: "Campaigns" })).toHaveAttribute(
+      "href",
+      "/dashboard/campaigns",
+    );
+    expect(screen.getByRole("link", { name: "CRM" })).toHaveAttribute("href", "/dashboard/crm");
+  });
   beforeEach(() => {
     document.cookie = "sidebar:state=; max-age=0; path=/";
   });

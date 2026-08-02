@@ -10,7 +10,7 @@ import {
   parseStructuredOutput,
   validateStructuredOutput,
 } from "./openai-client";
-import { v2ProductAnalysisResultSchema } from "./ai.provider";
+import { countrySpecificIcpResultSchema, v2ProductAnalysisResultSchema } from "./ai.provider";
 
 const schema = z
   .object({
@@ -69,6 +69,27 @@ function client(fetchMock: typeof fetch) {
 }
 
 describe("OpenAI strict structured output", () => {
+  it("builds the country ICP schema with every property required", () => {
+    const request = buildOpenAiRequest(
+      {
+        apiKey: "not-sent-by-builder",
+        model: "gpt-4o-mini",
+        timeoutMs: 30_000,
+        maxRetries: 0,
+        maxOutputTokens: 800,
+      },
+      "country_specific_icp_v1",
+      "{}",
+      countrySpecificIcpResultSchema,
+    );
+    expect(request.body.max_completion_tokens).toBe(1_600);
+    const jsonSchema = request.body.response_format.json_schema.schema as {
+      properties: Record<string, unknown>;
+      required: string[];
+    };
+    expect(jsonSchema.required).toEqual(expect.arrayContaining(Object.keys(jsonSchema.properties)));
+  });
+
   it("uses strict json_schema mode and a product-analysis-specific budget", () => {
     const request = buildOpenAiRequest(
       {

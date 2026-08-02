@@ -117,6 +117,8 @@ describe("Project Server Actions (Service)", () => {
       "Server Action Description that is long enough to pass zod",
     );
     formData.append("preferredLanguage", "en");
+    formData.append("currentMarkets", JSON.stringify(["TR"]));
+    formData.append("targetExpansionMarkets", JSON.stringify(["US", "US"]));
 
     const result = await createProjectAction(formData);
 
@@ -124,6 +126,25 @@ describe("Project Server Actions (Service)", () => {
     expect((result as { error?: string }).error).toBeUndefined();
     expect((result as { id?: string }).id).toBeDefined();
     expect((result as { name?: string }).name).toBe("Action Project");
+    const projectId = (result as { id: string }).id;
+    const { data: targets } = await svc()
+      .from("project_target_countries")
+      .select("country_code")
+      .eq("project_id", projectId);
+    expect(targets).toEqual([{ country_code: "US" }]);
+  });
+
+  it("rejects malformed country arrays without leaking parser details", async () => {
+    const formData = new FormData();
+    formData.append("name", "Malformed markets");
+    formData.append(
+      "productDescription",
+      "A sufficiently detailed product description for validation",
+    );
+    formData.append("targetExpansionMarkets", "not-json");
+    const result = await createProjectAction(formData);
+    expect((result as { error?: string }).error).toBeDefined();
+    expect((result as { error?: string }).error).not.toMatch(/JSON|Unexpected token/i);
   });
 
   it("missing membership maps to a typed safe error", async () => {

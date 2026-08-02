@@ -1,7 +1,7 @@
 import { createAiProvider } from "@/lib/providers/ai/ai.factory";
 import { getProjectService } from "@/features/projects/services/project-service";
 import { getTargetCountry } from "@/features/markets/repository/market-repository";
-import { getLatestMarketAnalysisRun } from "@/features/markets/repository/market-repository";
+import { getLatestSuccessfulMarketAnalysisRun } from "@/features/markets/repository/market-repository";
 import { getLatestAnalysisRun as getLatestProductRun } from "@/features/projects/repository/project-repository";
 import {
   createIcpGenRun,
@@ -14,6 +14,11 @@ import { countrySpecificIcpResultSchema } from "@/lib/providers/ai/ai.provider";
 import type { CountrySpecificIcpResult } from "@/lib/providers/ai/ai.provider";
 import { parseServerEnv } from "@/lib/env/env";
 import { toProductIntelligenceContext } from "@/features/projects/domain/product-intelligence";
+import { enforceRateLimit } from "@/lib/security/rate-limit-service";
+import { RateLimitExceededError } from "@/lib/providers/rate-limit/rate-limit.provider";
+import { AiProviderError } from "@/lib/providers/ai/openai-client";
+import { recordProviderUsage } from "@/features/ai-usage/services/ai-usage-service";
+import { randomUUID } from "node:crypto";
 
 export type IcpGenErrorCode =
   | "unauthenticated"
@@ -24,6 +29,10 @@ export type IcpGenErrorCode =
   | "product_analysis_missing"
   | "already_running"
   | "provider_unavailable"
+  | "provider_auth"
+  | "provider_model"
+  | "provider_quota"
+  | "provider_rate_limit"
   | "provider_timeout"
   | "invalid_provider_response"
   | "configuration_missing"
@@ -31,7 +40,12 @@ export type IcpGenErrorCode =
 
 export class IcpGenError extends Error {
   readonly code: IcpGenErrorCode;
-  constructor(c: IcpGenErrorCode, m: string) {
+  constructor(
+    c: IcpGenErrorCode,
+    m: string,
+    readonly operationId: string = randomUUID(),
+    readonly safeReference: string = icpErrorReference(c),
+  ) {
     super(m);
     this.name = "IcpGenError";
     this.code = c;
@@ -48,12 +62,30 @@ export function safeIcpError(c: IcpGenErrorCode): string {
     product_analysis_missing: "Run a product analysis first.",
     already_running: "An ICP is already being generated.",
     provider_unavailable: "AI provider unavailable.",
+    provider_auth: "OpenAI authentication failed.",
+    provider_model: "The configured AI model is not accessible.",
+    provider_quota: "AI usage quota has been reached.",
+    provider_rate_limit: "Too many generation requests were made. Please wait and try again.",
     provider_timeout: "Generation timed out.",
     invalid_provider_response: "Unexpected response.",
     configuration_missing: "Configuration missing.",
     persistence_failure: "Save failed.",
   };
   return m[c];
+}
+
+export function icpErrorReference(c: IcpGenErrorCode): string {
+  if (c === "provider_auth") return "AI-PROVIDER-AUTH";
+  if (c === "provider_model") return "AI-PROVIDER-MODEL";
+  if (c === "provider_quota") return "AI-PROVIDER-QUOTA";
+  if (c === "provider_rate_limit") return "AI-PROVIDER-RATE";
+  if (c === "provider_timeout") return "AI-PROVIDER-TIMEOUT";
+  if (c === "invalid_provider_response") return "AI-PROVIDER-OUTPUT";
+  if (c === "persistence_failure") return "ICP-PERSIST";
+  if (c === "unauthorized" || c === "unauthenticated") return "ICP-PERMISSION";
+  if (c === "market_analysis_missing") return "MARKET-ANALYSIS-MISSING";
+  if (c === "product_analysis_missing") return "PRODUCT-ANALYSIS-MISSING";
+  return "AI-PROVIDER-UNAVAILABLE";
 }
 
 export async function generateIcp(
@@ -63,6 +95,7 @@ export async function generateIcp(
   projectSlug: string,
   userId: string,
 ): Promise<{ runId: string; profile: IcpProfileRowLite }> {
+  const operationId = randomUUID();
   const env = parseServerEnv();
 
   const project = await getProjectService(projectSlug);
@@ -70,9 +103,11 @@ export async function generateIcp(
 
   const tc = await getTargetCountry(wsId, tcId);
   if (!tc) throw new IcpGenError("country_not_found", safeIcpError("country_not_found"));
+  if (tc.project_id !== projectId)
+    throw new IcpGenError("country_not_found", safeIcpError("country_not_found"), operationId);
 
-  const mRun = await getLatestMarketAnalysisRun(wsId, tcId);
-  if (!mRun || mRun.status !== "succeeded" || !mRun.output)
+  const mRun = await getLatestSuccessfulMarketAnalysisRun(wsId, tcId);
+  if (!mRun?.output)
     throw new IcpGenError("market_analysis_missing", safeIcpError("market_analysis_missing"));
   const mOut = mRun.output as Record<string, unknown>;
 
@@ -118,7 +153,32 @@ export async function generateIcp(
     },
   };
 
-  const provider = createAiProvider(env.DEFAULT_AI_PROVIDER);
+  await enforceRateLimit({
+    operation: "icp_generation",
+    workspaceId: wsId,
+    userId,
+    limit: 10,
+  }).catch((error) => {
+    if (error instanceof RateLimitExceededError) {
+      throw new IcpGenError(
+        "provider_rate_limit",
+        safeIcpError("provider_rate_limit"),
+        operationId,
+      );
+    }
+    throw error;
+  });
+
+  let provider;
+  try {
+    provider = createAiProvider(env.DEFAULT_AI_PROVIDER);
+  } catch {
+    throw new IcpGenError(
+      "configuration_missing",
+      safeIcpError("configuration_missing"),
+      operationId,
+    );
+  }
   const run = await createIcpGenRun(wsId, {
     workspace_id: wsId,
     project_id: projectId,
@@ -171,83 +231,146 @@ export async function generateIcp(
       throw new IcpGenError("invalid_provider_response", safeIcpError("invalid_provider_response"));
     }
     genResult = val.data;
+    if (env.AI_COST_TRACKING_ENABLED) {
+      await recordProviderUsage({
+        workspaceId: wsId,
+        projectId,
+        operationType: "country_icp_generation",
+        generationRunId: run.id,
+        meta: res.meta,
+      }).catch(() => undefined);
+    }
   } catch (err) {
     if (err instanceof IcpGenError) throw err;
-    const msg = err instanceof Error ? err.message : "Unknown";
-    const code: IcpGenErrorCode = msg.includes("timeout")
-      ? "provider_timeout"
-      : "provider_unavailable";
+    const code = mapIcpProviderError(err);
+    const providerOperationId = err instanceof AiProviderError ? err.operationId : operationId;
+    if (
+      err instanceof AiProviderError &&
+      env.AI_COST_TRACKING_ENABLED &&
+      err.diagnostics.attempts
+    ) {
+      await recordProviderUsage({
+        workspaceId: wsId,
+        projectId,
+        operationType: "country_icp_generation",
+        generationRunId: run.id,
+        meta: {
+          providerName: provider.name,
+          isMock: provider.isMock,
+          durationMs: 1,
+          modelId: env.OPENAI_MODEL,
+          operationId: providerOperationId,
+          attempts: err.diagnostics.attempts,
+        },
+        success: false,
+        controlledErrorCode: err.code,
+      }).catch(() => undefined);
+    }
     await updateIcpGenRun(wsId, run.id, {
       status: "failed",
       error_code: code,
       safe_error_message: safeIcpError(code),
       completed_at: new Date().toISOString(),
     });
-    throw new IcpGenError(code, safeIcpError(code));
+    throw new IcpGenError(code, safeIcpError(code), providerOperationId);
   }
 
-  await updateIcpGenRun(wsId, run.id, {
-    status: "succeeded",
-    output: genResult as unknown as Record<string, unknown>,
-    completed_at: new Date().toISOString(),
-  });
+  try {
+    const version = await getNextVersion(wsId, tcId);
+    const profile = await createIcpProfile(wsId, {
+      workspace_id: wsId,
+      project_id: projectId,
+      project_target_country_id: tcId,
+      market_analysis_run_id: mRun.id,
+      product_analysis_run_id: pRun.id,
+      created_by: userId,
+      current_generation_run_id: run.id,
+      version,
+      status: "draft",
+      name: genResult.profileName,
+      summary: genResult.summary,
+      country_code: tc.country_code,
+      industry_segments: {
+        primary: genResult.primaryIndustries,
+        secondary: genResult.secondaryIndustries,
+      },
+      company_attributes: genResult.companyAttributes,
+      buyer_roles: genResult.buyerRoles,
+      user_roles: genResult.userRoles,
+      pains: genResult.primaryPains,
+      desired_outcomes: [
+        ...genResult.desiredBusinessOutcomes,
+        ...genResult.desiredOperationalOutcomes,
+      ],
+      purchase_triggers: genResult.purchaseTriggers,
+      qualification_signals: genResult.qualificationSignals,
+      disqualification_signals: genResult.disqualificationSignals,
+      objections: genResult.objections,
+      procurement_context: genResult.procurementContext
+        ? { summary: genResult.procurementContext }
+        : null,
+      localization_requirements: genResult.localizationRequirements
+        ? { summary: genResult.localizationRequirements }
+        : null,
+      technology_context: genResult.technologyContext
+        ? { summary: genResult.technologyContext }
+        : null,
+      assumptions: genResult.assumptions,
+      missing_information: genResult.missingInformation,
+      validation_questions: genResult.validationQuestions,
+      confidence: genResult.confidence,
+      confidence_reason: genResult.confidenceReason,
+    });
+    await updateIcpGenRun(wsId, run.id, {
+      status: "succeeded",
+      output: genResult as unknown as Record<string, unknown>,
+      completed_at: new Date().toISOString(),
+    });
+    return {
+      runId: run.id,
+      profile: {
+        id: profile.id,
+        version: profile.version,
+        name: profile.name,
+        status: profile.status,
+        country_code: profile.country_code,
+      },
+    };
+  } catch {
+    await updateIcpGenRun(wsId, run.id, {
+      status: "failed",
+      error_code: "persistence_failure",
+      safe_error_message: safeIcpError("persistence_failure"),
+      completed_at: new Date().toISOString(),
+    }).catch(() => undefined);
+    throw new IcpGenError("persistence_failure", safeIcpError("persistence_failure"), operationId);
+  }
+}
 
-  const version = await getNextVersion(wsId, tcId);
-  const profile = await createIcpProfile(wsId, {
-    workspace_id: wsId,
-    project_id: projectId,
-    project_target_country_id: tcId,
-    market_analysis_run_id: mRun.id,
-    product_analysis_run_id: pRun.id,
-    created_by: userId,
-    current_generation_run_id: run.id,
-    version,
-    status: "draft",
-    name: genResult.profileName,
-    summary: genResult.summary,
-    country_code: tc.country_code,
-    industry_segments: {
-      primary: genResult.primaryIndustries,
-      secondary: genResult.secondaryIndustries,
-    },
-    company_attributes: genResult.companyAttributes,
-    buyer_roles: genResult.buyerRoles,
-    user_roles: genResult.userRoles,
-    pains: genResult.primaryPains,
-    desired_outcomes: [
-      ...genResult.desiredBusinessOutcomes,
-      ...genResult.desiredOperationalOutcomes,
-    ],
-    purchase_triggers: genResult.purchaseTriggers,
-    qualification_signals: genResult.qualificationSignals,
-    disqualification_signals: genResult.disqualificationSignals,
-    objections: genResult.objections,
-    procurement_context: genResult.procurementContext
-      ? { summary: genResult.procurementContext }
-      : null,
-    localization_requirements: genResult.localizationRequirements
-      ? { summary: genResult.localizationRequirements }
-      : null,
-    technology_context: genResult.technologyContext
-      ? { summary: genResult.technologyContext }
-      : null,
-    assumptions: genResult.assumptions,
-    missing_information: genResult.missingInformation,
-    validation_questions: genResult.validationQuestions,
-    confidence: genResult.confidence,
-    confidence_reason: genResult.confidenceReason,
-  });
-
-  return {
-    runId: run.id,
-    profile: {
-      id: profile.id,
-      version: profile.version,
-      name: profile.name,
-      status: profile.status,
-      country_code: profile.country_code,
-    },
-  };
+export function mapIcpProviderError(error: unknown): IcpGenErrorCode {
+  if (!(error instanceof AiProviderError)) return "provider_unavailable";
+  if (error.code === "invalid_api_key") return "provider_auth";
+  if (error.code === "model_not_found" || error.code === "model_access_denied")
+    return "provider_model";
+  if (error.code === "insufficient_quota") return "provider_quota";
+  if (error.code === "rate_limited") return "provider_rate_limit";
+  if (error.code === "timeout") return "provider_timeout";
+  if (
+    error.code === "structured_output_invalid" ||
+    error.code === "refusal" ||
+    error.code === "truncated_output" ||
+    error.code === "invalid_json" ||
+    error.code === "markdown_wrapped_json" ||
+    error.code === "missing_required_field" ||
+    error.code === "wrong_field_type" ||
+    error.code === "unexpected_enum_value" ||
+    error.code === "extra_unsupported_structure" ||
+    error.code === "schema_version_mismatch" ||
+    error.code === "empty_completion" ||
+    error.code === "provider_response_extraction_failed"
+  )
+    return "invalid_provider_response";
+  return "provider_unavailable";
 }
 
 export interface IcpProfileRowLite {

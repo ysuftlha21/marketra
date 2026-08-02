@@ -96,6 +96,27 @@ export async function addTargetCountry(
   return data as unknown as TargetCountryRow;
 }
 
+export async function addTargetCountries(
+  wsId: string,
+  projectId: string,
+  userId: string,
+  countries: Array<{ code: string; name: string; region: string | null }>,
+): Promise<void> {
+  if (countries.length === 0) return;
+  const supabase = await createServerClient();
+  const { error } = await supabase.from("project_target_countries").insert(
+    countries.map((country) => ({
+      workspace_id: wsId,
+      project_id: projectId,
+      country_code: country.code.toUpperCase(),
+      country_name: country.name,
+      region_code: country.region,
+      added_by: userId,
+    })),
+  );
+  if (error) throw error;
+}
+
 export async function getTargetCountry(
   wsId: string,
   countryId: string,

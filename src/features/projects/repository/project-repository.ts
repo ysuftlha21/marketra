@@ -71,6 +71,7 @@ export async function createProject(
     pricingSummary?: string;
     currentMarkets: string[];
     preferredLanguage: string;
+    additionalContext?: Record<string, unknown>;
   },
 ): Promise<ProjectRow> {
   const supabase = await createServerClient();
@@ -88,6 +89,7 @@ export async function createProject(
       pricing_summary: data.pricingSummary ?? null,
       current_markets: data.currentMarkets,
       preferred_language: data.preferredLanguage,
+      additional_context: (data.additionalContext as Json | undefined) ?? null,
     })
     .select(
       "id, workspace_id, created_by, name, slug, website_url, product_description, target_customer_summary, business_model, pricing_summary, current_markets, preferred_language, status, additional_context, created_at, updated_at, archived_at",

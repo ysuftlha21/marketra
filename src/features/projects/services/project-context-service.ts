@@ -17,6 +17,10 @@ import {
   type IcpProfileRow,
 } from "@/features/icp/repository/icp-repository";
 import { createServerClient } from "@/lib/db/supabase-server";
+import {
+  resolveCanonicalMarketContext,
+  type CanonicalMarketContext,
+} from "@/features/markets/domain/market-context";
 
 export const ACTIVE_PROJECT_COOKIE = "marketra:active-project";
 
@@ -35,7 +39,12 @@ export type ProjectContextState =
 export type FeatureReadiness = {
   ready: boolean;
   reason:
-    ProjectContextState | "company_missing" | "buyer_missing" | "draft_missing" | "activity_empty";
+    | ProjectContextState
+    | "market_analysis_missing"
+    | "no_saved_company"
+    | "no_buyer"
+    | "no_outreach_lead"
+    | "no_activity";
 };
 
 export interface AuthenticatedProjectContext {
@@ -44,18 +53,24 @@ export interface AuthenticatedProjectContext {
   project: ProjectRow | null;
   projects: Array<{ id: string; name: string; slug: string }>;
   markets: TargetCountrySummary[];
+  marketContext: CanonicalMarketContext | null;
   activeMarket: TargetCountrySummary | null;
   productAnalysis: AnalysisRunRow | null;
   icp: IcpProfileRow | null;
   latestIcp: IcpProfileRow | null;
   counts: { companies: number; buyers: number; drafts: number; activity: number };
   readiness: {
+    project: FeatureReadiness;
+    productAnalysis: FeatureReadiness;
     markets: FeatureReadiness;
+    marketAnalysis: FeatureReadiness;
+    icp: FeatureReadiness;
     companyDiscovery: FeatureReadiness;
     buyerDiscovery: FeatureReadiness;
     outreach: FeatureReadiness;
     campaigns: FeatureReadiness;
     analytics: FeatureReadiness;
+    crm: FeatureReadiness;
   };
 }
 
@@ -106,6 +121,8 @@ export async function resolveAuthenticatedProjectContext(
     const productReady =
       state !== "product_context_missing" && state !== "product_context_incomplete";
     const companyReady = productReady && Boolean(activeMarket && approvedIcp);
+    const marketAnalysisReady = Boolean(activeMarket?.has_completed_analysis);
+    const marketContext = resolveCanonicalMarketContext(project, markets);
     return {
       state,
       workspaceId,
@@ -116,18 +133,30 @@ export async function resolveAuthenticatedProjectContext(
         slug: projectSlug,
       })),
       markets,
+      marketContext,
       activeMarket,
       productAnalysis,
       icp: approvedIcp,
       latestIcp,
       counts,
       readiness: {
+        project: ready(),
+        productAnalysis: productAnalysis ? ready() : blocked("product_analysis_missing"),
         markets: productReady ? ready() : blocked(state),
-        companyDiscovery: companyReady ? ready() : blocked(state),
-        buyerDiscovery: counts.companies > 0 ? ready() : blocked("company_missing"),
-        outreach: counts.buyers > 0 ? ready() : blocked("buyer_missing"),
-        campaigns: counts.drafts > 0 ? ready() : blocked("draft_missing"),
-        analytics: counts.activity > 0 ? ready() : blocked("activity_empty"),
+        marketAnalysis: marketAnalysisReady ? ready() : blocked("market_analysis_missing"),
+        icp: approvedIcp
+          ? ready()
+          : latestIcp
+            ? blocked("icp_incomplete")
+            : blocked(marketAnalysisReady ? "icp_missing" : "market_analysis_missing"),
+        companyDiscovery: companyReady
+          ? ready()
+          : blocked(marketAnalysisReady ? state : "market_analysis_missing"),
+        buyerDiscovery: counts.companies > 0 ? ready() : blocked("no_saved_company"),
+        outreach: counts.buyers > 0 ? ready() : blocked("no_buyer"),
+        campaigns: counts.drafts > 0 ? ready() : blocked("no_outreach_lead"),
+        analytics: counts.activity > 0 ? ready() : blocked("no_activity"),
+        crm: counts.activity > 0 ? ready() : blocked("no_activity"),
       },
     };
   } catch {
@@ -196,18 +225,110 @@ function emptyContext(
     project: null,
     projects,
     markets: [],
+    marketContext: null,
     activeMarket: null,
     productAnalysis: null,
     icp: null,
     latestIcp: null,
     counts: { companies: 0, buyers: 0, drafts: 0, activity: 0 },
     readiness: {
+      project: reason,
+      productAnalysis: reason,
       markets: reason,
+      marketAnalysis: reason,
+      icp: reason,
       companyDiscovery: reason,
       buyerDiscovery: reason,
       outreach: reason,
       campaigns: reason,
-      analytics: blocked("activity_empty"),
+      analytics: blocked("no_activity"),
+      crm: blocked("no_activity"),
     },
+  };
+}
+
+export interface RecommendedProjectAction {
+  title: string;
+  description: string;
+  href: string;
+  action: string;
+}
+
+export function getRecommendedProjectAction(
+  context: AuthenticatedProjectContext,
+): RecommendedProjectAction {
+  if (!context.project) {
+    return {
+      title: "Add your SaaS product",
+      description: "Create your first Marketra project.",
+      href: "/dashboard/projects/new",
+      action: "Create",
+    };
+  }
+  const projectBase = `/dashboard/projects/${context.project.slug}`;
+  const marketBase = context.activeMarket
+    ? `${projectBase}/markets/${context.activeMarket.country_code}`
+    : `${projectBase}/markets`;
+  if (!context.readiness.productAnalysis.ready) {
+    return {
+      title: "Analyze your product",
+      description: "Turn stored product context into reusable market intelligence.",
+      href: projectBase,
+      action: "Analyze",
+    };
+  }
+  if (context.markets.length === 0) {
+    return {
+      title: "Add a target market",
+      description: "Choose a country you want to analyze and enter.",
+      href: `${projectBase}/markets`,
+      action: "Add market",
+    };
+  }
+  if (!context.readiness.marketAnalysis.ready) {
+    return {
+      title: "Run market analysis",
+      description: "Analyze the selected target country before generating its ICP.",
+      href: marketBase,
+      action: "Analyze",
+    };
+  }
+  if (!context.readiness.icp.ready) {
+    return {
+      title: "Generate country ICP",
+      description: "Create or adapt the ICP for the analyzed target market.",
+      href: `${marketBase}/icp`,
+      action: "Generate",
+    };
+  }
+  if (context.counts.companies === 0) {
+    return {
+      title: "Discover companies",
+      description: "Find companies matching the approved country ICP.",
+      href: `${marketBase}/discovery`,
+      action: "Discover",
+    };
+  }
+  if (context.counts.buyers === 0) {
+    return {
+      title: "Find buyer roles",
+      description: "Open a saved company and identify relevant decision makers.",
+      href: "/dashboard/companies",
+      action: "Find buyers",
+    };
+  }
+  if (context.counts.drafts === 0) {
+    return {
+      title: "Prepare outreach",
+      description: "Create localized outreach for an approved buyer role.",
+      href: "/dashboard/outreach",
+      action: "Create draft",
+    };
+  }
+  return {
+    title: "Review your pipeline",
+    description: "Continue from stored company, buyer and outreach activity.",
+    href: "/dashboard/crm",
+    action: "Open CRM",
   };
 }

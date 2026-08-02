@@ -2,7 +2,10 @@ import { DashboardOverview } from "@/features/dashboard/components/dashboard-ove
 import { DashboardStateOverview } from "@/features/dashboard/components/dashboard-state-overview";
 import { getAuthContext } from "@/lib/auth/session";
 import { getDashboardViewModel } from "@/features/dashboard/services/dashboard-service";
-import { resolveAuthenticatedProjectContext } from "@/features/projects/services/project-context-service";
+import {
+  getRecommendedProjectAction,
+  resolveAuthenticatedProjectContext,
+} from "@/features/projects/services/project-context-service";
 
 export const metadata = { title: "Overview" };
 
@@ -38,6 +41,7 @@ export default async function DashboardOverviewPage({
       },
       projectContext.project?.id,
     );
+    model = { ...model, nextSteps: [getRecommendedProjectAction(projectContext)] };
   } catch {
     return (
       <div className="marketra-panel mx-auto mt-16 max-w-lg p-8 text-center">

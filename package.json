@@ -21,6 +21,7 @@
     "test:e2e:ui": "cross-env NODE_ENV=test E2E_TEST_MODE=true playwright test --ui",
     "test:smoke:openai": "cross-env REAL_OPENAI_SMOKE=true vitest run --config vitest.smoke.config.ts tests/smoke/production-provider.smoke.test.ts",
     "test:smoke:openai-product-analysis": "cross-env REAL_OPENAI_PRODUCT_ANALYSIS_SMOKE=true vitest run --config vitest.smoke.config.ts tests/smoke/production-provider.smoke.test.ts",
+    "test:smoke:openai-icp": "cross-env REAL_OPENAI_ICP_SMOKE=true vitest run --config vitest.smoke.config.ts tests/smoke/production-provider.smoke.test.ts",
     "test:smoke:smtp": "cross-env REAL_SMTP_SMOKE=true vitest run --config vitest.smoke.config.ts tests/smoke/production-provider.smoke.test.ts",
     "test:smoke:hunter": "cross-env HUNTER_SMOKE=true vitest run --config vitest.smoke.config.ts tests/smoke/hunter.smoke.test.ts",
     "test:smoke:redis-rate-limit": "vitest run --config vitest.smoke.config.ts tests/smoke/redis-rate-limit.smoke.test.ts",

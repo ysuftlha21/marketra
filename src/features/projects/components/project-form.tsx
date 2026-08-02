@@ -18,9 +18,10 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 
 interface ProjectFormProps {
   project?: ProjectRow;
+  targetMarketCodes?: string[];
 }
 
-export function ProjectForm({ project }: ProjectFormProps) {
+export function ProjectForm({ project, targetMarketCodes = [] }: ProjectFormProps) {
   const router = useRouter();
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -44,10 +45,13 @@ export function ProjectForm({ project }: ProjectFormProps) {
           businessModel: project.business_model ?? undefined,
           pricingSummary: project.pricing_summary ?? undefined,
           currentMarkets: project.current_markets ?? [],
+          targetExpansionMarkets: targetMarketCodes,
+          additionalContext: project.additional_context ?? undefined,
           preferredLanguage: project.preferred_language,
         }
       : {
           currentMarkets: [],
+          targetExpansionMarkets: [],
           preferredLanguage: "en",
         },
   });
@@ -84,6 +88,10 @@ export function ProjectForm({ project }: ProjectFormProps) {
       if (values.businessModel) formData.set("businessModel", String(values.businessModel));
       if (values.pricingSummary) formData.set("pricingSummary", String(values.pricingSummary));
       formData.set("currentMarkets", JSON.stringify(values.currentMarkets ?? []));
+      formData.set("targetExpansionMarkets", JSON.stringify(values.targetExpansionMarkets ?? []));
+      const additional = (values.additionalContext ?? {}) as Record<string, unknown>;
+      formData.set("priorityRegions", String(additional.priorityRegions ?? ""));
+      formData.set("countryDataCoverage", String(additional.countryDataCoverage ?? ""));
       formData.set("preferredLanguage", String(values.preferredLanguage ?? "en"));
 
       if (isEditing && project) {
@@ -142,6 +150,59 @@ export function ProjectForm({ project }: ProjectFormProps) {
                 {errors.name.message}
               </p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="targetExpansionMarkets">Target expansion markets (ISO codes)</Label>
+            <Input
+              id="targetExpansionMarkets"
+              placeholder="e.g. DE, FR, US"
+              defaultValue={targetMarketCodes.join(", ")}
+              onChange={(event) =>
+                setValue(
+                  "targetExpansionMarkets",
+                  event.target.value
+                    .split(",")
+                    .map((entry) => entry.trim().toUpperCase())
+                    .filter(Boolean) as never,
+                  { shouldValidate: true },
+                )
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Countries you want Marketra to analyze and enter. They appear under Target Markets
+              immediately; existing markets with history are managed there.
+            </p>
+            {errors.targetExpansionMarkets?.message && (
+              <p className="text-xs text-danger" role="alert">
+                {errors.targetExpansionMarkets.message}
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="priorityRegions">Priority regions</Label>
+              <Input
+                id="priorityRegions"
+                placeholder="e.g. DACH, Western Europe"
+                {...register("additionalContext.priorityRegions")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Broad strategic regions used as analysis context, not country selections.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="countryDataCoverage">Country data coverage</Label>
+              <Input
+                id="countryDataCoverage"
+                placeholder="e.g. US, Canada"
+                {...register("additionalContext.countryDataCoverage")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Countries where your product or datasets already have meaningful coverage.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -252,7 +313,7 @@ export function ProjectForm({ project }: ProjectFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="currentMarkets">Current markets (comma-separated)</Label>
+            <Label htmlFor="currentMarkets">Current operating markets (ISO codes)</Label>
             <Input
               id="currentMarkets"
               placeholder="e.g. US, UK, DE"
@@ -274,6 +335,10 @@ export function ProjectForm({ project }: ProjectFormProps) {
                 setValue("currentMarkets", m, { shouldValidate: true });
               }}
             />
+            <p className="text-xs text-muted-foreground">
+              Countries where the product already operates or has customers. Expansion targets are
+              managed separately under Target Markets.
+            </p>
             {getMarketsError() && (
               <p className="text-xs text-danger mt-1" role="alert">
                 {getMarketsError()}

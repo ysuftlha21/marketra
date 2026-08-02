@@ -164,6 +164,8 @@ export async function changeCompanyLifecycleAction(formData: FormData) {
 
   const pc = await getProjectCompany(ctx.activeWorkspace.workspace.id, pcId);
   if (!pc) return { error: "Company not found in project." };
+  const project = await getProjectService(projectSlug);
+  if (!project || project.id !== pc.project_id) return { error: "Company not found in project." };
 
   try {
     await enforceRateLimit({
@@ -177,7 +179,11 @@ export async function changeCompanyLifecycleAction(formData: FormData) {
       status as "discovered" | "shortlisted" | "approved" | "rejected" | "archived",
       ctx.user.id,
     );
-    revalidatePath(`/dashboard/projects/${projectSlug}/discovery`);
+    revalidatePath(`/dashboard/projects/${projectSlug}/markets`);
+    revalidatePath("/dashboard/companies");
+    revalidatePath("/dashboard/crm");
+    revalidatePath("/dashboard/analytics");
+    revalidatePath("/dashboard", "layout");
     return { ok: true };
   } catch (error) {
     const rateLimitMessage = safeRateLimitMessage(error);
@@ -198,10 +204,13 @@ export async function updateCompanyNotesAction(formData: FormData) {
 
   const pc = await getProjectCompany(ctx.activeWorkspace.workspace.id, pcId);
   if (!pc) return { error: "Company not found in project." };
+  const project = await getProjectService(projectSlug);
+  if (!project || project.id !== pc.project_id) return { error: "Company not found in project." };
 
   try {
     await updateProjectCompanyNotes(ctx.activeWorkspace.workspace.id, pcId, notes);
-    revalidatePath(`/dashboard/projects/${projectSlug}/discovery`);
+    revalidatePath(`/dashboard/projects/${projectSlug}/markets`);
+    revalidatePath("/dashboard/crm");
     return { ok: true };
   } catch {
     return { error: "Update failed." };

@@ -145,21 +145,33 @@ function ProjectSwitcher({
 }) {
   const router = useRouter();
   const projects = context.projects ?? [];
-  if (!context.activeProject || projects.length === 0) return null;
+  const [pendingSlug, setPendingSlug] = React.useState<string | null>(null);
+
+  const activeProject = context.activeProject;
+  if (!activeProject || projects.length === 0) return null;
+  const pending = pendingSlug !== null;
 
   return (
     <label className={cn("items-center", mobile ? "flex w-full" : "hidden sm:flex")}>
       <span className="sr-only">Active project</span>
       <select
         aria-label="Active project"
-        value={context.activeProject.slug}
+        aria-busy={pending}
+        disabled={pending}
+        value={pendingSlug ?? activeProject.slug}
         onChange={async (event) => {
+          const nextSlug = event.target.value;
+          setPendingSlug(nextSlug);
           const formData = new FormData();
-          formData.set("projectSlug", event.target.value);
-          const result = await switchProjectAction(formData);
-          if (result.ok) {
-            router.push("/dashboard");
-            router.refresh();
+          formData.set("projectSlug", nextSlug);
+          try {
+            const result = await switchProjectAction(formData);
+            if (result.ok) {
+              router.push("/dashboard");
+              router.refresh();
+            }
+          } finally {
+            setPendingSlug(null);
           }
         }}
         className={cn(

@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 const PORT = process.env.PLAYWRIGHT_PORT ?? "3100";
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+const reuseExistingFixtures = process.env.E2E_REUSE_EXISTING_FIXTURES === "true";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -18,7 +19,7 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
-  globalSetup: "./tests/e2e/global-setup.ts",
+  globalSetup: reuseExistingFixtures ? undefined : "./tests/e2e/global-setup.ts",
   projects: [
     /* ─── Auth setup ───────────────────────────────────────────
      * Creates three independent storage state files, one per project.
@@ -31,7 +32,7 @@ export default defineConfig({
     /* ─── Desktop — authenticated (isolated user #1) ─────────── */
     {
       name: "chromium-desktop",
-      dependencies: ["setup"],
+      dependencies: reuseExistingFixtures ? [] : ["setup"],
       testMatch: [
         "**/authenticated*.ts",
         "**/screenshots-discovery*",
@@ -66,7 +67,7 @@ export default defineConfig({
     /* ─── Mobile — authenticated (isolated user #2) ──────────── */
     {
       name: "chromium-mobile",
-      dependencies: ["setup"],
+      dependencies: reuseExistingFixtures ? [] : ["setup"],
       testMatch: [
         "**/authenticated*.ts",
         "**/mobile-discovery*",
@@ -84,7 +85,7 @@ export default defineConfig({
     },
     {
       name: "chromium-outreach-states",
-      dependencies: ["setup"],
+      dependencies: reuseExistingFixtures ? [] : ["setup"],
       testMatch: ["**/authenticated-outreach.spec.ts", "**/screenshots-outreach.spec.ts"],
       use: {
         storageState: "playwright/.auth/signout-user.json",

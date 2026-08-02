@@ -17,7 +17,7 @@ describe("ProjectForm Validation UX", () => {
   it("displays validation error when currentMarkets uses invalid codes", async () => {
     render(<ProjectForm />);
 
-    const marketsInput = screen.getByLabelText(/Current markets/i);
+    const marketsInput = screen.getByLabelText(/Current operating markets/i);
     fireEvent.change(marketsInput, { target: { value: "Germany" } });
     fireEvent.blur(marketsInput);
 
@@ -29,7 +29,7 @@ describe("ProjectForm Validation UX", () => {
   it("accepts valid comma-separated country codes", async () => {
     render(<ProjectForm />);
 
-    const marketsInput = screen.getByLabelText(/Current markets/i);
+    const marketsInput = screen.getByLabelText(/Current operating markets/i);
     fireEvent.change(marketsInput, { target: { value: "US, UK, DE" } });
     fireEvent.blur(marketsInput);
 
@@ -41,6 +41,14 @@ describe("ProjectForm Validation UX", () => {
         screen.queryByText("Must be a valid ISO 3166 alpha-2 country code"),
       ).not.toBeInTheDocument();
     });
+  });
+
+  it("renders operating, expansion, priority and coverage as distinct concepts", () => {
+    render(<ProjectForm targetMarketCodes={["US"]} />);
+    expect(screen.getByLabelText(/Current operating markets/i)).toHaveValue("");
+    expect(screen.getByLabelText(/Target expansion markets/i)).toHaveValue("US");
+    expect(screen.getByLabelText(/Priority regions/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Country data coverage/i)).toBeInTheDocument();
   });
 
   it("displays validation error when optional fields exceed limits", async () => {

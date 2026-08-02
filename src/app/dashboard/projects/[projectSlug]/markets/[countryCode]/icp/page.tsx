@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
+import { formatIcpDisplayValue, formatIcpLabel } from "@/features/icp/domain/icp-presentation";
 import { IcpEditForm } from "@/features/icp/components/icp-edit-form";
 import { getProjectIcpReadiness } from "@/features/icp/services/icp-readiness-service";
 import { AdaptCountryIcpForm } from "@/features/icp/components/adapt-country-icp-form";
@@ -336,11 +337,9 @@ function JsonSection({ data }: { data: Record<string, unknown> }) {
       {Object.entries(data).map(([k, v]) => (
         <div key={k} className="flex items-start gap-2 text-sm">
           <span className="text-xs text-muted-foreground capitalize min-w-[80px]">
-            {k.replace(/([A-Z])/g, " $1")}:
+            {formatIcpLabel(k)}:
           </span>
-          <span className="text-foreground">
-            {typeof v === "string" ? v.replace(/^\[mock\]\s*/, "") : JSON.stringify(v)}
-          </span>
+          <span className="text-foreground">{formatIcpDisplayValue(v)}</span>
         </div>
       ))}
     </div>

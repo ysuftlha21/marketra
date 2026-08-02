@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { getProjectService } from "@/features/projects/services/project-service";
 import { PageHeader } from "@/components/common/page-header";
 import { ProjectForm } from "@/features/projects/components/project-form";
+import { listProjectTargetCountriesService } from "@/features/markets/services/market-service";
 
 interface PageProps {
   params: Promise<{ projectSlug: string }>;
@@ -13,7 +14,10 @@ export const metadata = { title: "Edit project" };
 
 export default async function EditProjectPage({ params }: PageProps) {
   const { projectSlug } = await params;
-  const project = await getProjectService(projectSlug);
+  const [project, targetMarkets] = await Promise.all([
+    getProjectService(projectSlug),
+    listProjectTargetCountriesService(projectSlug),
+  ]);
   if (!project) notFound();
 
   return (
@@ -25,7 +29,10 @@ export default async function EditProjectPage({ params }: PageProps) {
         <ArrowLeft className="h-4 w-4" aria-hidden /> Back to project
       </Link>
       <PageHeader title={`Edit: ${project.name}`} description="Update your product information." />
-      <ProjectForm project={project} />
+      <ProjectForm
+        project={project}
+        targetMarketCodes={targetMarkets.map((market) => market.country_code)}
+      />
     </div>
   );
 }

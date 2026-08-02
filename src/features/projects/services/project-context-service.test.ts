@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { ProjectRow, AnalysisRunRow } from "../repository/project-repository";
 import type { TargetCountrySummary } from "@/features/markets/repository/market-repository";
 import type { IcpProfileRow } from "@/features/icp/repository/icp-repository";
-import { deriveProjectContextState } from "./project-context-service";
+import {
+  deriveProjectContextState,
+  getRecommendedProjectAction,
+  type AuthenticatedProjectContext,
+} from "./project-context-service";
 
 const project = {
   id: "project",
@@ -36,5 +40,23 @@ describe("canonical project readiness policy", () => {
     expect(deriveProjectContextState(project, [market], analysis, approvedIcp, approvedIcp)).toBe(
       "ready",
     );
+  });
+
+  it("derives the dashboard next action from the same readiness context", () => {
+    const context = {
+      project: { ...project, slug: "marketra" },
+      activeMarket: { ...market, country_code: "US" },
+      markets: [market],
+      counts: { companies: 0, buyers: 0, drafts: 0, activity: 0 },
+      readiness: {
+        productAnalysis: { ready: true, reason: "ready" },
+        marketAnalysis: { ready: true, reason: "ready" },
+        icp: { ready: true, reason: "ready" },
+      },
+    } as unknown as AuthenticatedProjectContext;
+    expect(getRecommendedProjectAction(context)).toMatchObject({
+      title: "Discover companies",
+      href: "/dashboard/projects/marketra/markets/US/discovery",
+    });
   });
 });

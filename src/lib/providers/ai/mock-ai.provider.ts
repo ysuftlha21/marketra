@@ -341,6 +341,7 @@ export class MockAiProvider implements AiProvider {
   async generateCountrySpecificIcpV1(input: CountrySpecificIcpInput) {
     const startedAt = Date.now();
     const data: CountrySpecificIcpResult = {
+      schemaVersion: "1",
       isMock: true,
       profileName: `[mock] ICP for ${input.countryName} — ${input.productName}`,
       summary: `[mock] Mid-market B2B SaaS companies in ${input.countryName} that need ${input.productName}'s capabilities to improve ${input.coreProblem.toLowerCase()}.`,
@@ -417,6 +418,9 @@ export class MockAiProvider implements AiProvider {
           evidenceNeeded: "[mock] Time-saving case study",
         },
       ],
+      technologyContext: null,
+      procurementContext: null,
+      localizationRequirements: null,
       assumptions: [
         "[mock] Product analysis is current",
         "[mock] Market intelligence is representative",

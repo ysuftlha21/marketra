@@ -28,7 +28,7 @@ export function GenerateCountryIcpForm(props: {
         }
       >
         {state
-          ? `${state.message}${state.status === "provider_failed" ? ` Reference: ICP-CREATE-${state.operationId}` : ""}`
+          ? `${state.message}${state.status !== "success" && state.reference ? ` Reference: ${state.reference} · Operation ID: ${state.operationId}` : ""}`
           : null}
       </p>
     </form>
