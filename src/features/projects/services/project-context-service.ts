@@ -50,6 +50,7 @@ export type FeatureReadiness = {
 export interface AuthenticatedProjectContext {
   state: ProjectContextState;
   workspaceId: string | null;
+  workspaceName: string | null;
   project: ProjectRow | null;
   projects: Array<{ id: string; name: string; slug: string }>;
   markets: TargetCountrySummary[];
@@ -86,17 +87,19 @@ export async function resolveAuthenticatedProjectContext(
   const ctx = await getAuthContext();
   if (!ctx?.activeWorkspace) return emptyContext("no_workspace");
   const workspaceId = ctx.activeWorkspace.workspace.id;
+  const workspaceName = ctx.activeWorkspace.workspace.name;
 
   try {
     const summaries = await listWorkspaceProjects(workspaceId);
-    if (summaries.length === 0) return emptyContext("no_project", workspaceId);
+    if (summaries.length === 0) return emptyContext("no_project", workspaceId, [], workspaceName);
     const cookieSlug = (await cookies()).get(ACTIVE_PROJECT_COOKIE)?.value;
     const slug = preferredProjectSlug ?? cookieSlug ?? summaries[0]!.slug;
     let project = await getProjectBySlug(workspaceId, slug);
     if (!project && !preferredProjectSlug) {
       project = await getProjectBySlug(workspaceId, summaries[0]!.slug);
     }
-    if (!project) return emptyContext("project_inaccessible", workspaceId, summaries);
+    if (!project)
+      return emptyContext("project_inaccessible", workspaceId, summaries, workspaceName);
 
     const markets = await listProjectTargetCountries(workspaceId, project.id);
     const activeMarket =
@@ -126,6 +129,7 @@ export async function resolveAuthenticatedProjectContext(
     return {
       state,
       workspaceId,
+      workspaceName,
       project,
       projects: summaries.map(({ id, name, slug: projectSlug }) => ({
         id,
@@ -160,7 +164,7 @@ export async function resolveAuthenticatedProjectContext(
       },
     };
   } catch {
-    return emptyContext("project_inaccessible", workspaceId);
+    return emptyContext("project_inaccessible", workspaceId, [], workspaceName);
   }
 }
 
@@ -217,11 +221,13 @@ function emptyContext(
   state: ProjectContextState,
   workspaceId: string | null = null,
   projects: Array<{ id: string; name: string; slug: string }> = [],
+  workspaceName: string | null = null,
 ): AuthenticatedProjectContext {
   const reason = blocked(state);
   return {
     state,
     workspaceId,
+    workspaceName,
     project: null,
     projects,
     markets: [],

@@ -26,6 +26,17 @@ test.describe("Project flows (authenticated)", () => {
     await selectPrimaryWorkspace(page);
     await page.goto("/dashboard/projects");
     await expect(page.getByRole("heading", { name: /projects/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "New project" })).toBeVisible();
+    const search = page.getByRole("searchbox", { name: "Search projects" });
+    if (await search.isVisible()) {
+      await expect(page.getByLabel("Filter projects by status")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Project workspaces" })).toBeVisible();
+    } else {
+      await expect(
+        page.getByRole("heading", { name: /Create your first market-entry workspace/i }),
+      ).toBeVisible();
+      await expect(page.getByRole("link", { name: "Create project" })).toBeVisible();
+    }
   });
 
   test("creates a new project", async ({ page }) => {

@@ -9,6 +9,7 @@ export interface ProjectPortfolioActivityRow {
   companyCount: number;
   buyerCount: number;
   outreachDraftCount: number;
+  approvedDraftCount: number;
 }
 
 export async function listProjectPortfolioActivity(
@@ -47,7 +48,7 @@ export async function listProjectPortfolioActivity(
       .neq("status", "archived"),
     supabase
       .from("outreach_drafts")
-      .select("project_id")
+      .select("project_id,status")
       .eq("workspace_id", workspaceId)
       .neq("status", "archived"),
   ]);
@@ -96,6 +97,9 @@ export async function listProjectPortfolioActivity(
   const companyCounts = countByProject(companies.data);
   const buyerCounts = countByProject(buyers.data);
   const draftCounts = countByProject(drafts.data);
+  const approvedDraftCounts = countByProject(
+    (drafts.data ?? []).filter((draft) => draft.status === "approved"),
+  );
   return [...projectIds].map((projectId) => ({
     projectId,
     targetMarkets: targetMap.get(projectId) ?? [],
@@ -105,5 +109,6 @@ export async function listProjectPortfolioActivity(
     companyCount: companyCounts.get(projectId) ?? 0,
     buyerCount: buyerCounts.get(projectId) ?? 0,
     outreachDraftCount: draftCounts.get(projectId) ?? 0,
+    approvedDraftCount: approvedDraftCounts.get(projectId) ?? 0,
   }));
 }

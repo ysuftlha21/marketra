@@ -22,6 +22,7 @@ export async function listProjectPortfolio(includeArchived = false) {
       companyCount: 0,
       buyerCount: 0,
       outreachDraftCount: 0,
+      approvedDraftCount: 0,
     },
   }));
 }
