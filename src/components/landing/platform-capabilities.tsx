@@ -83,14 +83,14 @@ export function PlatformCapabilities() {
       aria-labelledby="platform-capabilities-heading"
       className="scroll-mt-20 border-b border-border bg-background"
     >
-      <div className="container mx-auto max-w-6xl px-6 py-24 sm:py-28">
+      <div className="container mx-auto max-w-6xl px-6 py-24 sm:py-28 lg:py-32">
         <div className="max-w-3xl">
           <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Market intelligence platform
           </p>
           <h2
             id="platform-capabilities-heading"
-            className="mt-3 font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl"
+            className="mt-3 text-balance font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl lg:text-5xl"
           >
             One research-to-execution workspace for international expansion.
           </h2>
@@ -100,22 +100,25 @@ export function PlatformCapabilities() {
           </p>
         </div>
 
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {capabilities.map((capability) => (
             <article
               key={capability.title}
-              className="group rounded-xl border border-border/70 bg-surface p-6 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-within:border-primary/40 motion-reduce:transform-none motion-reduce:transition-none"
+              className="group relative overflow-hidden rounded-2xl border border-border/70 bg-surface p-6 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_18px_45px_rgba(15,23,42,.08)] focus-within:border-primary/40 motion-reduce:transform-none motion-reduce:transition-none dark:hover:shadow-[0_18px_45px_rgba(0,0,0,.25)]"
             >
+              <div className="absolute inset-x-0 top-0 h-px bg-primary/0 transition-colors duration-200 group-hover:bg-primary/50" />
               <div className="flex items-start justify-between gap-4">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/60 text-primary">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-primary shadow-sm transition-colors duration-200 group-hover:border-primary/20 group-hover:bg-primary/5">
                   <capability.icon className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <span className="rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {capability.stage}
                 </span>
               </div>
-              <h3 className="mt-5 text-base font-semibold text-foreground">{capability.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              <h3 className="mt-6 text-base font-semibold tracking-tight text-foreground">
+                {capability.title}
+              </h3>
+              <p className="mt-2.5 text-sm leading-6 text-muted-foreground">
                 {capability.description}
               </p>
             </article>

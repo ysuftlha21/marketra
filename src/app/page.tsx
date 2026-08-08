@@ -7,6 +7,9 @@ import {
   BarChart3,
   CheckCircle,
   AlertTriangle,
+  BrainCircuit,
+  LockKeyhole,
+  UserCheck,
 } from "lucide-react";
 import { MarketingHeader } from "@/components/marketing/marketing-header";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
@@ -100,30 +103,36 @@ export default function HomePage() {
       <main className="flex-1">
         {/* ── Hero ── */}
         <section className="border-b border-border bg-background">
-          <div className="container mx-auto max-w-6xl px-6 py-24 sm:py-32">
-            <div className="grid gap-12 lg:grid-cols-5 lg:gap-16">
-              <div className="lg:col-span-3">
-                <Badge variant="outline" tone="accent" className="mb-6">
+          <div className="container mx-auto max-w-6xl px-6 py-20 sm:py-24 lg:py-28">
+            <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_.95fr] lg:gap-20">
+              <div>
+                <Badge variant="outline" tone="accent" className="mb-6 rounded-full px-3 py-1.5">
                   <Target className="mr-1.5 h-3 w-3" /> AI-powered market intelligence
                 </Badge>
-                <h1 className="font-display text-4xl font-medium leading-tight tracking-tight text-foreground sm:text-5xl sm:leading-tight">
+                <h1 className="max-w-2xl text-balance font-display text-4xl font-medium leading-[1.08] tracking-[-0.035em] text-foreground sm:text-5xl lg:text-6xl">
                   Expand into new markets with confidence.
                 </h1>
-                <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
+                <p className="mt-6 max-w-xl text-lg leading-8 text-muted-foreground">
                   Marketra brings country analysis, opportunity scoring, ICP planning, and expansion
                   workflows into one research-first platform—so growing SaaS teams can decide where
                   and how to enter.
                 </p>
-                <div className="mt-8 flex flex-wrap items-center gap-3">
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Link
                     href="/sign-up"
-                    className={cn(buttonVariants({ variant: "default", size: "lg" }))}
+                    className={cn(
+                      buttonVariants({ variant: "default", size: "lg" }),
+                      "h-12 rounded-lg px-6 shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md motion-reduce:transform-none",
+                    )}
                   >
                     Start market research <ArrowRight className="ml-1.5 h-4 w-4" />
                   </Link>
                   <Link
                     href="#how-it-works"
-                    className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "lg" }),
+                      "h-12 rounded-lg px-6 text-muted-foreground transition-[background-color,color,border-color] duration-200 hover:border-foreground/20 hover:text-foreground",
+                    )}
                   >
                     See how it works
                   </Link>
@@ -132,8 +141,9 @@ export default function HomePage() {
                   No credit card required. Free plan available.
                 </p>
               </div>
-              <div className="lg:col-span-2">
-                <Card className="overflow-hidden border-border/60 bg-surface shadow-lg ring-1 ring-border/50">
+              <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
+                <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-primary/[.05] blur-3xl" />
+                <Card className="overflow-hidden rounded-2xl border-border/70 bg-surface shadow-[0_24px_70px_rgba(15,23,42,.12)] ring-1 ring-border/40 dark:shadow-[0_24px_70px_rgba(0,0,0,.35)]">
                   <div className="flex h-10 items-center gap-2 border-b border-border bg-muted/30 px-4">
                     <div className="flex gap-1.5">
                       <div className="h-2.5 w-2.5 rounded-full bg-danger/80" />
@@ -144,7 +154,7 @@ export default function HomePage() {
                       app.marketra.com/compare
                     </div>
                   </div>
-                  <div className="p-5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
                     <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Market comparison
                     </span>
@@ -152,7 +162,7 @@ export default function HomePage() {
                       Preview
                     </Badge>
                   </div>
-                  <div className="p-4 space-y-3">
+                  <div className="space-y-3 p-4 sm:p-5">
                     {[
                       {
                         code: "DE",
@@ -168,7 +178,7 @@ export default function HomePage() {
                         name: "United Kingdom",
                         rec: "Pursue",
                         conf: "medium",
-                        strengths: "Native English, mature SaaS buyer",
+                        strengths: "Native English, mature SaaS demand",
                         barriers: "Crowded mid-market segment",
                         region: "Europe",
                       },
@@ -184,30 +194,30 @@ export default function HomePage() {
                     ].map((m) => (
                       <div
                         key={m.code}
-                        className="rounded-md border border-border/40 bg-muted/20 px-3 py-2.5"
+                        className="rounded-xl border border-border/60 bg-background/70 px-3.5 py-3 transition-colors duration-200 hover:border-primary/25"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <CountryBadge countryCode={m.code} />
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <CountryBadge countryCode={m.code} showName={false} />
                             <span className="text-sm font-semibold text-foreground">{m.name}</span>
-                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            <span className="hidden text-[10px] uppercase tracking-wider text-muted-foreground sm:inline">
                               {m.region}
                             </span>
                           </div>
                           <span
                             className={cn(
-                              "rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide",
+                              "rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset",
                               m.rec === "Pursue"
-                                ? "bg-primary/10 text-primary"
+                                ? "bg-primary/10 text-primary ring-primary/20"
                                 : m.rec === "Investigate"
-                                  ? "bg-accent/10 text-accent"
-                                  : "bg-muted text-muted-foreground",
+                                  ? "bg-accent/10 text-accent ring-accent/20"
+                                  : "bg-muted text-muted-foreground ring-border",
                             )}
                           >
                             {m.rec} · {m.conf}
                           </span>
                         </div>
-                        <div className="mt-1.5 grid gap-1 text-[11px]">
+                        <div className="mt-2.5 grid gap-1.5 text-[11px]">
                           <div className="flex items-start gap-1">
                             <CheckCircle className="mt-0.5 h-3 w-3 shrink-0 text-success" />
                             <span className="text-muted-foreground">{m.strengths}</span>
@@ -239,8 +249,8 @@ export default function HomePage() {
           aria-labelledby="workflow-heading"
           className="scroll-mt-20 border-b border-border bg-surface"
         >
-          <div className="container mx-auto max-w-6xl px-6 py-24">
-            <div className="mb-14">
+          <div className="container mx-auto max-w-6xl px-6 py-24 sm:py-28">
+            <div className="mb-12 max-w-3xl">
               <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 How it works
               </p>
@@ -255,51 +265,73 @@ export default function HomePage() {
                 only after a clear market and ICP direction exists.
               </p>
             </div>
-            <div className="grid gap-12 lg:grid-cols-2 lg:gap-24">
-              <div className="space-y-12">
+            <div className="grid items-start gap-14 lg:grid-cols-[1.15fr_.85fr] lg:gap-20">
+              <div className="space-y-5">
                 {steps.map((s, i) => (
-                  <div key={s.step} className="relative flex gap-6">
+                  <div
+                    key={s.step}
+                    className="group relative flex gap-5 rounded-xl p-2 transition-colors duration-200 hover:bg-background/70"
+                  >
                     {i < steps.length - 1 && (
-                      <div className="absolute left-5 top-14 h-full w-0.5 bg-border/50" />
+                      <div className="absolute bottom-[-1.25rem] left-7 top-12 w-px bg-border" />
                     )}
                     <div className="flex flex-col items-center">
                       <div
                         className={cn(
-                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-sm ring-4 ring-background z-10",
+                          "z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold shadow-sm ring-4 ring-surface transition-colors duration-200",
                           i === 3
                             ? "bg-primary text-primary-foreground"
-                            : "bg-surface border border-border text-foreground",
+                            : "border border-border bg-background text-muted-foreground group-hover:border-primary/30 group-hover:text-foreground",
                         )}
                       >
                         {s.step}
                       </div>
                     </div>
-                    <div className="pt-2 pb-6">
-                      <h3 className="text-lg font-semibold text-foreground">{s.title}</h3>
-                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
+                    <div className="pb-3 pt-2">
+                      <h3 className="text-base font-semibold text-foreground">{s.title}</h3>
+                      <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted-foreground">
+                        {s.body}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="hidden lg:flex items-center justify-center">
-                <div className="w-full max-w-sm rounded-xl border border-border/60 bg-surface p-8 shadow-lg ring-1 ring-border/50">
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <div className="h-2 w-24 rounded-full bg-primary/20" />
-                      <div className="h-4 w-3/4 rounded-full bg-border/40" />
-                      <div className="h-4 w-full rounded-full bg-border/40" />
+              <aside className="rounded-2xl border border-border/70 bg-background p-6 shadow-sm lg:sticky lg:top-28 lg:p-7">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  One connected workflow
+                </p>
+                <h3 className="mt-3 text-xl font-semibold tracking-tight text-foreground">
+                  Research stays attached to every decision.
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  Each later action retains the market, ICP, and evidence context that informed it.
+                </p>
+                <div className="mt-6 space-y-2.5">
+                  {[
+                    ["Research", "Product and country intelligence"],
+                    ["Decide", "Opportunity scoring and ICP"],
+                    ["Activate", "Companies, roles, and communication"],
+                    ["Measure", "CRM progress and analytics"],
+                  ].map(([stage, detail], index) => (
+                    <div
+                      key={stage}
+                      className="flex items-center gap-3 rounded-lg border border-border/60 bg-surface px-3.5 py-3"
+                    >
+                      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
+                        {index + 1}
+                      </span>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{stage}</p>
+                        <p className="text-xs text-muted-foreground">{detail}</p>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <div className="h-2 w-16 rounded-full bg-accent/20" />
-                      <div className="h-4 w-5/6 rounded-full bg-border/40" />
-                      <div className="h-4 w-full rounded-full bg-border/40" />
-                    </div>
-                    <div className="space-y-2 pt-4">
-                      <div className="h-10 w-full rounded-md bg-primary/10" />
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              </div>
+                <div className="mt-6 flex items-center gap-2 border-t border-border pt-5 text-xs text-muted-foreground">
+                  <ShieldCheck className="size-4 text-success" aria-hidden="true" />
+                  Human review remains part of the workflow.
+                </div>
+              </aside>
             </div>
           </div>
         </section>
@@ -308,13 +340,13 @@ export default function HomePage() {
 
         {/* ── Product highlight (asymmetric) ── */}
         <section className="border-b border-border bg-muted/20">
-          <div className="container mx-auto max-w-6xl px-6 py-24">
-            <div className="grid gap-12 lg:grid-cols-5 lg:gap-16">
-              <div className="lg:col-span-2">
+          <div className="container mx-auto max-w-6xl px-6 py-24 sm:py-28 lg:py-32">
+            <div className="grid items-start gap-14 lg:grid-cols-5 lg:gap-20">
+              <div className="lg:sticky lg:top-28 lg:col-span-2">
                 <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                   Decision support
                 </p>
-                <h2 className="mt-2 font-display text-3xl font-medium tracking-tight text-foreground">
+                <h2 className="mt-3 text-balance font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
                   Compare evidence, not assumptions.
                 </h2>
                 <p className="mt-4 text-base leading-relaxed text-muted-foreground">
@@ -322,7 +354,7 @@ export default function HomePage() {
                   localization requirements, and entry potential. Sources stay separate from AI
                   interpretation so teams can review how a recommendation was formed.
                 </p>
-                <ul className="mt-6 space-y-3">
+                <ul className="mt-7 space-y-3.5">
                   {[
                     {
                       icon: ShieldCheck,
@@ -341,13 +373,15 @@ export default function HomePage() {
                     },
                   ].map((item) => (
                     <li key={item.label} className="flex items-start gap-3">
-                      <item.icon className={cn("mt-0.5 h-5 w-5 shrink-0", item.color)} />
-                      <span className="text-sm text-foreground">{item.label}</span>
+                      <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border bg-background shadow-sm">
+                        <item.icon className={cn("h-4 w-4", item.color)} aria-hidden="true" />
+                      </span>
+                      <span className="pt-1 text-sm text-foreground">{item.label}</span>
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="lg:col-span-3 space-y-3">
+              <div className="space-y-4 lg:col-span-3">
                 {[
                   {
                     code: "DE",
@@ -368,7 +402,7 @@ export default function HomePage() {
                     conf: "Medium",
                     strengths: [
                       "Native English market",
-                      "Well-defined SaaS buyer segments",
+                      "Well-defined SaaS customer segments",
                       "Stable regulatory framework",
                     ],
                     barriers: ["Crowded mid-market", "Higher CAC expectations"],
@@ -376,40 +410,59 @@ export default function HomePage() {
                 ].map((item) => (
                   <div
                     key={item.code}
-                    className="rounded-lg border border-border/60 bg-surface p-4"
+                    className="overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-sm transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/60 px-5 py-4">
+                      <div className="flex items-center gap-2.5">
+                        <CountryBadge countryCode={item.code} showName={false} />
+                        <div>
+                          <span className="font-semibold text-foreground">{item.name}</span>
+                          <p className="text-[11px] text-muted-foreground">Country assessment</p>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
-                        <CountryBadge countryCode={item.code} />
-                        <span className="font-semibold text-foreground">{item.name}</span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] text-muted-foreground">
+                          <span className="size-1.5 rounded-full bg-accent" aria-hidden="true" />
+                          {item.conf} confidence
+                        </span>
+                        <span
+                          className={cn(
+                            "rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset",
+                            item.rec === "Pursue"
+                              ? "bg-success/10 text-success ring-success/20"
+                              : "bg-accent/10 text-accent ring-accent/20",
+                          )}
+                        >
+                          {item.rec}
+                        </span>
                       </div>
-                      <span
-                        className={cn(
-                          "rounded-full px-2.5 py-0.5 text-xs font-medium capitalize",
-                          item.rec === "Pursue"
-                            ? "bg-success/10 text-success"
-                            : "bg-accent/10 text-accent",
-                        )}
-                      >
-                        {item.rec} · {item.conf}
-                      </span>
                     </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        {item.strengths.map((s) => (
-                          <div key={s} className="flex items-start gap-1.5 text-xs">
-                            <CheckCircle className="mt-0.5 h-3 w-3 shrink-0 text-success" />
-                            <span className="text-muted-foreground">{s}</span>
-                          </div>
-                        ))}
+                    <div className="grid gap-4 p-5 sm:grid-cols-2">
+                      <div className="rounded-xl border border-success/15 bg-success/[.035] p-4">
+                        <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-success">
+                          Strength signals
+                        </p>
+                        <div className="space-y-2">
+                          {item.strengths.map((s) => (
+                            <div key={s} className="flex items-start gap-2 text-xs leading-5">
+                              <CheckCircle className="mt-1 h-3 w-3 shrink-0 text-success" />
+                              <span className="text-muted-foreground">{s}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-1.5">
-                        {item.barriers.map((b) => (
-                          <div key={b} className="flex items-start gap-1.5 text-xs">
-                            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
-                            <span className="text-muted-foreground">{b}</span>
-                          </div>
-                        ))}
+                      <div className="rounded-xl border border-warning/15 bg-warning/[.035] p-4">
+                        <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-warning">
+                          Entry considerations
+                        </p>
+                        <div className="space-y-2">
+                          {item.barriers.map((b) => (
+                            <div key={b} className="flex items-start gap-2 text-xs leading-5">
+                              <AlertTriangle className="mt-1 h-3 w-3 shrink-0 text-warning" />
+                              <span className="text-muted-foreground">{b}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -424,53 +477,64 @@ export default function HomePage() {
 
         {/* ── Principles (editorial) ── */}
         <section className="border-b border-border bg-background">
-          <div className="container mx-auto max-w-6xl px-6 py-24">
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Research you can defend
-            </p>
-            <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
-              Decision support built for responsible expansion.
-            </h2>
-            <div className="mt-10 grid gap-1">
+          <div className="container mx-auto max-w-6xl px-6 py-24 sm:py-28 lg:py-32">
+            <div className="max-w-3xl">
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Research you can defend
+              </p>
+              <h2 className="mt-3 text-balance font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+                Decision support built for responsible expansion.
+              </h2>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
+                Marketra keeps evidence, AI interpretation, and human judgment distinct—so teams can
+                move faster without losing accountability.
+              </p>
+            </div>
+            <div className="mt-12 grid gap-4 md:grid-cols-2">
               {[
                 {
                   title: "Deterministic scoring",
-                  body: "Match scores are computed by code, not by AI. Every score outputs positive reasons, negative reasons, and missing-data indicators. AI only assists with readable explanations.",
+                  body: "Scores are computed by code with positive, negative, and missing-data reasons—not hidden AI judgment.",
                   icon: BarChart3,
                 },
                 {
                   title: "Research provenance",
-                  body: "Sourced facts stay separate from AI interpretation. Confidence and missing-data signals remain visible so teams can assess research quality.",
+                  body: "Sourced facts stay separate from interpretation, with confidence and missing-data signals visible.",
                   icon: ShieldCheck,
+                },
+                {
+                  title: "Human review",
+                  body: "Recommendations and communication drafts remain review-ready. Teams decide what moves forward.",
+                  icon: UserCheck,
+                },
+                {
+                  title: "Responsible AI",
+                  body: "AI supports analysis and explanation without secretly determining scores or inventing market evidence.",
+                  icon: BrainCircuit,
                 },
                 {
                   title: "Compliance-aware workflows",
-                  body: "Decision-maker research is role-led, communication remains review-ready, and Marketra does not automate LinkedIn actions or collect personal data through unauthorized automation.",
+                  body: "Role-led research and review-first communication avoid automatic LinkedIn actions and unauthorized collection.",
                   icon: Target,
                 },
                 {
-                  title: "Workspace isolation",
-                  body: "Tenant-owned records are workspace-scoped, with row-level access controls supporting separation between customer workspaces.",
-                  icon: ShieldCheck,
+                  title: "Privacy and workspace isolation",
+                  body: "Workspace-scoped records and row-level access controls support separation between customer workspaces.",
+                  icon: LockKeyhole,
                 },
-              ].map((item, i) => (
-                <div
+              ].map((item) => (
+                <article
                   key={item.title}
-                  className={cn(
-                    "flex items-start gap-6 border-t py-6 first:border-t-0",
-                    i === 0 && "pt-2",
-                  )}
+                  className="group flex items-start gap-4 rounded-2xl border border-border/70 bg-surface p-5 transition-[border-color,box-shadow] duration-200 hover:border-primary/25 hover:shadow-sm"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted">
-                    <item.icon className="h-5 w-5 text-muted-foreground" />
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-primary shadow-sm">
+                    <item.icon className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div>
                     <h3 className="text-base font-semibold text-foreground">{item.title}</h3>
-                    <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                      {item.body}
-                    </p>
+                    <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{item.body}</p>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           </div>
@@ -481,8 +545,8 @@ export default function HomePage() {
 
         {/* ── CTA ── */}
         <section className="bg-background">
-          <div className="container mx-auto max-w-6xl px-6 py-24">
-            <div className="grid gap-8 sm:grid-cols-3">
+          <div className="container mx-auto max-w-6xl px-6 py-24 sm:py-28">
+            <div className="grid gap-4 sm:grid-cols-3">
               {[
                 {
                   step: "1",
@@ -500,23 +564,36 @@ export default function HomePage() {
                   body: "Compare recommendations, confidence, and opportunity signals.",
                 },
               ].map((s) => (
-                <div key={s.step}>
-                  <span className="font-display text-3xl text-muted-foreground/40">{s.step}</span>
-                  <h3 className="mt-2 text-base font-semibold text-foreground">{s.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
+                <div key={s.step} className="rounded-xl border border-border/70 bg-surface p-5">
+                  <span className="text-xs font-semibold text-primary">0{s.step}</span>
+                  <h3 className="mt-3 text-base font-semibold text-foreground">{s.title}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{s.body}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-12 flex flex-col items-center gap-4 border-t border-border pt-10">
-              <h2 className="font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
+            <div className="mt-6 flex flex-col items-center rounded-2xl border border-border bg-muted/30 px-6 py-12 text-center sm:py-14">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Your next market decision starts here
+              </p>
+              <h2 className="mt-3 text-balance font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
                 Ready to evaluate your next market?
               </h2>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+                Bring your product context. Marketra will help structure the research and compare
+                the evidence.
+              </p>
               <Link
                 href="/sign-up"
-                className={cn(buttonVariants({ variant: "default", size: "lg" }))}
+                className={cn(
+                  buttonVariants({ variant: "default", size: "lg" }),
+                  "mt-6 h-12 rounded-lg px-7 shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md motion-reduce:transform-none",
+                )}
               >
                 Start market research <ArrowRight className="ml-1.5 h-4 w-4" />
               </Link>
+              <p className="mt-3 text-xs text-muted-foreground">
+                No credit card required. Free plan available.
+              </p>
             </div>
           </div>
         </section>

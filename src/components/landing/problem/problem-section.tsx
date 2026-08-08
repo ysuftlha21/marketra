@@ -1,4 +1,4 @@
-import { BarChart3, Globe2, MailSearch } from "lucide-react";
+import { BarChart3, Check, Globe2, MailSearch, X } from "lucide-react";
 import { problemSection, type ProblemCardId } from "@/config/problem-section";
 import { cn } from "@/lib/utils/cn";
 
@@ -93,13 +93,13 @@ function ProblemCard({
   return (
     <article
       className={cn(
-        "problem-card relative flex min-h-[334px] flex-col overflow-hidden rounded-2xl border bg-white/[.035] p-6 backdrop-blur-sm transition duration-200 hover:-translate-y-1 hover:border-violet-400/40",
+        "problem-card relative flex min-h-[332px] flex-col overflow-hidden rounded-2xl border bg-white/[.035] p-6 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-violet-400/40 hover:shadow-[0_18px_50px_rgba(0,0,0,.22)] motion-reduce:transform-none motion-reduce:transition-none",
         index === 0 ? "border-violet-400/60" : "border-white/12",
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="grid size-14 place-items-center rounded-xl border border-violet-400/25 bg-violet-500/[.06] text-zinc-400">
-          <Icon className="size-7" aria-hidden="true" />
+        <span className="grid size-11 place-items-center rounded-xl border border-violet-400/25 bg-violet-500/[.06] text-violet-300">
+          <Icon className="size-5" aria-hidden="true" />
         </span>
         <span
           className={cn(
@@ -112,8 +112,8 @@ function ProblemCard({
           {card.status}
         </span>
       </div>
-      <h3 className="mt-5 text-2xl font-semibold tracking-tight text-zinc-100">{card.title}</h3>
-      <p className="mt-2 max-w-md text-base leading-6 text-zinc-400">{card.description}</p>
+      <h3 className="mt-5 text-xl font-semibold tracking-tight text-zinc-100">{card.title}</h3>
+      <p className="mt-2 max-w-md text-sm leading-6 text-zinc-400">{card.description}</p>
       <Preview id={card.id} />
     </article>
   );
@@ -122,15 +122,45 @@ function ProblemCard({
 function ComparisonPanel() {
   const comparison = problemSection.comparison;
   return (
-    <div className="problem-comparison relative mt-12 grid overflow-hidden rounded-2xl border border-violet-400/60 bg-black/20 p-7 shadow-[0_0_50px_rgba(124,58,237,.16)] md:grid-cols-2 md:divide-x md:divide-white/10">
-      {[comparison.without, comparison.with].map((column) => (
-        <section key={column.title} className="px-3 first:pb-6 md:px-8 md:first:pb-0">
-          <h3 className="text-xl font-medium text-zinc-100">{column.title}</h3>
-          <ul className="mt-4 grid gap-x-8 gap-y-2 text-sm text-zinc-400 sm:grid-cols-2">
+    <div className="problem-comparison relative mt-10 grid overflow-hidden rounded-2xl border border-white/10 bg-black/20 md:grid-cols-2">
+      {[comparison.without, comparison.with].map((column, index) => (
+        <section
+          key={column.title}
+          className={cn(
+            "p-7 sm:p-8",
+            index === 0
+              ? "border-b border-white/10 bg-white/[.02] md:border-b-0 md:border-r"
+              : "bg-violet-500/[.06]",
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className={cn(
+                "grid size-8 place-items-center rounded-full border",
+                index === 0
+                  ? "border-zinc-700 bg-zinc-900 text-zinc-500"
+                  : "border-violet-400/30 bg-violet-500/10 text-violet-300",
+              )}
+            >
+              {index === 0 ? (
+                <X className="size-4" aria-hidden="true" />
+              ) : (
+                <Check className="size-4" aria-hidden="true" />
+              )}
+            </span>
+            <h3 className="text-lg font-semibold text-zinc-100">{column.title}</h3>
+          </div>
+          <ul className="mt-5 grid gap-x-8 gap-y-3 text-sm text-zinc-400 sm:grid-cols-2">
             {column.items.map((item) => (
-              <li key={item} className="flex gap-2">
-                <span aria-hidden="true">•</span>
-                {item}
+              <li key={item} className="flex items-start gap-2.5">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "mt-2 size-1.5 shrink-0 rounded-full",
+                    index === 0 ? "bg-zinc-700" : "bg-violet-400",
+                  )}
+                />
+                <span>{item}</span>
               </li>
             ))}
           </ul>
@@ -144,31 +174,34 @@ export function ProblemSection() {
   return (
     <section
       id="problem"
-      className="problem-section relative overflow-hidden border-b border-white/5 bg-[#0c0d12] px-5 py-24 text-zinc-100 sm:py-28"
+      className="problem-section relative overflow-hidden border-b border-white/5 bg-[#0c0d12] px-5 py-24 text-zinc-100 sm:py-28 lg:py-32"
     >
       <div className="problem-orb absolute left-1/2 top-2/3 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-violet-700/15 blur-[110px]" />
-      <div className="relative mx-auto max-w-[1400px]">
+      <div className="relative mx-auto max-w-6xl">
         <header className="text-center">
-          <span className="inline-flex rounded-lg border border-violet-400/20 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-400">
+          <span className="inline-flex rounded-full border border-violet-400/20 bg-violet-500/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-violet-300">
             {problemSection.badge}
           </span>
-          <h2 className="mx-auto mt-8 max-w-6xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+          <h2 className="mx-auto mt-6 max-w-4xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
             {problemSection.title}{" "}
             <span className="bg-gradient-to-r from-fuchsia-300 to-violet-500 bg-clip-text text-transparent">
               {problemSection.highlightedTitle}
             </span>
           </h2>
-          <p className="mx-auto mt-6 max-w-4xl text-lg leading-8 text-zinc-500 sm:text-xl">
+          <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-zinc-400 sm:text-lg">
             {problemSection.subtitle}
           </p>
         </header>
-        <div className="mt-16 grid gap-6 lg:grid-cols-3">
+        <div className="mt-14 grid gap-5 lg:grid-cols-3">
           {problemSection.cards.map((card, index) => (
             <ProblemCard key={card.id} card={card} index={index} />
           ))}
         </div>
+        <p className="mt-4 text-center text-[11px] text-zinc-600">
+          Illustrative interface previews — example data only.
+        </p>
         <ComparisonPanel />
-        <p className="mt-12 text-center text-xl text-zinc-500 sm:text-2xl">
+        <p className="mx-auto mt-10 max-w-2xl text-center text-lg text-zinc-400 sm:text-xl">
           {problemSection.footerPrefix}{" "}
           <strong className="font-semibold text-violet-400">
             {problemSection.footerHighlight}
