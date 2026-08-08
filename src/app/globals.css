@@ -42,10 +42,8 @@
   .marketra-panel {
     border: 1px solid rgba(255, 255, 255, 0.07);
     border-radius: 10px;
-    background:
-      radial-gradient(circle at 85% 5%, rgba(124, 58, 237, 0.035), transparent 30%),
-      linear-gradient(145deg, #0d111c, #0a0e17);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+    background: #0c101a;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
   }
   .marketra-number {
     display: grid;
@@ -54,11 +52,11 @@
     flex: 0 0 auto;
     place-items: center;
     border-radius: 999px;
-    background: linear-gradient(145deg, #a78bfa, #6d28d9);
+    background: #7c3aed;
     color: white;
     font-size: 11px;
     font-weight: 700;
-    box-shadow: 0 0 14px rgba(139, 92, 246, 0.55);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
   }
 }
 

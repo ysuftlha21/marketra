@@ -4,14 +4,14 @@ import { AppShell, type AppShellContext } from "./app-shell";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 vi.mock("@/features/auth/api/auth-actions", () => ({ signOutAction: vi.fn() }));
 vi.mock("@/features/workspaces/api/workspace-actions", () => ({ switchWorkspaceAction: vi.fn() }));
 vi.mock("@/features/projects/api/project-actions", () => ({ switchProjectAction: vi.fn() }));
 
 const context: AppShellContext = {
-  user: { email: "owner@example.com", displayName: "Owner" },
+  user: { email: "owner@example.com", displayName: "Ada" },
   activeWorkspace: { id: "workspace-1", name: "Acme", slug: "acme", role: "owner" },
   workspaces: [{ id: "workspace-1", name: "Acme", slug: "acme", role: "owner" }],
 };
@@ -36,6 +36,13 @@ describe("AppShell sidebar", () => {
       "/dashboard/campaigns",
     );
     expect(screen.getByRole("link", { name: "CRM" })).toHaveAttribute("href", "/dashboard/crm");
+    expect(screen.queryByRole("link", { name: "Integrations" })).not.toBeInTheDocument();
+  });
+
+  it("shows the authenticated workspace role and an accessible notification count", () => {
+    renderShell();
+    expect(screen.getByText("Owner")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Notifications, 3 unread" })).toBeInTheDocument();
   });
   beforeEach(() => {
     document.cookie = "sidebar:state=; max-age=0; path=/";
@@ -76,9 +83,31 @@ describe("AppShell sidebar", () => {
     const mobileToggle = screen.getByRole("button", { name: "Open navigation" });
     fireEvent.click(mobileToggle);
     expect(screen.getByRole("dialog", { name: "Dashboard navigation" })).toBeVisible();
+    expect(document.body.style.overflow).toBe("hidden");
     expect(screen.queryByRole("button", { name: "Collapse sidebar" })).not.toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "Dashboard navigation" })).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("closes the workspace menu with Escape", () => {
+    render(
+      <AppShell
+        context={{
+          ...context,
+          workspaces: [
+            context.activeWorkspace,
+            { id: "workspace-2", name: "Beta", slug: "beta", role: "member" },
+          ],
+        }}
+      >
+        <div>Dashboard content</div>
+      </AppShell>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Switch workspace" }));
+    expect(screen.getByRole("menu", { name: "Workspaces" })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu", { name: "Workspaces" })).not.toBeInTheDocument();
   });
 
   it("renders the canonical active project selector on desktop and mobile", () => {

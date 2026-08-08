@@ -12,7 +12,6 @@ import {
   PenLine,
   Megaphone,
   ChartNoAxesCombined,
-  SlidersHorizontal,
   CreditCard,
   ListChecks,
   type LucideIcon,
@@ -30,7 +29,6 @@ const iconMap: Record<string, LucideIcon> = {
   PenLine,
   Megaphone,
   ChartNoAxesCombined,
-  SlidersHorizontal,
   CreditCard,
   ListChecks,
 };

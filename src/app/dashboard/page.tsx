@@ -21,7 +21,7 @@ export default async function DashboardOverviewPage({
         <div className="mb-2 flex justify-end">
           <a
             href="/dashboard"
-            className="rounded-md border border-violet-400/30 px-3 py-1 text-[9px] text-violet-300"
+            className="rounded-md border border-violet-400/30 px-3 py-1.5 text-xs text-violet-300 transition-colors duration-150 hover:bg-violet-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
           >
             Demo data · Exit demo
           </a>
@@ -44,12 +44,12 @@ export default async function DashboardOverviewPage({
     model = { ...model, nextSteps: [getRecommendedProjectAction(projectContext)] };
   } catch {
     return (
-      <div className="marketra-panel mx-auto mt-16 max-w-lg p-8 text-center">
+      <div className="marketra-panel mx-auto mt-16 max-w-lg p-8 text-center" role="alert">
         <h1 className="text-lg font-semibold">We couldn’t load your dashboard.</h1>
         <p className="mt-2 text-sm text-zinc-500">Please try again.</p>
         <a
           href="/dashboard"
-          className="mt-5 inline-block rounded-md bg-violet-600 px-4 py-2 text-sm"
+          className="mt-5 inline-flex min-h-10 items-center rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
         >
           Try again
         </a>

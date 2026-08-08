@@ -22,7 +22,6 @@ const primaryNavigation = [
 
 const secondaryNavigation = [
   { label: "Getting started", href: "/dashboard/onboarding", icon: "ListChecks" },
-  { label: "Integrations", href: "/dashboard/settings", icon: "SlidersHorizontal" },
   { label: "Billing", href: "/dashboard/settings/billing", icon: "CreditCard" },
   { label: "Settings", href: "/dashboard/settings", icon: "Settings" },
 ] as const;
@@ -46,7 +45,9 @@ export function SidebarNav({ onNavigate, onCollapse, collapsed = false }: Sideba
             const active =
               itemIndex === 0 && groupIndex === 0
                 ? pathname === "/dashboard"
-                : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                : item.href === "/dashboard/settings"
+                  ? pathname === item.href
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.label}
@@ -55,7 +56,7 @@ export function SidebarNav({ onNavigate, onCollapse, collapsed = false }: Sideba
                 title={collapsed ? item.label : undefined}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group flex h-10 items-center rounded-lg text-[12px] font-medium transition-colors",
+                  "group flex h-10 items-center rounded-lg text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400",
                   collapsed ? "justify-center px-0" : "gap-3 px-3",
                   active
                     ? "border border-violet-500/10 bg-violet-500/10 text-violet-400 shadow-[inset_0_0_18px_rgba(124,58,237,.06)]"
@@ -72,7 +73,7 @@ export function SidebarNav({ onNavigate, onCollapse, collapsed = false }: Sideba
       {!collapsed && (
         <Link
           href="/dashboard/settings/billing"
-          className="mt-auto rounded-lg border border-white/[.06] p-3 text-[11px] text-zinc-400 hover:text-zinc-200"
+          className="mt-auto rounded-lg border border-white/[.06] p-3 text-xs text-zinc-400 transition-colors duration-150 hover:border-white/[.12] hover:bg-white/[.025] hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
         >
           View billing and usage
         </Link>
