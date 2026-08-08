@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -15,28 +16,80 @@ import { Badge } from "@/components/ui/badge";
 import { CountryBadge } from "@/components/common/country-badge";
 import { PricingExperience } from "@/features/pricing/components/pricing-experience";
 import { ProblemSection } from "@/components/landing/problem/problem-section";
+import { PlatformCapabilities } from "@/components/landing/platform-capabilities";
 import { cn } from "@/lib/utils/cn";
+
+export const metadata: Metadata = {
+  title: "AI-Powered Market Intelligence for International Expansion",
+  description:
+    "Marketra brings AI market research, country analysis, ICP planning, company intelligence, and expansion workflows into one decision-support platform.",
+  keywords: [
+    "AI Market Intelligence",
+    "Market Expansion",
+    "International Expansion",
+    "Go-To-Market Intelligence",
+    "Market Research",
+    "ICP Builder",
+    "Company Intelligence",
+    "Competitive Research",
+  ],
+  alternates: { canonical: "https://getmarketra.com/" },
+  openGraph: {
+    title: "Marketra | AI-Powered Market Intelligence",
+    description:
+      "Evaluate international markets, build market-specific ICPs, and turn expansion research into coordinated action.",
+    url: "https://getmarketra.com/",
+    siteName: "Marketra",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Marketra | AI-Powered Market Intelligence",
+    description:
+      "Evaluate international markets and turn expansion research into coordinated action.",
+  },
+};
 
 const steps = [
   {
     step: "01",
-    title: "Describe your product",
+    title: "Add product context",
     body: "Marketra analyzes your SaaS — capabilities, target customers, and competitive positioning.",
   },
   {
     step: "02",
-    title: "Choose target countries",
-    body: "Select markets from our catalog. Each country receives a structured product-specific analysis.",
+    title: "Choose a target market",
+    body: "Select the countries you want to evaluate and keep each expansion thesis organized by project.",
   },
   {
     step: "03",
-    title: "Assess product-market fit",
-    body: "Get recommendations with confidence levels, strength signals, and identified barriers for each market.",
+    title: "Analyze country conditions",
+    body: "Review demand signals, competitive conditions, barriers, and localization requirements.",
   },
   {
     step: "04",
-    title: "Compare and decide",
-    body: "Evaluate countries side-by-side. Shortlist the best candidates and move forward with confidence.",
+    title: "Build a market-specific ICP",
+    body: "Translate the market analysis into a focused ideal customer profile for that country.",
+  },
+  {
+    step: "05",
+    title: "Research relevant companies",
+    body: "Find and assess businesses that match the selected market and ICP direction.",
+  },
+  {
+    step: "06",
+    title: "Identify decision-maker roles",
+    body: "Map the roles and buying responsibilities relevant to the market opportunity.",
+  },
+  {
+    step: "07",
+    title: "Prepare localized communication",
+    body: "Create review-ready messaging informed by country, company, and decision-role context.",
+  },
+  {
+    step: "08",
+    title: "Track expansion progress",
+    body: "Coordinate campaigns, CRM activity, and analytics without losing the original research context.",
   },
 ] as const;
 
@@ -51,27 +104,28 @@ export default function HomePage() {
             <div className="grid gap-12 lg:grid-cols-5 lg:gap-16">
               <div className="lg:col-span-3">
                 <Badge variant="outline" tone="accent" className="mb-6">
-                  <Target className="mr-1.5 h-3 w-3" /> Market entry platform
+                  <Target className="mr-1.5 h-3 w-3" /> AI-powered market intelligence
                 </Badge>
                 <h1 className="font-display text-4xl font-medium leading-tight tracking-tight text-foreground sm:text-5xl sm:leading-tight">
-                  Compare markets before you commit.
+                  Expand into new markets with confidence.
                 </h1>
                 <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
-                  Marketra evaluates your SaaS against target countries so you can decide where to
-                  go first — with structured evidence, not intuition.
+                  Marketra brings country analysis, opportunity scoring, ICP planning, and expansion
+                  workflows into one research-first platform—so growing SaaS teams can decide where
+                  and how to enter.
                 </p>
                 <div className="mt-8 flex flex-wrap items-center gap-3">
                   <Link
                     href="/sign-up"
                     className={cn(buttonVariants({ variant: "default", size: "lg" }))}
                   >
-                    Start free <ArrowRight className="ml-1.5 h-4 w-4" />
+                    Start market research <ArrowRight className="ml-1.5 h-4 w-4" />
                   </Link>
                   <Link
-                    href="/pricing"
+                    href="#how-it-works"
                     className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
                   >
-                    View pricing
+                    See how it works
                   </Link>
                 </div>
                 <p className="mt-4 text-xs text-muted-foreground">
@@ -180,15 +234,26 @@ export default function HomePage() {
         <ProblemSection />
 
         {/* ── Workflow (connected process) ── */}
-        <section className="border-b border-border bg-surface">
+        <section
+          id="how-it-works"
+          aria-labelledby="workflow-heading"
+          className="scroll-mt-20 border-b border-border bg-surface"
+        >
           <div className="container mx-auto max-w-6xl px-6 py-24">
             <div className="mb-14">
               <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 How it works
               </p>
-              <h2 className="mt-2 font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
-                From product to market decision in four steps.
+              <h2
+                id="workflow-heading"
+                className="mt-2 font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl"
+              >
+                From market question to coordinated expansion plan.
               </h2>
+              <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
+                Market research leads the workflow. Company intelligence and communication follow
+                only after a clear market and ICP direction exists.
+              </p>
             </div>
             <div className="grid gap-12 lg:grid-cols-2 lg:gap-24">
               <div className="space-y-12">
@@ -201,7 +266,7 @@ export default function HomePage() {
                       <div
                         className={cn(
                           "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-sm ring-4 ring-background z-10",
-                          i === 2
+                          i === 3
                             ? "bg-primary text-primary-foreground"
                             : "bg-surface border border-border text-foreground",
                         )}
@@ -239,21 +304,23 @@ export default function HomePage() {
           </div>
         </section>
 
+        <PlatformCapabilities />
+
         {/* ── Product highlight (asymmetric) ── */}
         <section className="border-b border-border bg-muted/20">
           <div className="container mx-auto max-w-6xl px-6 py-24">
             <div className="grid gap-12 lg:grid-cols-5 lg:gap-16">
               <div className="lg:col-span-2">
                 <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                  How it helps
+                  Decision support
                 </p>
                 <h2 className="mt-2 font-display text-3xl font-medium tracking-tight text-foreground">
-                  Evidence over instinct.
+                  Compare evidence, not assumptions.
                 </h2>
                 <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                  Each market gets a product-specific evaluation. Strengths, barriers, localization
-                  requirements, and an entry recommendation. Sources stay separate from AI
-                  interpretation.
+                  Each market receives a product-specific evaluation of strengths, barriers,
+                  localization requirements, and entry potential. Sources stay separate from AI
+                  interpretation so teams can review how a recommendation was formed.
                 </p>
                 <ul className="mt-6 space-y-3">
                   {[
@@ -358,8 +425,11 @@ export default function HomePage() {
         {/* ── Principles (editorial) ── */}
         <section className="border-b border-border bg-background">
           <div className="container mx-auto max-w-6xl px-6 py-24">
-            <h2 className="font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
-              Explainable by design.
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              Research you can defend
+            </p>
+            <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
+              Decision support built for responsible expansion.
             </h2>
             <div className="mt-10 grid gap-1">
               {[
@@ -369,14 +439,19 @@ export default function HomePage() {
                   icon: BarChart3,
                 },
                 {
-                  title: "Privacy-first architecture",
-                  body: "Role-based recommendations only. No LinkedIn automation. No scraping of personal contact data. Decision-maker guidance is role-based, not contact-based.",
+                  title: "Research provenance",
+                  body: "Sourced facts stay separate from AI interpretation. Confidence and missing-data signals remain visible so teams can assess research quality.",
                   icon: ShieldCheck,
                 },
                 {
-                  title: "Workspace isolation",
-                  body: "Every tenant-owned record carries workspace_id. Row-level security enforced at the database level. Cross-workspace access is blocked by RLS.",
+                  title: "Compliance-aware workflows",
+                  body: "Decision-maker research is role-led, communication remains review-ready, and Marketra does not automate LinkedIn actions or collect personal data through unauthorized automation.",
                   icon: Target,
+                },
+                {
+                  title: "Workspace isolation",
+                  body: "Tenant-owned records are workspace-scoped, with row-level access controls supporting separation between customer workspaces.",
+                  icon: ShieldCheck,
                 },
               ].map((item, i) => (
                 <div
@@ -411,18 +486,18 @@ export default function HomePage() {
               {[
                 {
                   step: "1",
-                  title: "Add your product",
-                  body: "Describe your SaaS, website, and target customers.",
+                  title: "Add product context",
+                  body: "Capture your SaaS category, positioning, and target customer.",
                 },
                 {
                   step: "2",
-                  title: "Choose markets",
-                  body: "Select target countries from our catalog.",
+                  title: "Select expansion markets",
+                  body: "Choose the countries you want to evaluate first.",
                 },
                 {
                   step: "3",
-                  title: "Compare evidence",
-                  body: "Get recommendations with confidence and fit signals.",
+                  title: "Review market intelligence",
+                  body: "Compare recommendations, confidence, and opportunity signals.",
                 },
               ].map((s) => (
                 <div key={s.step}>
@@ -434,13 +509,13 @@ export default function HomePage() {
             </div>
             <div className="mt-12 flex flex-col items-center gap-4 border-t border-border pt-10">
               <h2 className="font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
-                Ready to compare markets?
+                Ready to evaluate your next market?
               </h2>
               <Link
                 href="/sign-up"
                 className={cn(buttonVariants({ variant: "default", size: "lg" }))}
               >
-                Start free <ArrowRight className="ml-1.5 h-4 w-4" />
+                Start market research <ArrowRight className="ml-1.5 h-4 w-4" />
               </Link>
             </div>
           </div>

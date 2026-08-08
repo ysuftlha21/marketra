@@ -13,7 +13,7 @@ export function MarketingFooter() {
               <span>Marketra</span>
             </Link>
             <p className="max-w-sm text-sm text-muted-foreground">
-              Find the right market. Reach the right companies.
+              AI-powered market intelligence for confident international expansion.
             </p>
           </div>
           <nav aria-label="Footer" className="flex flex-col gap-2 text-sm text-muted-foreground">

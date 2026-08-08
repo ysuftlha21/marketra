@@ -39,7 +39,7 @@ export const pricingPlans: readonly PricingPlan[] = [
     cta: { label: "Start Free Trial", action: "trial" },
     featureGroups: [
       {
-        name: "AI",
+        name: "Market intelligence",
         features: [
           "3 target markets",
           "AI market analysis",
@@ -48,20 +48,20 @@ export const pricingPlans: readonly PricingPlan[] = [
         ],
       },
       {
-        name: "Discovery",
+        name: "Company intelligence",
         features: [
-          "1,000 company discoveries / month",
-          "250 buyer discoveries / month",
-          "Basic company and buyer filters",
-          "CSV export",
+          "1,000 company research operations / month",
+          "250 decision-maker research operations / month",
+          "Company and role-based filters",
+          "Research workspace export",
         ],
       },
       {
-        name: "Outreach",
+        name: "Communication planning",
         features: [
-          "100 AI outreach messages / month",
-          "Localized email copy",
-          "Basic message templates",
+          "100 AI-assisted communication drafts / month",
+          "Localized market messaging",
+          "Review-ready message templates",
         ],
       },
       {
@@ -78,7 +78,7 @@ export const pricingPlans: readonly PricingPlan[] = [
   {
     id: "growth",
     name: "Pro",
-    description: "For growing SaaS teams running repeatable market and company discovery.",
+    description: "For growing SaaS teams running repeatable market intelligence programs.",
     ...publicPrice("growth"),
     currency: "USD",
     recommended: true,
@@ -98,22 +98,22 @@ export const pricingPlans: readonly PricingPlan[] = [
         ],
       },
       {
-        name: "Discovery",
+        name: "Company intelligence",
         features: [
-          "10,000 company discoveries / month",
-          "2,500 buyer discoveries / month",
+          "10,000 company research operations / month",
+          "2,500 decision-maker research operations / month",
           "Advanced filters and saved searches",
-          "Company and buyer enrichment",
-          "Priority discovery processing",
+          "Company and decision-role context",
+          "Priority research processing",
         ],
       },
       {
-        name: "Outreach",
+        name: "Expansion communication",
         features: [
-          "2,000 AI outreach messages / month",
+          "2,000 AI-assisted communication drafts / month",
           "Market-specific messaging",
-          "Buyer-level personalization",
-          "Outreach sequences and campaign builder",
+          "Decision-role personalization",
+          "Expansion campaign planning",
           "Template library",
         ],
       },
@@ -143,17 +143,17 @@ export const pricingPlans: readonly PricingPlan[] = [
         name: "Everything in Pro",
         features: [
           "Unlimited target markets",
-          "50,000 company discoveries / month",
-          "10,000 buyer discoveries / month",
+          "50,000 company research operations / month",
+          "10,000 decision-maker research operations / month",
           "Advanced market portfolio comparisons",
-          "Bulk company workflows",
+          "Portfolio company workflows",
         ],
       },
       {
-        name: "Automation and data",
+        name: "Research operations",
         features: [
-          "10,000 AI outreach messages / month",
-          "Advanced enrichment workflows",
+          "10,000 AI-assisted communication drafts / month",
+          "Advanced company intelligence workflows",
           "Saved searches and reusable segments",
           "Deterministic scoring explanations",
           "Priority processing",
@@ -205,7 +205,7 @@ export const pricingFaqs = [
   ],
   [
     "What counts toward usage limits?",
-    "Usage may include market analyses, company and buyer discoveries, AI-generated outreach, enrichment operations, and API usage.",
+    "Usage may include market analyses, company intelligence research, decision-maker role research, AI-assisted communication drafts, enrichment operations, and API usage.",
   ],
   [
     "Is there a free trial?",
@@ -222,5 +222,13 @@ export const pricingFaqs = [
   [
     "Which plan is right for my team?",
     "Starter supports initial market validation, Pro supports repeatable team workflows, and Growth provides higher limits for established global programs.",
+  ],
+  [
+    "How does Marketra support company research?",
+    "Marketra uses the configured data sources to identify relevant businesses, then organizes those results inside a project, market, and ICP context for human review.",
+  ],
+  [
+    "How is market communication handled?",
+    "Marketra prepares localized, AI-assisted drafts as a later expansion workflow step. Teams review and approve content; Marketra does not represent research results as automatically sent messages.",
   ],
 ] as const;

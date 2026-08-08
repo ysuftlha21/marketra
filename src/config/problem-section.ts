@@ -12,7 +12,7 @@ export const problemSection = {
   title: "Global expansion still runs on",
   highlightedTitle: "guesswork.",
   subtitle:
-    "SaaS teams spend weeks combining fragmented data, generic contact lists, and disconnected tools before they can make a confident market-entry decision.",
+    "Growth teams spend weeks reconciling fragmented research, inconsistent assumptions, and disconnected workflows before they can make a confident market-entry decision.",
   cards: [
     {
       id: "market",
@@ -22,17 +22,17 @@ export const problemSection = {
     },
     {
       id: "customers",
-      title: "Wrong Customers",
+      title: "Incomplete Evidence",
       description:
-        "Global databases return thousands of companies, but very few match the local ICP.",
-      status: "Low-quality targeting",
+        "Country demand, competition, ICP context, and company signals rarely live in one decision-ready view.",
+      status: "Fragmented research",
     },
     {
       id: "outreach",
-      title: "Generic Outreach",
+      title: "Disconnected Execution",
       description:
-        "The same message is used across countries with different languages and buying behavior.",
-      status: "Low response rates",
+        "Market insight is lost when teams move from country analysis into company research and local communication.",
+      status: "Lost market context",
     },
   ] satisfies readonly ProblemCardContent[],
   marketPreview: {
@@ -41,8 +41,8 @@ export const problemSection = {
     countries: ["United States", "Germany"],
   },
   discoveryPreview: {
-    companiesLabel: "Company Discovery",
-    buyersLabel: "Buyer Discovery",
+    companiesLabel: "Company signals",
+    buyersLabel: "Decision roles",
     companies: ["Northstar Labs", "Lumio Systems", "Bendix Cloud", "Dacenda"],
     buyers: ["Revenue leader", "Operations lead", "Technology buyer"],
   },
@@ -52,14 +52,14 @@ export const problemSection = {
     { country: "Brazil", flag: "🇧🇷" },
   ],
   outreachMessage:
-    "Hello — we help teams expand into new markets with clearer targeting and localized outreach.",
-  lowReplyLabel: "Low reply",
+    "Hello — we help teams expand into new markets with clearer research and localized communication.",
+  lowReplyLabel: "Low relevance",
   comparison: {
     without: {
       title: "Without Marketra",
       items: [
         "Weeks of research",
-        "Generic company lists",
+        "Disconnected evidence",
         "Fragmented tools",
         "Unclear next steps",
       ],
@@ -68,7 +68,7 @@ export const problemSection = {
       title: "With Marketra",
       items: [
         "Market-level AI analysis",
-        "Qualified companies and buyers",
+        "Company and decision-role intelligence",
         "Localized ICPs",
         "Clear recommended actions",
       ],

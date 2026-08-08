@@ -104,15 +104,15 @@ export function PricingExperience({ headingLevel = "h2" }: { headingLevel?: "h1"
               Pricing
             </Eyebrow>
             <h2 className="mt-8 text-4xl font-semibold tracking-tight sm:text-6xl">
-              Simple pricing.{" "}
+              Plans for confident.{" "}
               <span className="bg-gradient-to-r from-fuchsia-300 to-violet-500 bg-clip-text text-transparent">
-                Scale globally.
+                Market expansion.
               </span>
             </h2>
             <p className="mx-auto mt-5 max-w-xl text-lg text-zinc-500">
-              Choose the plan that fits your team today.
+              Start with focused market research today.
               <br />
-              Upgrade anytime as your business grows.
+              Scale company intelligence and expansion operations as your program grows.
             </p>
             {annualPricingEnabled && (
               <div
@@ -160,7 +160,7 @@ export function PricingExperience({ headingLevel = "h2" }: { headingLevel?: "h1"
       </section>
       <section className="bg-[#0d0d12] px-5 py-20 text-zinc-100">
         <div className="mx-auto max-w-5xl">
-          <h2 className="text-center text-3xl font-semibold">Pricing questions</h2>
+          <h2 className="text-center text-3xl font-semibold">Marketra plan questions</h2>
           <div className="mt-10 grid gap-3 md:grid-cols-2">
             {pricingFaqs.map(([question, answer], index) => {
               const open = faq === index;
