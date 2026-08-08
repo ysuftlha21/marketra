@@ -63,6 +63,7 @@ export interface TargetCountrySummary {
   latest_analysis_status: MarketAnalysisRunStatus | null;
   latest_recommendation: string | null;
   latest_confidence: string | null;
+  latest_analysis_output: Record<string, unknown> | null;
   last_analyzed_at: string | null;
   has_completed_analysis: boolean;
 }
@@ -212,6 +213,7 @@ export async function listProjectTargetCountries(
       recommendation: string | null;
       confidence: string | null;
       completedAt: string | null;
+      output: Record<string, unknown> | null;
     }
   >();
   const completedCountryIds = new Set<string>();
@@ -225,6 +227,7 @@ export async function listProjectTargetCountries(
         recommendation: (output?.entryRecommendation as string) ?? null,
         confidence: (output?.confidence as string) ?? null,
         completedAt: (run as Record<string, unknown>).completed_at as string | null,
+        output,
       });
     }
   }
@@ -247,6 +250,7 @@ export async function listProjectTargetCountries(
       latest_analysis_status: runInfo?.status ?? null,
       latest_recommendation: runInfo?.recommendation ?? null,
       latest_confidence: runInfo?.confidence ?? null,
+      latest_analysis_output: runInfo?.output ?? null,
       last_analyzed_at: runInfo?.completedAt ?? null,
       has_completed_analysis: completedCountryIds.has(r.id),
     };

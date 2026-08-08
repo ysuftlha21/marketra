@@ -6,24 +6,40 @@ import { cn } from "@/lib/utils/cn";
 import { DashboardIcon } from "./dashboard-icon";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ChevronsLeft } from "lucide-react";
+import { isDashboardNavigationActive, type DashboardModule } from "./dashboard-navigation";
 
 const primaryNavigation = [
-  { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
-  { label: "Projects", href: "/dashboard/projects", icon: "FolderKanban" },
-  { label: "Markets", href: "/dashboard/markets", icon: "Globe" },
-  { label: "Company Discovery", href: "/dashboard/companies", icon: "Building2" },
-  { label: "Buyer Discovery", href: "/dashboard/buyers", icon: "Users" },
-  { label: "ICP Builder", href: "/dashboard/icp", icon: "PenLine" },
-  { label: "AI Outreach", href: "/dashboard/outreach", icon: "Mail" },
-  { label: "Campaigns", href: "/dashboard/campaigns", icon: "Megaphone" },
-  { label: "CRM", href: "/dashboard/crm", icon: "KanbanSquare" },
-  { label: "Analytics", href: "/dashboard/analytics", icon: "ChartNoAxesCombined" },
+  { module: "dashboard", label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
+  { module: "projects", label: "Projects", href: "/dashboard/projects", icon: "FolderKanban" },
+  { module: "markets", label: "Markets", href: "/dashboard/markets", icon: "Globe" },
+  {
+    module: "companies",
+    label: "Company Discovery",
+    href: "/dashboard/companies",
+    icon: "Building2",
+  },
+  { module: "buyers", label: "Buyer Discovery", href: "/dashboard/buyers", icon: "Users" },
+  { module: "icp", label: "ICP Builder", href: "/dashboard/icp", icon: "PenLine" },
+  { module: "outreach", label: "AI Outreach", href: "/dashboard/outreach", icon: "Mail" },
+  { module: "campaigns", label: "Campaigns", href: "/dashboard/campaigns", icon: "Megaphone" },
+  { module: "crm", label: "CRM", href: "/dashboard/crm", icon: "KanbanSquare" },
+  {
+    module: "analytics",
+    label: "Analytics",
+    href: "/dashboard/analytics",
+    icon: "ChartNoAxesCombined",
+  },
 ] as const;
 
 const secondaryNavigation = [
-  { label: "Getting started", href: "/dashboard/onboarding", icon: "ListChecks" },
-  { label: "Billing", href: "/dashboard/settings/billing", icon: "CreditCard" },
-  { label: "Settings", href: "/dashboard/settings", icon: "Settings" },
+  {
+    module: "onboarding",
+    label: "Getting started",
+    href: "/dashboard/onboarding",
+    icon: "ListChecks",
+  },
+  { module: "billing", label: "Billing", href: "/dashboard/settings/billing", icon: "CreditCard" },
+  { module: "settings", label: "Settings", href: "/dashboard/settings", icon: "Settings" },
 ] as const;
 
 interface SidebarNavProps {
@@ -41,13 +57,8 @@ export function SidebarNav({ onNavigate, onCollapse, collapsed = false }: Sideba
           key={groupIndex}
           className={cn("space-y-1", groupIndex === 1 && "mt-5 border-t border-white/[.035] pt-5")}
         >
-          {group.map((item, itemIndex) => {
-            const active =
-              itemIndex === 0 && groupIndex === 0
-                ? pathname === "/dashboard"
-                : item.href === "/dashboard/settings"
-                  ? pathname === item.href
-                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          {group.map((item) => {
+            const active = isDashboardNavigationActive(pathname, item.module as DashboardModule);
             return (
               <Link
                 key={item.label}

@@ -33,7 +33,7 @@ test.describe("Market flows — desktop (authenticated)", () => {
     }
     const slug = url.split("/").pop() ?? "";
     await page.goto(`/dashboard/projects/${slug}/markets`);
-    await expect(page.getByRole("heading", { name: /target markets/i })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Markets", exact: true })).toBeVisible({
       timeout: 10000,
     });
   });
@@ -57,7 +57,7 @@ test.describe("Market flows — desktop (authenticated)", () => {
     await expect(
       page
         .getByText(/no target countries/i)
-        .or(page.getByRole("heading", { name: /target markets/i })),
+        .or(page.getByRole("heading", { name: "Markets", exact: true })),
     ).toBeVisible({ timeout: 10000 });
   });
 
@@ -217,11 +217,11 @@ test.describe("Market flows — desktop (authenticated)", () => {
     const slug = url.split("/").pop() ?? "";
     await page.goto(`/dashboard/projects/${slug}/markets/DE`);
     await page.getByText(/back to markets/i).click();
-    await expect(page.getByRole("heading", { name: /target markets/i })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Markets", exact: true })).toBeVisible({
       timeout: 5000,
     });
     await page.getByText(/back to project/i).click();
-    await expect(page.getByRole("heading", { name: /target markets/i })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Markets", exact: true })).toBeVisible({
       timeout: 5000,
     });
   });
@@ -271,7 +271,7 @@ test.describe("Market flows — mobile (authenticated)", () => {
     }
     const slug = url.split("/").pop() ?? "";
     await page.goto(`/dashboard/projects/${slug}/markets`);
-    await expect(page.getByRole("heading", { name: /target markets/i })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Markets", exact: true })).toBeVisible({
       timeout: 10000,
     });
   });
@@ -327,7 +327,7 @@ test.describe("Market flows — mobile (authenticated)", () => {
     const backBtn = page.getByText(/back to markets/i);
     if (await backBtn.isVisible()) {
       await backBtn.click();
-      await expect(page.getByRole("heading", { name: /target markets/i })).toBeVisible({
+      await expect(page.getByRole("heading", { name: "Markets", exact: true })).toBeVisible({
         timeout: 5000,
       });
     }

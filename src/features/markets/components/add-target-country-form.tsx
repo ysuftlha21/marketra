@@ -25,13 +25,20 @@ export function AddTargetCountryForm({ projectSlug }: { projectSlug: string }) {
   const [state, formAction, pending] = useActionState(addCountryAction, null);
 
   return (
-    <form action={formAction} className="flex flex-wrap items-end gap-3">
+    <form
+      action={formAction}
+      className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end"
+    >
       <input type="hidden" name="projectSlug" value={projectSlug} />
+      <label htmlFor="target-country" className="sr-only">
+        Target country
+      </label>
       <select
+        id="target-country"
         name="countryCode"
         required
         disabled={pending}
-        className="flex h-10 rounded-md border border-border bg-surface px-3 py-2 text-sm disabled:opacity-50"
+        className="h-10 min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 sm:min-w-64"
       >
         <option value="">Select a country…</option>
         {countries.map((c) => (
@@ -40,10 +47,14 @@ export function AddTargetCountryForm({ projectSlug }: { projectSlug: string }) {
           </option>
         ))}
       </select>
-      <Button type="submit" size="sm" disabled={pending}>
+      <Button type="submit" disabled={pending} className="w-full sm:w-auto">
         <Plus className="h-4 w-4" /> {pending ? "Adding…" : "Add"}
       </Button>
-      {state?.error && <p className="w-full text-xs text-danger">{state.error}</p>}
+      {state?.error && (
+        <p role="alert" className="w-full text-xs text-danger">
+          {state.error}
+        </p>
+      )}
     </form>
   );
 }
