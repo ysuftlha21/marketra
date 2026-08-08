@@ -2,6 +2,10 @@ import { z } from "zod";
 import { discoveryRunStatusSchema } from "../domain/discovery-run-status";
 import { projectCompanyStatusSchema } from "../domain/company-lifecycle";
 
+export function readOptionalDiscoveryText(formData: FormData, field: string): string | undefined {
+  return formData.has(field) ? String(formData.get(field) ?? "") : undefined;
+}
+
 export const startDiscoverySchema = z
   .object({
     projectSlug: z.string().min(1),
@@ -11,6 +15,7 @@ export const startDiscoverySchema = z
     employeeMin: z.coerce.number().int().nonnegative().optional(),
     employeeMax: z.coerce.number().int().nonnegative().optional(),
     keywords: z.string().trim().max(300).optional(),
+    keywordMatchMode: z.enum(["any", "all"]).default("any"),
     technologies: z.string().trim().max(300).optional(),
     page: z.coerce.number().int().positive().default(1),
   })

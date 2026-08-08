@@ -30,10 +30,13 @@ export function MarketingFooter() {
               Sign in
             </Link>
             <Link href="/privacy" className="hover:text-foreground">
-              Privacy
+              Privacy Policy
             </Link>
             <Link href="/terms" className="hover:text-foreground">
-              Terms
+              Terms of Service
+            </Link>
+            <Link href="/refund" className="hover:text-foreground">
+              Refund Policy
             </Link>
             <Link href="/cookies" className="hover:text-foreground">
               Cookies

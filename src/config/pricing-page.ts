@@ -1,35 +1,42 @@
+import { getPriceForCountry } from "./pricing";
+
 export type BillingInterval = "monthly" | "annual";
 export interface PricingFeatureGroup {
   name: string;
   features: string[];
 }
 export interface PricingPlan {
-  id: "starter" | "growth" | "enterprise";
+  id: "starter" | "growth" | "agency";
   name: string;
   description: string;
   monthlyPrice: number | null;
   annualPrice: number | null;
-  priceLabel?: string;
   currency: "USD";
   recommended?: boolean;
   badge?: string;
   featureGroups: PricingFeatureGroup[];
   limits: Record<string, number | boolean | "unlimited" | "custom">;
-  cta: { label: string; action: "register" | "trial" | "contact-sales" };
+  cta: { label: "Start Free Trial"; action: "trial" };
 }
 
 export const annualPricingEnabled = true;
 export const growthTrialEnabled = true;
+
+function publicPrice(planId: "starter" | "growth" | "agency") {
+  const value = getPriceForCountry(planId);
+  if (!value) throw new Error(`Missing public USD price for ${planId}.`);
+  return { monthlyPrice: value.monthly, annualPrice: value.annual };
+}
+
 export const pricingPlans: readonly PricingPlan[] = [
   {
     id: "starter",
     name: "Starter",
     description: "For early-stage SaaS teams validating their first international markets.",
-    monthlyPrice: 49,
-    annualPrice: 490,
+    ...publicPrice("starter"),
     currency: "USD",
     limits: { markets: 3, companies: 1000, buyers: 250, outreach: 100, workspaces: 1, users: 1 },
-    cta: { label: "Get Started", action: "register" },
+    cta: { label: "Start Free Trial", action: "trial" },
     featureGroups: [
       {
         name: "AI",
@@ -70,10 +77,9 @@ export const pricingPlans: readonly PricingPlan[] = [
   },
   {
     id: "growth",
-    name: "Growth",
-    description: "For SaaS companies actively expanding into multiple markets.",
-    monthlyPrice: 149,
-    annualPrice: 1490,
+    name: "Pro",
+    description: "For growing SaaS teams running repeatable market and company discovery.",
+    ...publicPrice("growth"),
     currency: "USD",
     recommended: true,
     badge: "Recommended",
@@ -125,57 +131,51 @@ export const pricingPlans: readonly PricingPlan[] = [
     ],
   },
   {
-    id: "enterprise",
-    name: "Enterprise",
-    description:
-      "For global SaaS organizations with advanced data, security, and operational requirements.",
-    monthlyPrice: null,
-    annualPrice: null,
-    priceLabel: "Custom Pricing",
+    id: "agency",
+    name: "Growth",
+    description: "For established teams managing higher-volume global go-to-market programs.",
+    ...publicPrice("agency"),
     currency: "USD",
-    limits: { usage: "custom", users: "unlimited", workspaces: "custom" },
-    cta: { label: "Contact Sales", action: "contact-sales" },
+    limits: { markets: "unlimited", companies: 50000, buyers: 10000, outreach: 10000, users: 20 },
+    cta: { label: "Start Free Trial", action: "trial" },
     featureGroups: [
       {
-        name: "Everything in Growth",
+        name: "Everything in Pro",
         features: [
-          "Contract-based usage",
-          "Unlimited users",
+          "Unlimited target markets",
+          "50,000 company discoveries / month",
+          "10,000 buyer discoveries / month",
+          "Advanced market portfolio comparisons",
+          "Bulk company workflows",
+        ],
+      },
+      {
+        name: "Automation and data",
+        features: [
+          "10,000 AI outreach messages / month",
+          "Advanced enrichment workflows",
+          "Saved searches and reusable segments",
+          "Deterministic scoring explanations",
+          "Priority processing",
+        ],
+      },
+      {
+        name: "Team operations",
+        features: [
+          "Up to 20 users",
           "Multiple workspaces",
-          "Custom limits and data coverage",
-          "Bulk operations",
+          "Owner, admin, and member roles",
+          "Activity and provider provenance",
+          "Advanced analytics",
         ],
       },
       {
-        name: "AI and data",
+        name: "Support",
         features: [
-          "Custom AI configurations",
-          "Custom market scoring models",
-          "Private data-source connections",
-          "Advanced enrichment",
-          "Data residency options",
-        ],
-      },
-      {
-        name: "Security",
-        features: [
-          "SSO / SAML",
-          "SCIM provisioning",
-          "Role-based access controls",
-          "Audit logs",
-          "Advanced security controls",
-          "Dedicated infrastructure options",
-        ],
-      },
-      {
-        name: "Service",
-        features: [
-          "Dedicated success manager",
-          "White-glove onboarding",
-          "Custom integrations",
-          "SLA",
-          "Priority feature requests",
-          "Quarterly strategy reviews",
+          "Priority support",
+          "Guided onboarding",
+          "CRM and email integrations",
+          "API access",
         ],
       },
     ],
@@ -209,7 +209,7 @@ export const pricingFaqs = [
   ],
   [
     "Is there a free trial?",
-    "Growth trial availability is presented during registration when enabled. No payment success is simulated on this page.",
+    "Free trial availability is presented during registration when enabled. No payment success is simulated on this page.",
   ],
   [
     "Do unused credits roll over?",
@@ -220,7 +220,7 @@ export const pricingFaqs = [
     "Payment methods are shown by the active BillingProvider during checkout.",
   ],
   [
-    "Can Enterprise plans be customized?",
-    "Yes. Enterprise plans may include custom limits, integrations, security controls, data coverage, and service terms.",
+    "Which plan is right for my team?",
+    "Starter supports initial market validation, Pro supports repeatable team workflows, and Growth provides higher limits for established global programs.",
   ],
 ] as const;

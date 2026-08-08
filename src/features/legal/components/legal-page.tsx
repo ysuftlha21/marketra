@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingHeader } from "@/components/marketing/marketing-header";
 import { getLegalConfig } from "../legal-config";
 
@@ -18,11 +19,16 @@ export function LegalPage({ title, children }: { title: string; children: ReactN
           {children}
         </div>
         <p className="mt-10 border-t pt-6 text-xs text-muted-foreground">
-          Operator: {config.operatorName}. Address: {config.operatorAddress}. Contact:{" "}
-          {config.supportEmail}. These terms require review by a qualified legal professional before
-          public launch.
+          Marketra · getmarketra.com · Contact:{" "}
+          <a
+            className="hover:text-foreground hover:underline"
+            href={`mailto:${config.supportEmail}`}
+          >
+            {config.supportEmail}
+          </a>
         </p>
       </main>
+      <MarketingFooter />
     </>
   );
 }

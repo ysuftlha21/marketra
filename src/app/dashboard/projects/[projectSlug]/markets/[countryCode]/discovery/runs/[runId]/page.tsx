@@ -32,7 +32,7 @@ export default async function DiscoveryRunDetailPage({ params }: PageProps) {
   if (!wsId) notFound();
 
   const run = await getDiscoveryRun(wsId, runId);
-  if (!run) notFound();
+  if (!run || run.project_id !== project.id || run.target_country_id !== tc.id) notFound();
 
   const icpVersion = run.icp_profile_id
     ? await getIcpProfile(wsId, run.icp_profile_id).then((p) => p?.version ?? null)
@@ -47,6 +47,14 @@ export default async function DiscoveryRunDetailPage({ params }: PageProps) {
 
   const summary = run.result_summary as Record<string, unknown> | null;
   const inputSnapshot = run.input_snapshot as Record<string, unknown> | null;
+  const submittedFilters =
+    inputSnapshot?.submittedFilters && typeof inputSnapshot.submittedFilters === "object"
+      ? inputSnapshot.submittedFilters
+      : null;
+  const providerFilters =
+    inputSnapshot?.providerFilters && typeof inputSnapshot.providerFilters === "object"
+      ? inputSnapshot.providerFilters
+      : null;
   const criteriaSnapshot = run.criteria_snapshot as Record<string, unknown> | null;
 
   return (
@@ -181,11 +189,43 @@ export default async function DiscoveryRunDetailPage({ params }: PageProps) {
         </Card>
       )}
 
-      {/* Input snapshot */}
-      {inputSnapshot && (
+      {submittedFilters && (
         <Card className="border-border/60">
           <CardHeader>
-            <CardTitle className="text-base">Input</CardTitle>
+            <CardTitle className="text-base">User filters</CardTitle>
+            <CardDescription>Exact values submitted by the user.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs text-foreground">
+              {JSON.stringify(submittedFilters, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
+
+      {providerFilters && (
+        <Card className="border-border/60">
+          <CardHeader>
+            <CardTitle className="text-base">Provider-normalized filters</CardTitle>
+            <CardDescription>
+              Sanitized filters sent to the selected provider, including safe omission reasons.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs text-foreground">
+              {JSON.stringify(providerFilters, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
+
+      {inputSnapshot && !submittedFilters && !providerFilters && (
+        <Card className="border-border/60">
+          <CardHeader>
+            <CardTitle className="text-base">Legacy input snapshot</CardTitle>
+            <CardDescription>
+              This run predates separate submitted and provider-normalized filter tracking.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs text-foreground">

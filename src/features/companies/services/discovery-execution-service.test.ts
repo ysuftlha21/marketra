@@ -387,6 +387,44 @@ describe("startDiscovery", () => {
     expect(mockCreateProjectCompany).toHaveBeenCalled();
   });
 
+  it("persists explicit empty retrieval filters without injecting ICP signals", async () => {
+    const providerModule =
+      await import("@/lib/providers/company-discovery/mock-company-discovery.provider");
+    const original = providerModule.MockCompanyDiscoveryProvider.prototype.discoverCompaniesV1;
+    const discover = vi.fn(original);
+    providerModule.MockCompanyDiscoveryProvider.prototype.discoverCompaniesV1 = discover;
+    try {
+      const { startDiscovery } = await import("./discovery-execution-service");
+      await startDiscovery(wsId, "my-saas", tcId, userId, {
+        keywords: [],
+        technologies: [],
+        maxResults: 5,
+      });
+      const createInput = mockCreateDiscoveryRun.mock.calls[0]?.[1] as Record<string, unknown>;
+      expect(createInput.input_snapshot).toMatchObject({
+        submittedFilters: {
+          keywords: { state: "empty", values: [] },
+          technologies: { state: "empty", values: [] },
+          resultCap: 5,
+        },
+      });
+      expect(discover).toHaveBeenCalledWith(
+        expect.objectContaining({
+          keywords: [],
+          technologySignals: [],
+          keywordSubmissionState: "empty",
+          technologySubmissionState: "empty",
+        }),
+      );
+      expect(discover.mock.calls[0]?.[0].qualificationSignals).toEqual(
+        mockIcp.qualification_signals,
+      );
+      expect(discover.mock.calls[0]?.[0].keywords).not.toEqual(mockIcp.qualification_signals);
+    } finally {
+      providerModule.MockCompanyDiscoveryProvider.prototype.discoverCompaniesV1 = original;
+    }
+  });
+
   it("skips duplicate project companies", async () => {
     mockProjectCompanyExists.mockResolvedValue(true);
     const { startDiscovery } = await import("./discovery-execution-service");
@@ -415,28 +453,101 @@ describe("retryDiscovery", () => {
     });
   });
 
-  it("reuses the previous run's target_country_id and maxResults", async () => {
+  it("reuses the previous run's exact submitted filters", async () => {
     mockGetDiscoveryRun.mockResolvedValue({
       ...mockCreatedRun,
       input_snapshot: {
-        project: { name: "My SaaS" },
-        country: { code: "DE" },
-        maxResults: 10,
+        submittedFilters: {
+          industry: { state: "populated", value: "SaaS" },
+          keywords: { state: "empty", values: [] },
+          technologies: { state: "empty", values: [] },
+          keywordMatchMode: "all",
+          employeeMin: 11,
+          employeeMax: 50,
+          resultCap: 10,
+          page: 1,
+        },
       },
     });
     const { retryDiscovery } = await import("./discovery-execution-service");
     await retryDiscovery(wsId, "my-saas", runId, userId);
     expect(mockGetTargetCountry).toHaveBeenCalledWith(wsId, tcId);
+    const createInput = mockCreateDiscoveryRun.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(createInput.input_snapshot).toMatchObject({
+      submittedFilters: {
+        keywords: { state: "empty", values: [] },
+        technologies: { state: "empty", values: [] },
+        keywordMatchMode: "all",
+        resultCap: 10,
+      },
+    });
   });
 
-  it("defaults maxResults to 5 when not in snapshot", async () => {
+  it("reuses the previous run's exact submitted filters — ICP prose keywords are sanitized on retry", async () => {
+    // Simulate a run created under the old buggy code (d438d5c) where qualificationSignals
+    // were stored as keywords in submittedFilters.
+    mockGetDiscoveryRun.mockResolvedValue({
+      ...mockCreatedRun,
+      input_snapshot: {
+        submittedFilters: {
+          industry: { state: "populated", value: "Software as a Service (SaaS)" },
+          keywords: {
+            state: "populated",
+            values: [
+              "Growing number of SaaS startups",
+              "Increase in digital strategy investments",
+              "Need for efficient outreach solutions",
+            ],
+          },
+          technologies: {
+            state: "populated",
+            values: ["High usage of digital tools and platforms among target users."],
+          },
+          keywordMatchMode: "any",
+          employeeMin: 11,
+          employeeMax: 50,
+          resultCap: 5,
+          page: 1,
+        },
+      },
+    });
+    const { retryDiscovery } = await import("./discovery-execution-service");
+    await retryDiscovery(wsId, "my-saas", runId, userId);
+
+    // Verify that startDiscovery was called with the sanitized options.
+    // The new run's input_snapshot must record the sanitized state — prose keywords removed,
+    // technologySubmissionState reflecting the sanitized empty list.
+    const createCall = mockCreateDiscoveryRun.mock.calls[0];
+    const newRunInput = createCall?.[1] as Record<string, unknown>;
+    const sf = (newRunInput?.input_snapshot as Record<string, unknown>)
+      ?.submittedFilters as Record<string, unknown>;
+
+    // Industry must be preserved (not sanitized)
+    expect((sf?.industry as { value?: string })?.value).toBe("Software as a Service (SaaS)");
+
+    // Keywords were prose → sanitized to [] → submission state should be "empty"
+    const kwState = sf?.keywords as { state: string; values: string[] };
+    expect(kwState?.state).toBe("empty");
+    expect(kwState?.values ?? []).toEqual([]);
+
+    // Technologies had a prose sentence → sanitized to [] → "empty"
+    const techState = sf?.technologies as { state: string; values: string[] };
+    expect(techState?.state).toBe("empty");
+    expect(techState?.values ?? []).toEqual([]);
+  });
+
+
+  it("defaults maxResults to 5 when snapshot contains no resultCap", async () => {
     mockGetDiscoveryRun.mockResolvedValue({
       ...mockCreatedRun,
       input_snapshot: { project: {}, country: { code: "DE" } },
     });
     const { retryDiscovery } = await import("./discovery-execution-service");
     await retryDiscovery(wsId, "my-saas", runId, userId);
-    expect(mockCreateDiscoveryRun).toHaveBeenCalled();
+    const createInput = mockCreateDiscoveryRun.mock.calls[0]?.[1] as Record<string, unknown>;
+    const sf = (createInput?.input_snapshot as Record<string, unknown>)
+      ?.submittedFilters as Record<string, unknown>;
+    expect((sf?.resultCap as number) ?? 5).toBe(5);
   });
 });
 

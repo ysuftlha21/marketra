@@ -14,6 +14,8 @@ export function DiscoveryFiltersForm(props: {
   employeeMax?: string;
   keywords?: string;
   technologies?: string;
+  keywordMatchMode?: "any" | "all";
+  maxResults?: number;
   disabled?: boolean;
   providerMessage: string;
 }) {
@@ -67,7 +69,7 @@ export function DiscoveryFiltersForm(props: {
         Result limit
         <select
           name="maxResults"
-          defaultValue="5"
+          defaultValue={String(props.maxResults ?? 5)}
           className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
         >
           <option>5</option>
@@ -85,6 +87,21 @@ export function DiscoveryFiltersForm(props: {
           defaultValue={props.keywords}
           className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
         />
+        <span className="block text-[11px]">
+          Keywords are optional. Leave blank for broader discovery. Use short company descriptors
+          only; ICP qualification and purchase signals stay in Marketra scoring.
+        </span>
+      </label>
+      <label className="space-y-1 text-xs text-muted-foreground">
+        Advanced keyword matching
+        <select
+          name="keywordMatchMode"
+          defaultValue={props.keywordMatchMode ?? "any"}
+          className="block h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground"
+        >
+          <option value="any">Any</option>
+          <option value="all">All</option>
+        </select>
       </label>
       <label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
         Technologies, comma separated

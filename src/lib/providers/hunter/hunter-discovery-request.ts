@@ -1,4 +1,6 @@
 import type { CompanyDiscoveryInputV1 } from "../company-discovery/company-discovery.provider";
+import type { DiscoveryProviderFilterSnapshot } from "../company-discovery/company-discovery.provider";
+import { normalizeDiscoveryKeywords } from "@/features/companies/domain/discovery-keywords";
 
 const HUNTER_HEADCOUNT_BUCKETS = [
   { value: "1-10", min: 1, max: 10 },
@@ -72,7 +74,7 @@ export function buildHunterDiscoverBody(input: CompanyDiscoveryInputV1): Record<
   const country = input.targetCountryCode.trim().toUpperCase();
   const industries = normalizeHunterIndustries(input.industries);
   const technologies = normalizeHunterTechnologies(input.technologySignals);
-  const keywords = uniqueTrimmed(input.keywords, 60);
+  const keywords = normalizeDiscoveryKeywords(input.keywords);
   const headcount = hunterHeadcountBuckets(
     input.companySizeMinEmployees,
     input.companySizeMaxEmployees,
@@ -84,7 +86,63 @@ export function buildHunterDiscoverBody(input: CompanyDiscoveryInputV1): Record<
     ...(headcount.length > 0 && (input.companySizeMinEmployees || input.companySizeMaxEmployees)
       ? { headcount }
       : {}),
-    ...(keywords.length > 0 ? { keywords: { include: keywords, match: "any" } } : {}),
+    ...(keywords.length > 0
+      ? { keywords: { include: keywords, match: input.keywordMatchMode ?? "any" } }
+      : {}),
     ...(technologies.length > 0 ? { technology: { include: technologies, match: "any" } } : {}),
+  };
+}
+
+export function buildHunterFilterSnapshot(
+  input: CompanyDiscoveryInputV1,
+  operationId: string,
+): DiscoveryProviderFilterSnapshot {
+  const industries = normalizeHunterIndustries(input.industries);
+  const keywords = normalizeDiscoveryKeywords(input.keywords);
+  const technologies = normalizeHunterTechnologies(input.technologySignals);
+  const employeeRanges = hunterHeadcountBuckets(
+    input.companySizeMinEmployees,
+    input.companySizeMaxEmployees,
+  );
+  const omittedFilters: DiscoveryProviderFilterSnapshot["omittedFilters"] = [];
+  if (industries.length === 0)
+    omittedFilters.push({
+      field: "industry",
+      reason: input.industries.length === 0 ? "not_submitted" : "unsupported_or_descriptive",
+    });
+  if (keywords.length === 0)
+    omittedFilters.push({
+      field: "keywords",
+      reason:
+        input.keywordSubmissionState === "absent" || input.keywords === undefined
+          ? "not_submitted"
+          : input.keywordSubmissionState === "empty" || input.keywords.length === 0
+            ? "explicitly_empty"
+            : "unsupported_or_descriptive",
+    });
+  if (technologies.length === 0)
+    omittedFilters.push({
+      field: "technologies",
+      reason:
+        input.technologySubmissionState === "absent"
+          ? "not_submitted"
+          : input.technologySubmissionState === "empty" || input.technologySignals.length === 0
+            ? "explicitly_empty"
+            : "unsupported_or_descriptive",
+    });
+  return {
+    countryCode: input.targetCountryCode.trim().toUpperCase(),
+    industries,
+    employeeRanges:
+      input.companySizeMinEmployees !== undefined || input.companySizeMaxEmployees !== undefined
+        ? employeeRanges
+        : [],
+    keywords,
+    keywordMatchMode: keywords.length > 0 ? (input.keywordMatchMode ?? "any") : undefined,
+    technologies,
+    omittedFilters,
+    resultCap: input.maxResults,
+    page: Math.floor((input.offset ?? 0) / input.maxResults) + 1,
+    operationId,
   };
 }

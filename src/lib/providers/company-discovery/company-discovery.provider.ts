@@ -33,6 +33,25 @@ export const discoveryCompanyCandidateSchema = z.object({
 });
 export type DiscoveryCompanyCandidate = z.infer<typeof discoveryCompanyCandidateSchema>;
 
+export const discoveryProviderFilterSnapshotSchema = z.object({
+  countryCode: z.string().length(2),
+  industries: z.array(z.string()),
+  employeeRanges: z.array(z.string()),
+  keywords: z.array(z.string()),
+  keywordMatchMode: z.enum(["any", "all"]).optional(),
+  technologies: z.array(z.string()),
+  omittedFilters: z.array(
+    z.object({
+      field: z.enum(["industry", "keywords", "technologies"]),
+      reason: z.enum(["not_submitted", "explicitly_empty", "unsupported_or_descriptive"]),
+    }),
+  ),
+  resultCap: z.number().int().positive(),
+  page: z.number().int().positive(),
+  operationId: z.string().uuid(),
+});
+export type DiscoveryProviderFilterSnapshot = z.infer<typeof discoveryProviderFilterSnapshotSchema>;
+
 export const companyDiscoveryInputV1Schema = z.object({
   correlationId: z.string().min(1),
   projectSummary: z.string().optional(),
@@ -48,6 +67,9 @@ export const companyDiscoveryInputV1Schema = z.object({
   purchaseTriggers: z.array(z.string()).default([]),
   technologySignals: z.array(z.string()).default([]),
   keywords: z.array(z.string()).optional(),
+  keywordMatchMode: z.enum(["any", "all"]).optional(),
+  keywordSubmissionState: z.enum(["absent", "empty", "populated"]).optional(),
+  technologySubmissionState: z.enum(["absent", "empty", "populated"]).optional(),
   exclusionDomains: z.array(z.string()).default([]),
   maxResults: z.number().int().positive().max(200).default(50),
   offset: z.number().int().nonnegative().max(10000).optional(),
@@ -59,6 +81,7 @@ export const companyDiscoveryOutputV1Schema = z.object({
   candidates: z.array(discoveryCompanyCandidateSchema),
   totalCount: z.number().int().nonnegative(),
   warnings: z.array(z.string()).default([]),
+  providerFilters: discoveryProviderFilterSnapshotSchema.optional(),
 });
 export type CompanyDiscoveryOutputV1 = z.infer<typeof companyDiscoveryOutputV1Schema>;
 

@@ -41,6 +41,13 @@ import { getProjectIcpReadiness } from "@/features/icp/services/icp-readiness-se
 import { DiscoverySubmitButton } from "@/features/companies/components/discovery-submit-button";
 import { AdaptCountryIcpForm } from "@/features/icp/components/adapt-country-icp-form";
 import { DiscoveryFiltersForm } from "@/features/companies/components/discovery-filters-form";
+import {
+  deriveDiscoveryKeywords,
+  normalizeDiscoveryKeywords,
+} from "@/features/companies/domain/discovery-keywords";
+import { getLatestSuccessfulAnalysisRun } from "@/features/projects/repository/project-repository";
+import { restoreSubmittedDiscoveryFilters } from "@/features/companies/domain/discovery-filter-snapshot";
+import { normalizeHunterTechnologies } from "@/lib/providers/hunter/hunter-discovery-request";
 
 interface PageProps {
   params: Promise<{ projectSlug: string; countryCode: string }>;
@@ -94,39 +101,75 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
       ])
     : [[], { industries: [], countries: [] }, emptyCounts];
 
-  const latestRun = runs[0] ?? null;
+  const countryRuns = runs.filter((run) => run.target_country_id === tc.id);
+  const latestRun = countryRuns[0] ?? null;
+  const restoredFilters = latestRun
+    ? restoreSubmittedDiscoveryFilters(latestRun.input_snapshot)
+    : null;
   const cat = getCountry(countryCode);
   const env = parseServerEnv();
   const providerLabel = providerProvenanceLabel(env.DEFAULT_COMPANY_DISCOVERY_PROVIDER);
   const hunterReadiness = getHunterReadiness();
   const discoveryEnabled =
     env.DEFAULT_COMPANY_DISCOVERY_PROVIDER !== "hunter" || env.HUNTER_DISCOVERY_UI_ENABLED;
-  const icpReadiness = await getProjectIcpReadiness(projectSlug, countryCode);
+  const [icpReadiness, productAnalysisRun] = await Promise.all([
+    getProjectIcpReadiness(projectSlug, countryCode),
+    getLatestSuccessfulAnalysisRun(project.id),
+  ]);
   const approvedIcp = icpReadiness.state === "ready" ? icpReadiness.profile : null;
   const primaryIndustries = Array.isArray(approvedIcp?.industry_segments.primary)
     ? approvedIcp.industry_segments.primary
     : [];
-  const defaultIndustry = primaryIndustries
+  const industryNames = primaryIndustries
     .map((item) =>
       typeof item === "string"
         ? item
-        : item && typeof item === "object" && "name" in item
-          ? String(item.name)
+        : item && typeof item === "object" && "name" in item && typeof item.name === "string"
+          ? item.name
           : "",
     )
-    .find(Boolean);
+    .filter(Boolean);
+  const defaultIndustry = industryNames[0];
   const employeeRange = String(approvedIcp?.company_attributes.employeeRange ?? "");
   const employeeMatches = employeeRange.match(/(\d[\d,]*)\D+(\d[\d,]*)/);
   const defaultEmployeeMin = employeeMatches?.[1]?.replaceAll(",", "") ?? "";
   const defaultEmployeeMax = employeeMatches?.[2]?.replaceAll(",", "") ?? "";
-  const defaultKeywords = approvedIcp?.qualification_signals.slice(0, 6).join(", ") ?? "";
-  const defaultTechnologies =
+  const productCategory =
+    productAnalysisRun?.output && typeof productAnalysisRun.output.productCategory === "string"
+      ? productAnalysisRun.output.productCategory
+      : undefined;
+  const companyTypeValue =
+    approvedIcp?.company_attributes.companyTypes ??
+    approvedIcp?.company_attributes.companyType ??
+    approvedIcp?.company_attributes.type;
+  const companyTypes = Array.isArray(companyTypeValue)
+    ? companyTypeValue.filter((value): value is string => typeof value === "string")
+    : typeof companyTypeValue === "string"
+      ? [companyTypeValue]
+      : [];
+  // defaultKeywords: safe concise company descriptors only.
+  // NEVER map qualificationSignals, purchaseTriggers, pains, assumptions, or any descriptive
+  // reasoning sentence here — those belong exclusively to post-retrieval ICP scoring.
+  const defaultKeywords = deriveDiscoveryKeywords({
+    industries: industryNames,
+    productCategory,
+    companyTypes,
+  }).join(", ");
+  // defaultTechnologies: concrete recognized technology product names only (HubSpot, AWS, …).
+  // normalizeHunterTechnologies maps inputs to Hunter aliases; anything not in the alias map
+  // is silently omitted — keeping the field safe to show in the UI.
+  const rawDefaultTechnologies =
     approvedIcp?.technology_context && Array.isArray(approvedIcp.technology_context.technologies)
-      ? approvedIcp.technology_context.technologies
-          .filter((value): value is string => typeof value === "string")
-          .slice(0, 6)
-          .join(", ")
-      : "";
+      ? approvedIcp.technology_context.technologies.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [];
+  // Keep only entries that map to a known Hunter alias (i.e., are concrete product names).
+  // This guards against ICP technology_context containing prose summaries.
+  const defaultTechnologies = rawDefaultTechnologies
+    .filter((t) => normalizeHunterTechnologies([t]).length > 0)
+    .slice(0, 6)
+    .join(", ");
 
   // URL-driven filters
   const filterStatus = sp.status || "";
@@ -305,11 +348,34 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
               countryId={tc.id}
               countryName={tc.country_name}
               countryCode={tc.country_code}
-              industry={defaultIndustry}
-              employeeMin={defaultEmployeeMin}
-              employeeMax={defaultEmployeeMax}
-              keywords={defaultKeywords}
-              technologies={defaultTechnologies}
+              industry={restoredFilters?.industry ?? defaultIndustry}
+              employeeMin={
+                restoredFilters?.employeeMin !== undefined
+                  ? String(restoredFilters.employeeMin)
+                  : defaultEmployeeMin
+              }
+              employeeMax={
+                restoredFilters?.employeeMax !== undefined
+                  ? String(restoredFilters.employeeMax)
+                  : defaultEmployeeMax
+              }
+              keywords={
+                restoredFilters?.keywords === undefined
+                  ? defaultKeywords
+                  : // Double-guard: snapshot layer already sanitizes, but apply once more so
+                    // no prose from legacy runs can ever reach the form defaultValue.
+                    normalizeDiscoveryKeywords(restoredFilters.keywords).join(", ")
+              }
+              technologies={
+                restoredFilters?.technologies === undefined
+                  ? defaultTechnologies
+                  : // Keep only concrete technology names when restoring from old snapshots.
+                    restoredFilters.technologies
+                      .filter((t) => normalizeHunterTechnologies([t]).length > 0)
+                      .join(", ")
+              }
+              keywordMatchMode={restoredFilters?.keywordMatchMode ?? "any"}
+              maxResults={restoredFilters?.maxResults ?? 5}
               disabled={Boolean(
                 latestRun && isActiveStatus(latestRun.status as DiscoveryRunStatus),
               )}
@@ -369,14 +435,14 @@ export default async function DiscoveryPage({ params, searchParams }: PageProps)
       </div>
 
       {/* Discovery runs history */}
-      {runs.length > 0 && (
+      {countryRuns.length > 0 && (
         <Card className="border-border/60">
           <CardHeader>
             <CardTitle className="text-base">Discovery Runs</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-border rounded-lg border border-border">
-              {runs.map((run) => (
+              {countryRuns.map((run) => (
                 <Link
                   key={run.id}
                   href={`/dashboard/projects/${projectSlug}/markets/${countryCode}/discovery/runs/${run.id}`}

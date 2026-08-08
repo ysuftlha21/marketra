@@ -34,6 +34,7 @@ type RequestOptions = {
   method?: "GET" | "POST";
   query?: Record<string, string | number | undefined>;
   body?: unknown;
+  operationId?: string;
 };
 
 export type HunterClientOptions = {
@@ -77,7 +78,7 @@ export class HunterClient {
   }
 
   async request<T>(operation: string, path: string, options: RequestOptions = {}): Promise<T> {
-    const operationId = randomUUID();
+    const operationId = options.operationId ?? randomUUID();
     const startedAt = Date.now();
     let lastError: unknown;
 

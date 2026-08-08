@@ -299,3 +299,23 @@ Never edit a shipped decision silently. Override an older one with a new entry a
   required to avoid unnecessary provider retries and duplicate accounting.
 - Safety: usage recording remains fail-closed, a failed usage write is attempted once, and no
   company persistence begins until the event has been recorded or already exists idempotently.
+
+### 2026-08-02 — Concise Company Discovery keywords
+
+- Decision: derive Hunter keywords only from concise industry, product-category, company-type, and
+  user-entered descriptors. Default multiple terms to `any`, allow no keywords, and expose an
+  explicit Any/All control.
+- Reason: ICP qualification and purchase-signal sentences are scoring evidence, not provider search
+  taxonomy; using them as strict retrieval keywords can turn a valid discovery into zero results.
+- Safety: sentence-like terms are rejected again at the Hunter request boundary, while qualification
+  and purchase signals remain available for deterministic post-discovery scoring.
+
+### 2026-08-02 — Tri-state discovery filter submissions
+
+- Decision: represent submitted retrieval filters as absent, explicitly empty, or populated, and
+  persist user-facing `submittedFilters` separately from sanitized `providerFilters`.
+- Reason: truthy/falsy form parsing converted a cleared field into a missing field, allowing server
+  defaults to be reintroduced and making run snapshots ambiguous.
+- Safety: explicit empty values win across submit, validation, retry, and refresh. Provider snapshots
+  contain only safe normalized filters, omission reasons, caps, page, and an operation ID—never
+  credentials, headers, account data, or raw provider responses.

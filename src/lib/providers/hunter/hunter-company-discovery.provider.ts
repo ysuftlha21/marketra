@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import { normalizeDomain } from "@/features/companies/domain/company-normalization";
 import { buildMeta } from "../provider-types";
 import type {
@@ -9,7 +10,7 @@ import type {
 } from "../company-discovery/company-discovery.provider";
 import type { HunterClient } from "./hunter-client";
 import { HunterProviderError } from "./hunter-client";
-import { buildHunterDiscoverBody } from "./hunter-discovery-request";
+import { buildHunterDiscoverBody, buildHunterFilterSnapshot } from "./hunter-discovery-request";
 
 const discoverCompanySchema = z
   .object({
@@ -63,6 +64,7 @@ export class HunterCompanyDiscoveryProvider implements CompanyDiscoveryProvider 
 
   async discoverCompaniesV1(input: CompanyDiscoveryInputV1) {
     const startedAt = Date.now();
+    const operationId = randomUUID();
     const body = buildHunterDiscoverBody(input);
     if ((input.offset ?? 0) > 0) {
       body.offset = input.offset;
@@ -71,6 +73,7 @@ export class HunterCompanyDiscoveryProvider implements CompanyDiscoveryProvider 
     const providerResponse = await this.client.request<unknown>("company_discovery", "/discover", {
       method: "POST",
       body,
+      operationId,
     });
     const parsed = discoverResponseSchema.safeParse(providerResponse);
     if (!parsed.success) throw new HunterProviderError("invalid_response");
@@ -122,8 +125,12 @@ export class HunterCompanyDiscoveryProvider implements CompanyDiscoveryProvider 
       candidates: candidates.slice(0, input.maxResults),
       totalCount: response.meta?.results ?? candidates.length,
       warnings: [],
+      providerFilters: buildHunterFilterSnapshot(input, operationId),
     };
-    return { data, meta: buildMeta("hunter-company-discovery", false, startedAt) };
+    return {
+      data,
+      meta: buildMeta("hunter-company-discovery", false, startedAt, { operationId }),
+    };
   }
 
   async enrichCompany(domainInput: string) {

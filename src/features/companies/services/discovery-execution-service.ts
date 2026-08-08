@@ -34,6 +34,7 @@ import {
   RateLimitExceededError,
   RateLimitProviderUnavailableError,
 } from "@/lib/providers/rate-limit/rate-limit.provider";
+import { restoreSubmittedDiscoveryFilters } from "../domain/discovery-filter-snapshot";
 
 export type DiscoveryErrorCode =
   | "unauthenticated"
@@ -165,7 +166,7 @@ function buildScoringInput(
     technologySignals: candidate.technologySignals ?? [],
     targetTechnologySignals: [],
     qualificationSignals: (icp.qualification_signals as string[]) ?? [],
-    purchaseTriggers: [],
+    purchaseTriggers: (icp.purchase_triggers as string[]) ?? [],
     disqualificationSignals: (icp.disqualification_signals as string[]) ?? [],
     hasDomain: !!candidate.primaryDomain,
     hasEmployeeData: candidate.employeeCountMin !== null || candidate.employeeCountMax !== null,
@@ -189,9 +190,10 @@ function icpIndustryNames(icp: IcpProfileRow): string[] {
 
 function mapDiscoveryProviderError(
   error: unknown,
-  stage: "provider" | "usage_record",
+  stage: "provider" | "run_metadata" | "usage_record",
 ): DiscoveryErrorCode {
   if (stage === "usage_record") return "provider_usage_failed";
+  if (stage === "run_metadata") return "discovery_persistence_failed";
   if (!(error instanceof HunterProviderError)) return "provider_internal_error";
   const categories: Record<HunterProviderError["category"], DiscoveryErrorCode> = {
     authentication: "hunter_authentication_failed",
@@ -222,6 +224,7 @@ export async function startDiscovery(
         employeeMin?: number;
         employeeMax?: number;
         keywords?: string[];
+        keywordMatchMode?: "any" | "all";
         technologies?: string[];
         page?: number;
       } = {},
@@ -289,15 +292,39 @@ export async function startDiscovery(
     throw new DiscoveryError(code, safeDiscoveryError(code), operationId);
   }
 
-  const inputSnapshot = {
+  const submittedFilters = {
+    industry:
+      options.industry === undefined
+        ? { state: "absent" as const }
+        : options.industry.length === 0
+          ? { state: "empty" as const, value: "" }
+          : { state: "populated" as const, value: options.industry },
+    keywords:
+      options.keywords === undefined
+        ? { state: "absent" as const }
+        : options.keywords.length === 0
+          ? { state: "empty" as const, values: [] }
+          : { state: "populated" as const, values: options.keywords },
+    technologies:
+      options.technologies === undefined
+        ? { state: "absent" as const }
+        : options.technologies.length === 0
+          ? { state: "empty" as const, values: [] }
+          : { state: "populated" as const, values: options.technologies },
+    keywordMatchMode: options.keywordMatchMode ?? "any",
+    employeeMin: options.employeeMin ?? null,
+    employeeMax: options.employeeMax ?? null,
+    resultCap: maxResults,
+    page: options.page ?? 1,
+  };
+  const inputSnapshot: Record<string, unknown> = {
     project: {
       name: project.name,
       productDescription: project.product_description,
       websiteUrl: project.website_url,
     },
     country: { code: tc.country_code, name: tc.country_name },
-    maxResults,
-    filters: options,
+    submittedFilters,
   };
 
   const criteriaSnapshot = {
@@ -341,7 +368,7 @@ export async function startDiscovery(
 
   let providerResult;
   let providerCallStarted = false;
-  let safeFailureStage: "provider" | "usage_record" = "provider";
+  let safeFailureStage: "provider" | "run_metadata" | "usage_record" = "provider";
   try {
     providerCallStarted = true;
     providerResult = await provider.discoverCompaniesV1({
@@ -355,11 +382,29 @@ export async function startDiscovery(
       disqualificationSignals: (criteriaSnapshot.disqualificationSignals as string[]) ?? [],
       technologySignals: options.technologies ?? [],
       keywords: options.keywords,
+      keywordMatchMode: options.keywordMatchMode ?? "any",
+      keywordSubmissionState:
+        options.keywords === undefined
+          ? "absent"
+          : options.keywords.length === 0
+            ? "empty"
+            : "populated",
+      technologySubmissionState:
+        options.technologies === undefined
+          ? "absent"
+          : options.technologies.length === 0
+            ? "empty"
+            : "populated",
       purchaseTriggers: [],
       exclusionDomains: [],
       maxResults,
       offset: ((options.page ?? 1) - 1) * maxResults,
     });
+    safeFailureStage = "run_metadata";
+    if (providerResult.data.providerFilters) {
+      inputSnapshot.providerFilters = providerResult.data.providerFilters;
+      await updateDiscoveryRun(wsId, run.id, { input_snapshot: inputSnapshot });
+    }
     if (recordsPaidProviderUsage) {
       safeFailureStage = "usage_record";
       await recordProviderOperation({
@@ -381,7 +426,7 @@ export async function startDiscovery(
       safeFailureStage,
       safeErrorCode: code,
     });
-    if (recordsPaidProviderUsage && providerCallStarted && safeFailureStage === "provider") {
+    if (recordsPaidProviderUsage && providerCallStarted && safeFailureStage !== "usage_record") {
       await recordProviderOperation({
         workspaceId: wsId,
         projectId: project.id,
@@ -541,7 +586,23 @@ export async function retryDiscovery(
   const prevRun = await getDiscoveryRun(wsId, runId);
   if (!prevRun)
     throw new DiscoveryError("country_not_found", safeDiscoveryError("country_not_found"));
-  return startDiscovery(wsId, projectSlug, prevRun.target_country_id, userId, {
-    maxResults: (prevRun.input_snapshot.maxResults as number) ?? 5,
-  });
+  const restored = restoreSubmittedDiscoveryFilters(prevRun.input_snapshot);
+  return startDiscovery(
+    wsId,
+    projectSlug,
+    prevRun.target_country_id,
+    userId,
+    restored
+      ? {
+          maxResults: restored.maxResults,
+          industry: restored.industry,
+          employeeMin: restored.employeeMin,
+          employeeMax: restored.employeeMax,
+          keywords: restored.keywords,
+          technologies: restored.technologies,
+          keywordMatchMode: restored.keywordMatchMode,
+          page: restored.page,
+        }
+      : { maxResults: 5 },
+  );
 }

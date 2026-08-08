@@ -47,6 +47,18 @@ not sent as a technology filter; only explicit, verified technology aliases are 
 default search size is five. The first request omits Hunter's Premium-only pagination fields so a
 Free-plan Discover request does not fail with `pagination_error`.
 
+Hunter keywords come only from concise company descriptors: ICP industries, the product category,
+company type, and short user-edited terms. Qualification signals and purchase triggers never become
+provider keywords; they remain Marketra scoring inputs after discovery. Sentence-like terms are
+dropped at the provider boundary, an empty keyword list is valid, and multiple optional keywords
+default to `any` matching unless the user explicitly selects `all` in the advanced control.
+
+Submission parsing distinguishes an absent filter from an explicitly cleared filter. Cleared
+keywords and technologies stay empty through validation, retries, and refreshes; only an absent
+field may use the safe first-load defaults. Discovery runs store `submittedFilters` separately from
+the sanitized `providerFilters`, including safe omission reasons, result cap, page, and provider
+operation ID. Run details label both representations and never store a raw Hunter response.
+
 Execution order is authorization, workspace/project/country validation, approved country ICP,
 entitlement, durable rate limit, provider request, usage recording, normalization, and
 workspace-scoped persistence. A selected Hunter provider never falls back to mock. Controlled

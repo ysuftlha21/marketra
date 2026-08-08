@@ -18,7 +18,7 @@ import {
 } from "../repository/company-repository";
 import { createManualCompany, ManualCompanyError } from "../services/manual-company-service";
 import { enforceRateLimit, safeRateLimitMessage } from "@/lib/security/rate-limit-service";
-import { startDiscoverySchema } from "../schema/discovery-schemas";
+import { readOptionalDiscoveryText, startDiscoverySchema } from "../schema/discovery-schemas";
 
 export interface ManualCompanyActionState {
   ok?: boolean;
@@ -59,8 +59,9 @@ export async function startDiscoveryAction(formData: FormData) {
     industry: formData.get("industry") || undefined,
     employeeMin: formData.get("employeeMin") || undefined,
     employeeMax: formData.get("employeeMax") || undefined,
-    keywords: formData.get("keywords") || undefined,
-    technologies: formData.get("technologies") || undefined,
+    keywords: readOptionalDiscoveryText(formData, "keywords"),
+    keywordMatchMode: formData.get("keywordMatchMode") || undefined,
+    technologies: readOptionalDiscoveryText(formData, "technologies"),
     page: formData.get("providerPage") || 1,
   });
   if (!parsed.success)
@@ -85,6 +86,7 @@ export async function startDiscoveryAction(formData: FormData) {
           ?.split(",")
           .map((v) => v.trim())
           .filter(Boolean),
+        keywordMatchMode: parsed.data.keywordMatchMode,
         technologies: parsed.data.technologies
           ?.split(",")
           .map((v) => v.trim())

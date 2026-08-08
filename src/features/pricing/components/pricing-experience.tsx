@@ -2,7 +2,6 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  AlertTriangle,
   Check,
   ChevronDown,
   Globe2,
@@ -11,7 +10,6 @@ import {
   Rocket,
   ShieldCheck,
   Sparkles,
-  X,
 } from "lucide-react";
 import {
   annualPricingEnabled,
@@ -25,15 +23,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 
 const icons = [Sparkles, Lock, Rocket, RefreshCw, ShieldCheck, Globe2];
-function PlanCard({
-  plan,
-  interval,
-  onContact,
-}: {
-  plan: PricingPlan;
-  interval: BillingInterval;
-  onContact: () => void;
-}) {
+function PlanCard({ plan, interval }: { plan: PricingPlan; interval: BillingInterval }) {
   const price = interval === "annual" ? plan.annualPrice : plan.monthlyPrice;
   const trialRequested = plan.cta.action === "trial" && growthTrialEnabled;
   const href = `/sign-up?plan=${plan.id}&interval=${interval}${trialRequested ? "&trial=true" : ""}`;
@@ -54,7 +44,7 @@ function PlanCard({
         <h2 className="mt-3 text-2xl font-semibold">{plan.name}</h2>
         <p className="mt-2 min-h-10 text-xs leading-5 text-zinc-400">{plan.description}</p>
         <p className="mt-4 text-5xl font-semibold tracking-tight">
-          {price === null ? plan.priceLabel : `$${price}`}{" "}
+          {price === null ? "Contact us" : `$${price}`}{" "}
           {price !== null && (
             <span className="text-base font-normal text-zinc-500">
               /{interval === "annual" ? "year" : "month"}
@@ -83,107 +73,22 @@ function PlanCard({
           </section>
         ))}
       </div>
-      {plan.cta.action === "contact-sales" ? (
-        <button
-          type="button"
-          onClick={onContact}
-          className="mt-6 h-11 rounded-lg border border-violet-400/70 text-sm text-violet-300 hover:bg-violet-500/10"
-        >
-          {plan.cta.label}
-        </button>
-      ) : (
-        <Link
-          href={href}
-          className={cn(
-            "mt-6 grid h-11 place-items-center rounded-lg text-sm",
-            plan.recommended
-              ? "bg-gradient-to-r from-violet-600 to-violet-400 text-white"
-              : "bg-white/10 text-zinc-100 hover:bg-white/15",
-          )}
-        >
-          {plan.cta.label}
-        </Link>
-      )}
-    </article>
-  );
-}
-function ContactDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [status, setStatus] = React.useState<"idle" | "unavailable">("idle");
-  if (!open) return null;
-  return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="sales-title"
-    >
-      <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-[#111118] p-6 shadow-2xl">
-        <div className="flex justify-between">
-          <div>
-            <h2 id="sales-title" className="text-xl font-semibold">
-              Contact Sales
-            </h2>
-            <p className="text-sm text-zinc-500">Tell us about your expansion requirements.</p>
-          </div>
-          <button aria-label="Close contact sales" onClick={onClose}>
-            <X />
-          </button>
-        </div>
-        {status === "unavailable" ? (
-          <div className="py-16 text-center">
-            <AlertTriangle className="mx-auto text-amber-400" />
-            <p className="mt-3 font-semibold">Sales delivery is not configured yet</p>
-            <p className="text-sm text-zinc-500">
-              Your information was not sent or stored. Please try again after the contact provider
-              is enabled.
-            </p>
-          </div>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setStatus("unavailable");
-            }}
-            className="mt-6 grid gap-3 sm:grid-cols-2"
-          >
-            {[
-              ["workEmail", "Work email", "email"],
-              ["company", "Company", "text"],
-              ["role", "Role", "text"],
-              ["teamSize", "Team size", "text"],
-              ["currentMarkets", "Current markets", "text"],
-              ["targetMarkets", "Target markets", "text"],
-            ].map(([name, label, type]) => (
-              <label key={name} className="text-xs text-zinc-400">
-                {label}
-                <input
-                  required
-                  name={name}
-                  type={type}
-                  className="mt-1 h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm"
-                />
-              </label>
-            ))}
-            <label className="text-xs text-zinc-400 sm:col-span-2">
-              Message
-              <textarea
-                required
-                name="message"
-                className="mt-1 min-h-24 w-full rounded-md border border-white/10 bg-black/20 p-3 text-sm"
-              />
-            </label>
-            <button className="h-11 rounded-lg bg-violet-600 text-sm sm:col-span-2">
-              Submit request
-            </button>
-          </form>
+      <Link
+        href={href}
+        className={cn(
+          "mt-6 grid h-11 place-items-center rounded-lg text-sm",
+          plan.recommended
+            ? "bg-gradient-to-r from-violet-600 to-violet-400 text-white"
+            : "bg-white/10 text-zinc-100 hover:bg-white/15",
         )}
-      </div>
-    </div>
+      >
+        {plan.cta.label}
+      </Link>
+    </article>
   );
 }
 export function PricingExperience({ headingLevel = "h2" }: { headingLevel?: "h1" | "h2" }) {
   const [interval, setInterval] = React.useState<BillingInterval>("monthly");
-  const [contact, setContact] = React.useState(false);
   const [faq, setFaq] = React.useState(0);
   const Eyebrow = headingLevel === "h1" ? "h1" : "span";
   return (
@@ -225,7 +130,7 @@ export function PricingExperience({ headingLevel = "h2" }: { headingLevel?: "h1"
                       interval === value ? "bg-violet-600 text-white" : "text-zinc-400",
                     )}
                   >
-                    {value}
+                    {value === "annual" ? "Yearly" : "Monthly"}
                     {value === "annual" && " · Save 2 months"}
                   </button>
                 ))}
@@ -234,12 +139,7 @@ export function PricingExperience({ headingLevel = "h2" }: { headingLevel?: "h1"
           </div>
           <div className="mt-16 grid gap-5 md:grid-cols-2 lg:grid-cols-3 lg:items-start">
             {pricingPlans.map((plan) => (
-              <PlanCard
-                key={plan.id}
-                plan={plan}
-                interval={interval}
-                onContact={() => setContact(true)}
-              />
+              <PlanCard key={plan.id} plan={plan} interval={interval} />
             ))}
           </div>
           <div className="mt-12 flex flex-wrap justify-center gap-2">
@@ -290,7 +190,6 @@ export function PricingExperience({ headingLevel = "h2" }: { headingLevel?: "h1"
           </div>
         </div>
       </section>
-      <ContactDialog open={contact} onClose={() => setContact(false)} />
     </>
   );
 }

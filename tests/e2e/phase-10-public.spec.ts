@@ -16,12 +16,14 @@ test.describe("Phase 10 public launch surfaces", () => {
 
   test("makes legal and trust information reachable with semantic headings", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("link", { name: "Privacy" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Terms" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Privacy Policy" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Terms of Service" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Refund Policy" })).toBeVisible();
 
     for (const [path, heading] of [
       ["/privacy", "Privacy Policy"],
       ["/terms", "Terms of Service"],
+      ["/refund", "Refund Policy"],
       ["/cookies", "Cookie and Tracking Disclosure"],
       ["/ai-disclosure", "AI and Demo Data Disclosure"],
       ["/data-deletion", "Data Deletion and Account Requests"],

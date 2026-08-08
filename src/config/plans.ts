@@ -51,8 +51,8 @@ export const plans: readonly Plan[] = [
   },
   {
     id: "growth",
-    name: "Growth",
-    tagline: "For small teams",
+    name: "Pro",
+    tagline: "For growing teams",
     highlight: true,
     monthlyPrice: 79,
     annualPrice: 790,
@@ -65,8 +65,8 @@ export const plans: readonly Plan[] = [
   },
   {
     id: "agency",
-    name: "Agency",
-    tagline: "For agencies",
+    name: "Growth",
+    tagline: "For established teams",
     highlight: false,
     monthlyPrice: 199,
     annualPrice: 1990,

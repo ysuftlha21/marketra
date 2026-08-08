@@ -35,6 +35,14 @@ describe("Hunter provider adapters", () => {
       "other.com",
     ]);
     expect(result.data.candidates[0]?.countryCode).toBe("DE");
+    expect(result.data.providerFilters).toMatchObject({
+      countryCode: "DE",
+      industries: ["Software Development"],
+      keywords: [],
+      technologies: [],
+      resultCap: 10,
+      page: 1,
+    });
     expect(client.request).toHaveBeenCalledWith(
       "company_discovery",
       "/discover",

@@ -30,12 +30,22 @@ test.describe("provider-neutral discovery UI", () => {
     await expect(filters.getByLabel("Minimum employees")).toBeVisible();
     await expect(filters.getByLabel("Maximum employees")).toBeVisible();
     await expect(filters.getByLabel("Keywords, comma separated")).toBeVisible();
+    await expect(filters.getByLabel("Advanced keyword matching")).toHaveValue("any");
     await expect(filters.getByLabel("Technologies, comma separated")).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
       ),
     ).toBe(true);
+
+    await filters.getByLabel("Keywords, comma separated").fill("");
+    await filters.getByLabel("Technologies, comma separated").fill("");
+    await filters.getByLabel("Minimum employees").fill("200");
+    await filters.getByLabel("Maximum employees").fill("10");
+    await filters.getByRole("button", { name: "Start discovery" }).click();
+    await expect(filters.getByText(/Maximum employees must be greater/i)).toBeVisible();
+    await expect(filters.getByLabel("Keywords, comma separated")).toHaveValue("");
+    await expect(filters.getByLabel("Technologies, comma separated")).toHaveValue("");
   });
 
   test("mobile discovery controls remain reachable without automatic enrichment", async ({
